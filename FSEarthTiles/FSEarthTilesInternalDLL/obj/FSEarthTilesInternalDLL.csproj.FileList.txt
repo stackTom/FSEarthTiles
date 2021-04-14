@@ -1,0 +1,10 @@
+obj\Release\ResolveAssemblyReference.cache
+bin\Release\FSEarthTilesInternalDLL.dll
+bin\Release\FSEarthTilesInternalDLL.pdb
+obj\Release\FSEarthTilesInternalDLL.dll
+obj\Release\FSEarthTilesInternalDLL.pdb
+bin\Debug\FSEarthTilesInternalDLL.dll
+bin\Debug\FSEarthTilesInternalDLL.pdb
+obj\Debug\ResolveAssemblyReference.cache
+obj\Debug\FSEarthTilesInternalDLL.dll
+obj\Debug\FSEarthTilesInternalDLL.pdb

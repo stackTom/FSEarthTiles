@@ -1,0 +1,59 @@
+[Destination]
+DestDir	            = D:\FSX\Addon Scenery\FSEarthTiles\scenery
+DestBaseFileName     = Area_Lp1_SnapOff_N044254105_N044241585_E008484095_E008522343
+BuildSeasons 		= 1
+UseSourceDimensions 	= 0
+CompressionQuality   = 100
+NorthLat            =  44.4280779361725
+SouthLat            =  44.404399394989
+WestLon             = 8.81136417388916
+EastLon             = 8.87317657470703
+
+[Source]
+Type            = MultiSource
+NumberOfSources = 3
+
+[Source1]
+Type	      = Custom
+SourceDir  = D:\FSEarthTiles\work
+SourceFile = AreaSummer_Lp1_SnapOff_N044254105_N044241585_E008484095_E008522343.bmp
+Lon               = 8.81136417388916       ;for top left and bottom right is: 8.87317657470703
+Lat               = 44.4280779361725       ;for top left and bottom right is: 44.404399394989
+NumOfCellsPerLine = 4321       ;Pixel is not used in FSX
+NumOfLines        = 2207       ;Pixel is not used in FSX
+CellXdimensionDeg = 1.43051147460938E-05
+CellYdimensionDeg = 1.07288360595703E-05
+PixelIsPoint      = 0
+SamplingMethod    = Point
+
+
+[Source2]
+Season	= HardWinter 
+Type	      = Custom
+SourceDir  = D:\FSEarthTiles\work
+SourceFile = AreaHardWinter_Lp1_SnapOff_N044254105_N044241585_E008484095_E008522343.bmp
+Lon               = 8.81136417388916       ;for top left and bottom right is: 8.87317657470703
+Lat               = 44.4280779361725       ;for top left and bottom right is: 44.404399394989
+NumOfCellsPerLine = 4321       ;Pixel is not used in FSX
+NumOfLines        = 2207       ;Pixel is not used in FSX
+CellXdimensionDeg = 1.43051147460938E-05
+CellYdimensionDeg = 1.07288360595703E-05
+PixelIsPoint      = 0
+SamplingMethod    = Point
+
+
+[Source3]
+Season	= LightMap 
+Variation = LightMap
+Type	      = Custom
+SourceDir  = D:\FSEarthTiles\work
+SourceFile = AreaNight_Lp1_SnapOff_N044254105_N044241585_E008484095_E008522343.bmp
+Lon               = 8.81136417388916       ;for top left and bottom right is: 8.87317657470703
+Lat               = 44.4280779361725       ;for top left and bottom right is: 44.404399394989
+NumOfCellsPerLine = 4321       ;Pixel is not used in FSX
+NumOfLines        = 2207       ;Pixel is not used in FSX
+CellXdimensionDeg = 1.43051147460938E-05
+CellYdimensionDeg = 1.07288360595703E-05
+PixelIsPoint      = 0
+SamplingMethod    = Point
+

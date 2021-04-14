@@ -1,0 +1,10 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="Current">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <StartArguments>"D:\FSEarthTiles\work\Delete Test\File1.txt"   "D:\FSEarthTiles\work\Delete Test\File2.txt"</StartArguments>
+    <StartWorkingDirectory>D:\CSharp\FSEarthTiles\FSEarthTiles\bin\Debug\</StartWorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <StartArguments>"D:\FSEarthTiles\work\Delete Test\File1.txt"   "D:\FSEarthTiles\work\Delete Test\File2.txt"</StartArguments>
+    <StartWorkingDirectory>D:\CSharp\FSEarthTiles\FSEarthTiles\bin\Debug\</StartWorkingDirectory>
+  </PropertyGroup>
+</Project>
