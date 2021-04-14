@@ -1,0 +1,14 @@
+C:\Downloads\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Debug\FSETScriptsTempFilesCleanUp.exe
+C:\Downloads\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Debug\FSETScriptsTempFilesCleanUp.pdb
+C:\Downloads\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\ResolveAssemblyReference.cache
+C:\Downloads\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.Properties.Resources.resources
+C:\Downloads\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.csproj.GenerateResource.Cache
+C:\Downloads\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.exe
+C:\Downloads\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Debug\FSETScriptsTempFilesCleanUp.exe
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Debug\FSETScriptsTempFilesCleanUp.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\ResolveAssemblyReference.cache
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.Properties.Resources.resources
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.csproj.GenerateResource.Cache
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.exe
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSETScriptsTempFilesCleanUp\obj\Release\FSETScriptsTempFilesCleanUp.pdb

@@ -1,0 +1,16 @@
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.dll
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\ResolveAssemblyReference.cache
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.dll
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.pdb
+C:\projects\VB\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.dll
+C:\projects\VB\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.pdb
+C:\projects\VB\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\ResolveAssemblyReference.cache
+C:\projects\VB\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.dll
+C:\projects\VB\fset1nrs\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.pdb
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.dll
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\bin\Debug\FSEarthMasksInternalDLL.pdb
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.csprojAssemblyReference.cache
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.csproj.CoreCompileInputs.cache
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.dll
+G:\FSEarthTiles\FSEarthTiles\FSEarthMasksInternalDLL\obj\Debug\FSEarthMasksInternalDLL.pdb

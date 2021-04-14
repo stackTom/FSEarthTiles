@@ -1,0 +1,12 @@
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTiles.exe
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTiles.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTilesDLL.dll
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.dll
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\CSScriptLibrary.dll
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTilesDLL.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.pdb
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\obj\Release\ResolveAssemblyReference.cache
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\obj\Release\FSEarthTiles.Properties.Resources.resources
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\obj\Release\FSEarthTiles.csproj.GenerateResource.Cache
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\obj\Release\FSEarthTiles.exe
+C:\Downloads\FSX\fset1nrs\FSEarthTiles\FSEarthTiles\obj\Release\FSEarthTiles.pdb

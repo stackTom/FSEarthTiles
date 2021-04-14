@@ -1,0 +1,46 @@
+
+FS2004
+-------------------
+[Destination]
+BuildSeasons 		= 1  !
+UseSourceDimensions 	= 0  !!!!!
+NorthLat            =  44.4280779361725
+SouthLat            =  44.404399394989
+WestLon             = 8.81136417388916
+EastLon             = 8.87317657470703
+
+[Source]
+Season	= Spring 
+          Summer 
+          Fall 
+          Winter 
+          HardWinter
+          LightMap 
+
+
+
+FSX
+-------------------
+[Destination]
+BuildSeasons 		= 1
+UseSourceDimensions 	= 1
+
+[Source]
+Variation =  January,
+	     February,
+	     March,
+	     April,
+	     May,
+	     June,
+	     July,
+	     August,
+	     September,
+	     October,
+	     November,
+	     December
+
+LightMap
+Night
+Day (all months)
+All (day and night)
+ 
