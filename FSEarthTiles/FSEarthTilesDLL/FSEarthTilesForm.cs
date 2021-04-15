@@ -2379,6 +2379,11 @@ namespace FSEarthTilesDLL
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
         {
+            if (EarthConfig.mCreateAreaMask)
+            {
+                SetStatusFromFriendThread("Downloading OSM data for water masking...");
+                AutomaticWaterMasking.downloadOsmWaterData(mEarthArea, this);
+            }
             if (!mStopProcess)
             {
                 

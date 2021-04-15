@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AreaInfoFileCreationScript.cs" />
+    <Compile Include="AutomaticWaterMasking.cs" />
     <Compile Include="CustomizedProcessesScript.cs" />
     <Compile Include="EarthEngines.cs" />
     <Compile Include="EarthScriptsHandler.cs" />
