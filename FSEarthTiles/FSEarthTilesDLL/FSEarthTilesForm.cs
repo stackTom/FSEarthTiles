@@ -2382,7 +2382,7 @@ namespace FSEarthTilesDLL
             if (EarthConfig.mCreateAreaMask)
             {
                 SetStatusFromFriendThread("Downloading OSM data for water masking...");
-                AutomaticWaterMasking.downloadOsmWaterData(mEarthArea, this);
+                AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this);
             }
             if (!mStopProcess)
             {
