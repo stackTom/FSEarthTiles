@@ -10,9 +10,6 @@ namespace FSEarthTilesDLL
 {
     class AutomaticWaterMasking
     {
-        // http://overpass-api.de/api/interpreter?data=(way["natural"="coastline"](23, -83, 24, -82););(._;>>;);out meta;
-        // http://overpass-api.de/api/interpreter?data=(rel["natural"="water"](23, -83, 24, -82););(._;>>;);out meta;
-        // ['rel["natural"="water"]', 'rel["waterway"="riverbank"]', 'way["natural"="water"]', 'way["waterway"="riverbank"]', 'way["waterway"="dock"]']
         private static string[] overPassServers = {
             "http://overpass-api.de/api/interpreter",
             "http://api.openstreetmap.fr/oapi/interpreter",
@@ -55,10 +52,10 @@ namespace FSEarthTilesDLL
 
             return contents;
         }
-        public static string downloadOsmWaterData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static string downloadOsmWaterData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             string[] waterQueries = { "rel[\"natural\"=\"water\"]", "rel[\"waterway\"=\"riverbank\"]", "way[\"natural\"=\"water\"]", "way[\"waterway\"=\"riverbank\"]", "way[\"waterway\"=\"dock\"]" };
-            string contents = null;
+            string waterOSM = null;
             string queryParams = "?data=(";
             string bbox = "(" + iEarthArea.AreaSnapStopLatitude + ", " + iEarthArea.AreaSnapStartLongitude + ", " + iEarthArea.AreaSnapStartLatitude + ", " + iEarthArea.AreaSnapStopLongitude + ")";
             foreach (string query in waterQueries)
@@ -68,11 +65,32 @@ namespace FSEarthTilesDLL
             queryParams = queryParams.Remove(queryParams.Length - 1, 1);
             queryParams += ";);(._;>>;);out body;";
 
-            contents = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
+            waterOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
 
-            File.WriteAllText("F:\\Downloads\\WATERRR.txt", contents);
+            return waterOSM;
+        }
+        // http://overpass-api.de/api/interpreter?data=(way["natural"="coastline"](23, -83, 24, -82););(._;>>;);out meta;
+        private static string downloadOsmCoastData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        {
+            string[] coastQueries = { "way[\"natural\"=\"coastline\"]" };
+            string coastOSM = null;
+            string queryParams = "?data=(";
+            string bbox = "(" + iEarthArea.AreaSnapStopLatitude + ", " + iEarthArea.AreaSnapStartLongitude + ", " + iEarthArea.AreaSnapStartLatitude + ", " + iEarthArea.AreaSnapStopLongitude + ")";
+            foreach (string query in coastQueries)
+            {
+                queryParams += query + bbox + ";";
+            }
+            queryParams = queryParams.Remove(queryParams.Length - 1, 1);
+            queryParams += ";);(._;>>;);out body;";
 
-            return contents;
+            coastOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
+
+            return coastOSM;
+        }
+        public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        {
+            string coastOSM = downloadOsmCoastData(iEarthArea, iFSEarthTilesInternalInterface);
+            string waterOSM = downloadOsmWaterData(iEarthArea, iFSEarthTilesInternalInterface);
         }
     }
 }
