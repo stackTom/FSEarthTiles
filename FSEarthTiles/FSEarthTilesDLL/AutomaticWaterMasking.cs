@@ -465,7 +465,6 @@ namespace FSEarthTilesDLL
                         try
                         {
                             contents = wc.DownloadString(server + queryParams);
-                            Console.WriteLine(server + queryParams);
                             keepTrying = false;
                             break;
                         }
@@ -557,11 +556,11 @@ namespace FSEarthTilesDLL
             d.startLon -= PADDING;
             d.endLon += PADDING;
             string coastOSM = null;
-            string coastOSMFileLoc = getAreaHash(iEarthArea) + "coast.osm";
-            if (File.Exists(EarthConfig.mWorkFolder + "\\" + coastOSMFileLoc))
+            string coastOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "coast.osm";
+            if (File.Exists(coastOSMFileLoc))
             {
                 iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM coast data");
-                coastOSM = File.ReadAllText(EarthConfig.mWorkFolder +  "\\" + coastOSMFileLoc);
+                coastOSM = File.ReadAllText(coastOSMFileLoc);
             }
             else
             {
@@ -569,11 +568,11 @@ namespace FSEarthTilesDLL
                 coastOSM = downloadOsmCoastData(d, coastOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             string waterOSM = null;
-            string waterOSMFileLoc = getAreaHash(iEarthArea) + "water.osm";
-            if (File.Exists(EarthConfig.mWorkFolder + "\\" + waterOSMFileLoc))
+            string waterOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "water.osm";
+            if (File.Exists(waterOSMFileLoc))
             {
                 iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM water data");
-                waterOSM = File.ReadAllText(EarthConfig.mWorkFolder+  "\\" + waterOSMFileLoc);
+                waterOSM = File.ReadAllText(waterOSMFileLoc);
             }
             else
             {
