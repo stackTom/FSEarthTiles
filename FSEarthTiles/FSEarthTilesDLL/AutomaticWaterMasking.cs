@@ -6,12 +6,18 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using System.Drawing;
+using System.Windows;
+
 
 namespace FSEarthTilesDLL
 {
     class AreaKMLFromOSMDataCreator
     {
-        private static int sides = 1000;
+        private static int sides = 1000000;
+        private static bool doIt = false;
+        private static bool doItSides = false;
+        private static int theside = 65;
         private static List<List<double[]>> GetWays(string path)
         {
             XmlDocument d = new XmlDocument();
@@ -58,90 +64,266 @@ namespace FSEarthTilesDLL
             }
             return ways;
         }
-        private static double[] getShift(double[] fromCoord, double[] toCoord)
+        private struct Point
         {
-            double shift = 0.00003;
-            // equal lon (x)
-            Console.WriteLine("from " + fromCoord[0] + ", " + fromCoord[1] + " to " + toCoord[0] + ", " + toCoord[1]);
-            if (fromCoord[0] == toCoord[0])
+            public double X;
+            public double Y;
+            public Point(double x, double y)
             {
-                // going from north to south, water is on west
-                if (fromCoord[1] > toCoord[1])
-                {
-                    Console.WriteLine("going from north south, water is on west");
-                    return new double[] { -shift, 0.0};
-                }
-                // going from south to north, water is on east
-                Console.WriteLine("going from south to north south, water is on east");
-                return new double[] { shift, 0.0 };
+                this.X = x;
+                this.Y = y;
             }
-            // equal lat (y)
-            if (fromCoord[1] == toCoord[1])
+        }
+        // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2020/12/enlarge-a-polygon-that-has-colinear-vertices-in-c/)
+        // I've modified it slightly for this use case, but the fundamental idea is the same
+        // ------------------------------------------------------------------------------------------------------
+        private static List<Point> GetEnlargedPolygon(List<Point> old_points, double offset)
+        {
+            List<Point> enlarged_points = new List<Point>();
+            int num_points = old_points.Count;
+            for (int j = 0; j < num_points; j++)
             {
-                // going from east to west, water is on north
-                if (fromCoord[0] > toCoord[0])
-                {
-                    Console.WriteLine("going from east to west, water is on north");
-                    return new double[] { 0.0, shift };
-                }
-                // going from west to east, water is on south
-                Console.WriteLine("going from west to east, water is on south");
-                return new double[] { 0.0, -shift };
-            }
-            // neither lat nor lon are equal, look at the slope
-            double dx = toCoord[0] - fromCoord[0];
-            double dy = toCoord[1] - fromCoord[1];
-            if ((dy / dx) > 0)
-            {
-                if (dy > 0)
-                {
-                    // going from southwest to northeast, water is on southeast
-                    Console.WriteLine("going from southwest to northeast, water is on southeast");
-                    return new double[] { shift, -shift };
-                }
-                // going from northeast to southwest, water is on northwest
-                Console.WriteLine("going from northeast to southwest, water is on northwest");
-                return new double[] { -shift, shift };
-            }
-            // at this point slope < 0. should never be 0 because lat's can't equal by this point
-            if (dy > 0)
-            {
-                // going from southeast to northwest, water is on northeast
-                Console.WriteLine("going from southeast to northwest, water is on northeast");
-                return new double[] { shift, shift };
+                // Find the new location for point j.
+                // Find the points before and after j.
+                int i = (j - 1);
+                if (i < 0) i += num_points;
+                int k = (j + 1) % num_points;
+                Console.WriteLine("doing point " + j + " so checking " + i + " and point " + k);
+
+                // Move the points by the offset.
+                Vector v1 = new Vector(
+                    old_points[j].X - old_points[i].X,
+                    old_points[j].Y - old_points[i].Y);
+                v1.Normalize();
+                v1 *= offset;
+                Vector n1 = new Vector(-v1.Y, v1.X);
+
+                Point pij1 = new Point(
+                    (old_points[i].X + n1.X),
+                    (double)(old_points[i].Y + n1.Y));
+                Point pij2 = new Point(
+                    (old_points[j].X + n1.X),
+                    (old_points[j].Y + n1.Y));
+
+                Vector v2 = new Vector(
+                    old_points[k].X - old_points[j].X,
+                    old_points[k].Y - old_points[j].Y);
+                v2.Normalize();
+                v2 *= offset;
+                Vector n2 = new Vector(-v2.Y, v2.X);
+
+                Point pjk1 = new Point(
+                    (old_points[j].X + n2.X),
+                    (old_points[j].Y + n2.Y));
+                Point pjk2 = new Point(
+                    (old_points[k].X + n2.X),
+                    (old_points[k].Y + n2.Y));
+
+                // See where the shifted lines ij and jk intersect.
+                bool lines_intersect, segments_intersect;
+                Point poi, close1, close2;
+                FindIntersection(pij1, pij2, pjk1, pjk2,
+                    out lines_intersect, out segments_intersect,
+                    out poi, out close1, out close2);
+                if (lines_intersect) enlarged_points.Add(poi);
             }
 
-            // going from northwest to southeast, water is on southwest
-            Console.WriteLine("going from northwest to southeast, water is on southwest");
-            return new double[] { -shift, -shift };
+            return enlarged_points;
         }
+        private static List<Point> GetEnlargedLine(List<Point> old_points, double offset)
+        {
+            List<Point> enlarged_points = GetEnlargedPolygon(old_points, offset);
+            // Move the points by the offset.
+            int j = 0;
+            int i = old_points.Count - 1;
+            int k = 1;
+            Console.WriteLine(old_points.Count);
+            if (old_points.Count == 2)
+            {
+                enlarged_points.Add(new Point());
+                enlarged_points.Add(new Point());
+            }
+            Vector v1 = new Vector(
+                old_points[j].X - old_points[i].X,
+                old_points[j].Y - old_points[i].Y);
+            v1.Normalize();
+            v1 *= offset;
+            Vector n1 = new Vector(-v1.Y, v1.X);
+
+            Point pij1 = new Point(
+                (old_points[i].X + n1.X),
+                (double)(old_points[i].Y + n1.Y));
+            Point pij2 = new Point(
+                (old_points[j].X + n1.X),
+                (old_points[j].Y + n1.Y));
+
+            Vector v2 = new Vector(
+                old_points[k].X - old_points[j].X,
+                old_points[k].Y - old_points[j].Y);
+            v2.Normalize();
+            v2 *= offset;
+            Vector n2 = new Vector(-v2.Y, v2.X);
+
+            Point pjk1 = new Point(
+                (old_points[j].X + n2.X),
+                (old_points[j].Y + n2.Y));
+            Point pjk2 = new Point(
+                (old_points[k].X + n2.X),
+                (old_points[k].Y + n2.Y));
+
+            enlarged_points[0] = pjk1;
+
+            j = enlarged_points.Count - 1;
+            i = j - 1;
+            k = 0;
+            v1 = new Vector(
+                old_points[j].X - old_points[i].X,
+                old_points[j].Y - old_points[i].Y);
+            v1.Normalize();
+            v1 *= offset;
+            n1 = new Vector(-v1.Y, v1.X);
+
+            pij1 = new Point(
+                (old_points[i].X + n1.X),
+                (double)(old_points[i].Y + n1.Y));
+            pij2 = new Point(
+                (old_points[j].X + n1.X),
+                (old_points[j].Y + n1.Y));
+
+            v2 = new Vector(
+                old_points[k].X - old_points[j].X,
+                old_points[k].Y - old_points[j].Y);
+            v2.Normalize();
+            v2 *= offset;
+            n2 = new Vector(-v2.Y, v2.X);
+
+            pjk1 = new Point(
+                (old_points[j].X + n2.X),
+                (old_points[j].Y + n2.Y));
+            pjk2 = new Point(
+                (old_points[k].X + n2.X),
+                (old_points[k].Y + n2.Y));
+
+            enlarged_points[enlarged_points.Count - 1] = pij2;
+
+            return enlarged_points;
+        }
+
+
+        // Find the point of intersection between
+        // the lines p1 --> p2 and p3 --> p4.
+        private static void FindIntersection(
+            Point p1, Point p2, Point p3, Point p4,
+            out bool lines_intersect, out bool segments_intersect,
+            out Point intersection,
+            out Point close_p1, out Point close_p2)
+        {
+            // Get the segments' parameters.
+            double dx12 = p2.X - p1.X;
+            double dy12 = p2.Y - p1.Y;
+            double dx34 = p4.X - p3.X;
+            double dy34 = p4.Y - p3.Y;
+
+            // Solve for t1 and t2
+            double denominator = (dy12 * dx34 - dx12 * dy34);
+            bool lines_parallel = (Math.Abs(denominator) < 0.001);
+
+            double t1 =
+                ((p1.X - p3.X) * dy34 + (p3.Y - p1.Y) * dx34)
+                    / denominator;
+            if (double.IsNaN(t1) || double.IsInfinity(t1))
+                lines_parallel = true;
+
+            if (lines_parallel)
+            {
+                // The lines are parallel (or close enough to it).
+                lines_intersect = false;
+                segments_intersect = false;
+                intersection = new Point(double.NaN, double.NaN);
+                close_p1 = new Point(double.NaN, double.NaN);
+                close_p2 = new Point(double.NaN, double.NaN);
+                return;
+            }
+            lines_intersect = true;
+
+            double t2 =
+                ((p3.X - p1.X) * dy12 + (p1.Y - p3.Y) * dx12)
+                    / -denominator;
+
+            // Find the point of intersection.
+            intersection = new Point(p1.X + dx12 * t1, p1.Y + dy12 * t1);
+
+            // The segments intersect if t1 and t2 are between 0 and 1.
+            segments_intersect =
+                ((t1 >= 0) && (t1 <= 1) &&
+                 (t2 >= 0) && (t2 <= 1));
+
+            // Find the closest points on the segments.
+            if (t1 < 0)
+            {
+                t1 = 0;
+            }
+            else if (t1 > 1)
+            {
+                t1 = 1;
+            }
+
+            if (t2 < 0)
+            {
+                t2 = 0;
+            }
+            else if (t2 > 1)
+            {
+                t2 = 1;
+            }
+
+            close_p1 = new Point(p1.X + dx12 * t1, p1.Y + dy12 * t1);
+            close_p2 = new Point(p3.X + dx34 * t2, p3.Y + dy34 * t2);
+        }
+        // ------------------------------------------------------------------------------------------------------
+
         private static List<double[]> getShiftedWay(List<double[]> way)
         {
             List<double[]> shiftedWay = new List<double[]>();
-            for (int i = 0; i < way.Count - 1; i++)
-            {
-                if (i == sides)
-                {
-                }
-                double[] fromCoord = way[i];
-                double[] toCoord = way[i + 1];
-                double[] shift = getShift(fromCoord, toCoord);
-                double[] shiftedFromCoord = new double[] { fromCoord[0] + shift[0], fromCoord[1] + shift[1] };
-                double[] shiftedToCoord = new double[] { toCoord[0] + shift[0], toCoord[1] + shift[1] };
-                Console.WriteLine("shiftedfrom " + shiftedFromCoord[0] + ", " + shiftedFromCoord[1] + " shiftedto " + shiftedToCoord[0] + ", " + shiftedToCoord[1]);
-                //shiftedWay.Add(shiftedFromCoord);
-                shiftedWay.Add(shiftedToCoord);
-            }
-            // closed polygon? let's close the shifted way too
-            if (way[way.Count - 1][0] == way[0][0] && way[way.Count - 1][1] == way[0][1])
-            {
-                double[] fromCoord = shiftedWay[shiftedWay.Count - 1];
-                double[] toCoord = way[0];
+            // if basically a straight line, the polygon buffering function breaks down
+            double[] firstCoord = way[0];
+            double[] lastCoord = way[way.Count - 1];
+            bool closedWay = firstCoord[0] == lastCoord[0] && firstCoord[1] == firstCoord[1];
 
-                double[] shift = getShift(fromCoord, toCoord);
-                double[] shiftedFromCoord = new double[] { fromCoord[0] + shift[0], fromCoord[1] + shift[1] };
-                double[] shiftedToCoord = new double[] { toCoord[0] + shift[0], toCoord[1] + shift[1] };
-                shiftedWay.Add(shiftedFromCoord);
+            List<Point> ps = new List<Point>();
+            int i = 0;
+            List<double[]> t = new List<double[]>();
+            int mult = 100000;
+            foreach (double[] coord in way)
+            {
+                Console.WriteLine(i);
+                i++;
+                ps.Add(new Point(coord[0] * mult, coord[1] * mult));
+            }
+            if (closedWay)
+            {
+                ps.RemoveAt(ps.Count - 1);
+            }
+            List<Point> deepWaterPoints = null;
+            if (!closedWay)
+            {
+                deepWaterPoints = GetEnlargedLine(ps, 1);
+            }
+            else
+            {
+                deepWaterPoints = GetEnlargedPolygon(ps, 1);
+            }
+            i = 0;
+            foreach (Point p in deepWaterPoints)
+            {
+                Console.WriteLine(i);
+                i++;
+                shiftedWay.Add(new double[] { p.X / mult, p.Y / mult });
+            }
+            if (closedWay)
+            {
+                double[] lastWay = shiftedWay[0];
+                shiftedWay.Add(new double[] { lastWay[0], lastWay[1] });
             }
 
             return shiftedWay;
@@ -172,18 +354,45 @@ namespace FSEarthTilesDLL
             int i = 0;
             foreach (List<double[]> way in coastWays)
             {
-                if (i < 36)
+                if (doIt && i < theside)
                 {
                     i++;
+                    continue;
                 }
+                // the we take the coast from osm and use that as our DeepWater.
+                // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
+                // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
+                kml.Add("<Placemark>");
+                kml.Add("<name>DeepWater</name>");
+                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                kml.Add("<LineString>");
+                kml.Add("<coordinates>");
+                string deepWaterCoords = "";
+                j = 0;
+                foreach (double[] coord in way)
+                {
+                    deepWaterCoords += coord[0] + "," + coord[1] + ",0 ";
+                    if (doItSides && j == sides)
+                    {
+                        break;
+                    }
+                    j++;
+                }
+                deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
+                kml.Add(deepWaterCoords);
+                kml.Add("</coordinates>");
+                kml.Add("</LineString>");
+                kml.Add("</Placemark>");
                 kml.Add("<Placemark>");
                 kml.Add("<name>Coast</name>");
                 kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
                 string coastCoords = "";
+                Console.WriteLine("whyyyy " + i);
+                List<double[]> shiftedWay = getShiftedWay(way);
                 j = 0;
-                foreach (double[] coord in way)
+                foreach (double[] coord in shiftedWay)
                 {
                     coastCoords += coord[0] + "," + coord[1] + ",0 ";
                     if (j == sides)
@@ -196,60 +405,41 @@ namespace FSEarthTilesDLL
                 kml.Add("</coordinates>");
                 kml.Add("</LineString>");
                 kml.Add("</Placemark>");
-                kml.Add("<Placemark>");
-                kml.Add("<name>DeepWater</name>");
-                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                kml.Add("<LineString>");
-                kml.Add("<coordinates>");
-                string deepWatercoords = "";
-                List<double[]> shiftedWay = getShiftedWay(way);
-                j = 0;
-                foreach (double[] coord in shiftedWay)
+                if (doIt && i == theside)
                 {
-                    deepWatercoords += coord[0] + "," + coord[1] + ",0 ";
-                    if (j == sides)
-                    {
-                    }
-                    j++;
-                }
-                deepWatercoords = deepWatercoords.Remove(deepWatercoords.Length - 1, 1);
-                kml.Add(deepWatercoords);
-                kml.Add("</coordinates>");
-                kml.Add("</LineString>");
-                kml.Add("</Placemark>");
-                if (i == 36)
-                {
+                    break;
                 }
                 i++;
             }
             n = 0;
-/*            foreach (List<double[]> way in waterWays)
-            {
-                kml.Add("<Placemark>");
-                kml.Add("<name>Blend</name>");
-                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                kml.Add("<LineString>");
-                kml.Add("<coordinates>");
-                string coords = "";
-                foreach (double[] coord in way)
-                {
-                    coords += coord[0] + "," + coord[1] + ",0 ";
-                }
-                coords = coords.Remove(coords.Length - 1, 1);
-                kml.Add(coords);
-                kml.Add("</coordinates>");
-                kml.Add("</LineString>");
-                kml.Add("</Placemark>");
-                n++;
-            }
-*/            kml.Add("</Folder>");
+            /*            foreach (List<double[]> way in waterWays)
+                        {
+                            kml.Add("<Placemark>");
+                            kml.Add("<name>Blend</name>");
+                            kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                            kml.Add("<LineString>");
+                            kml.Add("<coordinates>");
+                            string coords = "";
+                            foreach (double[] coord in way)
+                            {
+                                coords += coord[0] + "," + coord[1] + ",0 ";
+                            }
+                            coords = coords.Remove(coords.Length - 1, 1);
+                            kml.Add(coords);
+                            kml.Add("</coordinates>");
+                            kml.Add("</LineString>");
+                            kml.Add("</Placemark>");
+                            n++;
+                        }
+            */
+            kml.Add("</Folder>");
             kml.Add("</Document>");
             kml.Add("</kml>");
 
             return String.Join("\n", kml.ToArray());
         }
     }
-    class AutomaticWaterMasking
+    public class AutomaticWaterMasking
     {
         private static string[] overPassServers = {
             "http://overpass-api.de/api/interpreter",
@@ -278,7 +468,7 @@ namespace FSEarthTilesDLL
                         }
                         catch (System.Net.WebException e)
                         {
-                            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
+                            //iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
                             keepTrying = true;
                             System.Threading.Thread.Sleep(sleepTime);
                         }
