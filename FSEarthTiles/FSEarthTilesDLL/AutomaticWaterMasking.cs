@@ -430,6 +430,9 @@ namespace FSEarthTilesDLL
                     {
                         try
                         {
+                            // make sure to kill any zombie queries...
+                            wc.DownloadString("http://overpass-api.de/api/kill_my_queries");
+
                             contents = wc.DownloadString(server + queryParams);
                             keepTrying = false;
                             break;
