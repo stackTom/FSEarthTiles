@@ -130,6 +130,8 @@ namespace FSEarthTilesDLL
 
             return enlarged_points;
         }
+        // basically uses GetEnlargedPolygon, except changes the first and last points so it forms a line and not a polygon.
+        // Code is messy, but it works. TODO: try to refactor and make less messy?
         private static List<Point> GetEnlargedLine(List<Point> old_points, double offset)
         {
             List<Point> enlarged_points = GetEnlargedPolygon(old_points, offset);
@@ -412,26 +414,26 @@ namespace FSEarthTilesDLL
                 i++;
             }
             n = 0;
-            /*            foreach (List<double[]> way in waterWays)
-                        {
-                            kml.Add("<Placemark>");
-                            kml.Add("<name>Blend</name>");
-                            kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                            kml.Add("<LineString>");
-                            kml.Add("<coordinates>");
-                            string coords = "";
-                            foreach (double[] coord in way)
-                            {
-                                coords += coord[0] + "," + coord[1] + ",0 ";
-                            }
-                            coords = coords.Remove(coords.Length - 1, 1);
-                            kml.Add(coords);
-                            kml.Add("</coordinates>");
-                            kml.Add("</LineString>");
-                            kml.Add("</Placemark>");
-                            n++;
-                        }
-            */
+            foreach (List<double[]> way in waterWays)
+            {
+                kml.Add("<Placemark>");
+                kml.Add("<name>Blend</name>");
+                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                kml.Add("<LineString>");
+                kml.Add("<coordinates>");
+                string coords = "";
+                foreach (double[] coord in way)
+                {
+                    coords += coord[0] + "," + coord[1] + ",0 ";
+                }
+                coords = coords.Remove(coords.Length - 1, 1);
+                kml.Add(coords);
+                kml.Add("</coordinates>");
+                kml.Add("</LineString>");
+                kml.Add("</Placemark>");
+                n++;
+            }
+
             kml.Add("</Folder>");
             kml.Add("</Document>");
             kml.Add("</kml>");
@@ -500,9 +502,8 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private static string downloadOsmWaterData(DownloadArea d, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static string downloadOsmWaterData(DownloadArea d, string saveLoc, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
-            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
             string[] waterQueries = { "rel[\"natural\"=\"water\"]", "rel[\"waterway\"=\"riverbank\"]", "way[\"natural\"=\"water\"]", "way[\"waterway\"=\"riverbank\"]", "way[\"waterway\"=\"dock\"]" };
             string waterOSM = null;
             string queryParams = "?data=(";
@@ -515,15 +516,13 @@ namespace FSEarthTilesDLL
             queryParams += ";);(._;>>;);out body;";
 
             waterOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
-            File.WriteAllText(EarthConfig.mWorkFolder + "\\OSMWaterData.osm", waterOSM);
-            Console.WriteLine("wrote water osm at " + EarthConfig.mWorkFolder + "\\OSMWaterData.osm");
+            File.WriteAllText(saveLoc, waterOSM);
 
             return waterOSM;
         }
         // http://overpass-api.de/api/interpreter?data=(way["natural"="coastline"](23, -83, 24, -82););(._;>>;);out meta;
-        private static string downloadOsmCoastData(DownloadArea d, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static string downloadOsmCoastData(DownloadArea d, string saveLoc, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
-            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM coast data for water masking...");
             string[] coastQueries = { "way[\"natural\"=\"coastline\"]" };
             string coastOSM = null;
             string queryParams = "?data=(";
@@ -536,34 +535,50 @@ namespace FSEarthTilesDLL
             queryParams += ";);(._;>>;);out body;";
 
             coastOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
-            File.WriteAllText(EarthConfig.mWorkFolder + "\\OSMCoastData.osm", coastOSM);
-            Console.WriteLine("wrote coast osm at " + EarthConfig.mWorkFolder + "\\OSMCoastData.osm");
+            File.WriteAllText(saveLoc, coastOSM);
 
             return coastOSM;
+        }
+        private static string getAreaHash(EarthArea iEarthArea)
+        {
+            string startLon = iEarthArea.AreaSnapStartLongitude.ToString();
+            string stopLon = iEarthArea.AreaSnapStopLongitude.ToString();
+            string startLat = iEarthArea.AreaSnapStartLatitude.ToString();
+            string stopLat = iEarthArea.AreaSnapStopLatitude.ToString();
+
+            return startLon + stopLon + startLat + stopLat;
         }
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
-            double PADDING = 0.0005;
+            double PADDING = 0.005;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
             d.endLon += PADDING;
             string coastOSM = null;
-            if (File.Exists(EarthConfig.mWorkFolder + "\\OSMCoastData.osm"))
+            string coastOSMFileLoc = getAreaHash(iEarthArea) + "coast.osm";
+            if (File.Exists(EarthConfig.mWorkFolder + "\\" + coastOSMFileLoc))
             {
-                coastOSM = File.ReadAllText(EarthConfig.mWorkFolder + "\\OSMCoastData.osm");
-            } else
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM coast data");
+                coastOSM = File.ReadAllText(EarthConfig.mWorkFolder +  "\\" + coastOSMFileLoc);
+            }
+            else
             {
-                coastOSM = downloadOsmCoastData(d, iFSEarthTilesInternalInterface);
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM coast data for water masking...");
+                coastOSM = downloadOsmCoastData(d, coastOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             string waterOSM = null;
-            if (File.Exists(EarthConfig.mWorkFolder + "\\OSMWaterData.osm"))
+            string waterOSMFileLoc = getAreaHash(iEarthArea) + "water.osm";
+            if (File.Exists(EarthConfig.mWorkFolder + "\\" + waterOSMFileLoc))
             {
-                waterOSM = File.ReadAllText(EarthConfig.mWorkFolder + "\\OSMWaterData.osm");
-            } else
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM water data");
+                waterOSM = File.ReadAllText(EarthConfig.mWorkFolder+  "\\" + waterOSMFileLoc);
+            }
+            else
             {
-                waterOSM = downloadOsmWaterData(d, iFSEarthTilesInternalInterface);
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
+                waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
             Console.WriteLine(EarthConfig.mWorkFolder + "\\AreaKML.kml");
