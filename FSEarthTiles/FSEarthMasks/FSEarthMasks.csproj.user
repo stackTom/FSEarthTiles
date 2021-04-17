@@ -1,7 +1,8 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="Current">
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <StartArguments>c:\FSEarthTiles\work\AreaEarthInfo.txt</StartArguments>
-    <StartWorkingDirectory>C:\Downloads\fset1nrs\FSEarthTiles\FSEarthTiles\bin\Debug\</StartWorkingDirectory>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartArguments>c:\FSEarthTiles\work\AreaEarthInfo.txt</StartArguments>
