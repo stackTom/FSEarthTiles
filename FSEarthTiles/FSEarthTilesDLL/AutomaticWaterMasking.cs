@@ -10,21 +10,34 @@ using System.Drawing;
 using System.Windows;
 
 
+using Way = System.Collections.Generic.List<FSEarthTilesDLL.AreaKMLFromOSMDataCreator.Point>;
+
 namespace FSEarthTilesDLL
 {
+
     class AreaKMLFromOSMDataCreator
     {
+        public struct Point
+        {
+            public double X;
+            public double Y;
+            public Point(double x, double y)
+            {
+                this.X = x;
+                this.Y = y;
+            }
+        }
         private static int sides = 1000000;
         private static bool doIt = false;
         private static bool doItSides = false;
         private static int theside = 65;
-        private static List<List<double[]>> GetWays(string OSMKML)
+        private static List<Way> GetWays(string OSMKML)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
             XmlNodeList wayTags = d.GetElementsByTagName("way");
             Dictionary<string, List<string>> waysToNodes = new Dictionary<string, List<string>>();
-            Dictionary<string, double[]> nodesToCoords = new Dictionary<string, double[]>();
+            Dictionary<string, Point> nodesToCoords = new Dictionary<string, Point>();
 
             XmlNodeList nodeTags = d.GetElementsByTagName("node");
             foreach (XmlElement node in nodeTags)
@@ -32,7 +45,7 @@ namespace FSEarthTilesDLL
                 double lat = Convert.ToDouble(node.GetAttribute("lat"));
                 double lon = Convert.ToDouble(node.GetAttribute("lon"));
                 string id = node.GetAttribute("id");
-                double[] coords = new double[] { lon, lat };
+                Point coords = new Point(lon, lat);
                 nodesToCoords.Add(id, coords);
             }
             foreach (XmlElement way in wayTags)
@@ -48,38 +61,28 @@ namespace FSEarthTilesDLL
                 }
                 waysToNodes.Add(id, nodes);
             }
-            List<List<double[]>> ways = new List<List<double[]>>();
-            int n = 0;
+            List<Way> ways = new List<Way>();
             foreach (KeyValuePair<string, List<string>> kv in waysToNodes)
             {
                 string wayID = kv.Key;
                 List<string> nodIDs = kv.Value;
-                List<double[]> way = new List<double[]>();
+                Way way = new Way();
                 foreach (string id in nodIDs)
                 {
-                    double[] coords = nodesToCoords[id];
+                    Point coords = nodesToCoords[id];
                     way.Add(coords);
                 }
                 ways.Add(way);
             }
             return ways;
         }
-        private struct Point
-        {
-            public double X;
-            public double Y;
-            public Point(double x, double y)
-            {
-                this.X = x;
-                this.Y = y;
-            }
-        }
+
         // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2020/12/enlarge-a-polygon-that-has-colinear-vertices-in-c/)
         // I've modified it slightly for this use case, but the fundamental idea is the same
         // ------------------------------------------------------------------------------------------------------
-        private static List<Point> GetEnlargedPolygon(List<Point> old_points, double offset)
+        private static Way GetEnlargedPolygon(Way old_points, double offset)
         {
-            List<Point> enlarged_points = new List<Point>();
+            Way enlarged_points = new Way();
             int num_points = old_points.Count;
             for (int j = 0; j < num_points; j++)
             {
@@ -88,7 +91,6 @@ namespace FSEarthTilesDLL
                 int i = (j - 1);
                 if (i < 0) i += num_points;
                 int k = (j + 1) % num_points;
-                Console.WriteLine("doing point " + j + " so checking " + i + " and point " + k);
 
                 // Move the points by the offset.
                 Vector v1 = new Vector(
@@ -132,14 +134,13 @@ namespace FSEarthTilesDLL
         }
         // basically uses GetEnlargedPolygon, except changes the first and last points so it forms a line and not a polygon.
         // Code is messy, but it works. TODO: try to refactor and make less messy?
-        private static List<Point> GetEnlargedLine(List<Point> old_points, double offset)
+        private static Way GetEnlargedLine(Way old_points, double offset)
         {
-            List<Point> enlarged_points = GetEnlargedPolygon(old_points, offset);
+            Way enlarged_points = GetEnlargedPolygon(old_points, offset);
             // Move the points by the offset.
             int j = 0;
             int i = old_points.Count - 1;
             int k = 1;
-            Console.WriteLine(old_points.Count);
             if (old_points.Count == 2)
             {
                 enlarged_points.Add(new Point());
@@ -284,29 +285,25 @@ namespace FSEarthTilesDLL
         }
         // ------------------------------------------------------------------------------------------------------
 
-        private static List<double[]> getShiftedWay(List<double[]> way)
+        private static Way getShiftedWay(Way way)
         {
-            List<double[]> shiftedWay = new List<double[]>();
-            // if basically a straight line, the polygon buffering function breaks down
-            double[] firstCoord = way[0];
-            double[] lastCoord = way[way.Count - 1];
-            bool closedWay = firstCoord[0] == lastCoord[0] && firstCoord[1] == firstCoord[1];
+            Way shiftedWay = new Way();
+            Point firstCoord = way[0];
+            Point lastCoord = way[way.Count - 1];
+            bool closedWay = firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
 
-            List<Point> ps = new List<Point>();
-            int i = 0;
-            List<double[]> t = new List<double[]>();
+            Way ps = new Way();
+            Way t = new Way();
             int mult = 100000;
-            foreach (double[] coord in way)
+            foreach (Point coord in way)
             {
-                Console.WriteLine(i);
-                i++;
-                ps.Add(new Point(coord[0] * mult, coord[1] * mult));
+                ps.Add(new Point(coord.X * mult, coord.Y * mult));
             }
             if (closedWay)
             {
                 ps.RemoveAt(ps.Count - 1);
             }
-            List<Point> deepWaterPoints = null;
+            Way deepWaterPoints = null;
             if (!closedWay)
             {
                 deepWaterPoints = GetEnlargedLine(ps, 1);
@@ -315,25 +312,22 @@ namespace FSEarthTilesDLL
             {
                 deepWaterPoints = GetEnlargedPolygon(ps, 1);
             }
-            i = 0;
             foreach (Point p in deepWaterPoints)
             {
-                Console.WriteLine(i);
-                i++;
-                shiftedWay.Add(new double[] { p.X / mult, p.Y / mult });
+                shiftedWay.Add(new Point(p.X / mult, p.Y / mult));
             }
             if (closedWay)
             {
-                double[] lastWay = shiftedWay[0];
-                shiftedWay.Add(new double[] { lastWay[0], lastWay[1] });
+                Point lastWay = shiftedWay[0];
+                shiftedWay.Add(new Point(lastWay.X, lastWay.Y));
             }
 
             return shiftedWay;
         }
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM)
         {
-            List<List<double[]>> waterWays = GetWays(waterOSM);
-            List<List<double[]>> coastWays = GetWays(coastOSM);
+            List<Way> waterWays = GetWays(waterOSM);
+            List<Way> coastWays = GetWays(coastOSM);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -350,17 +344,8 @@ namespace FSEarthTilesDLL
             kml.Add("<Folder>");
             kml.Add("<name>Test</name>");
             kml.Add("<open>1</open>");
-            int n = 0;
-            int j = 0;
-            n++;
-            int i = 0;
-            foreach (List<double[]> way in coastWays)
+            foreach (Way way in coastWays)
             {
-                if (doIt && i < theside)
-                {
-                    i++;
-                    continue;
-                }
                 // the we take the coast from osm and use that as our DeepWater.
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
@@ -370,15 +355,9 @@ namespace FSEarthTilesDLL
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
                 string deepWaterCoords = "";
-                j = 0;
-                foreach (double[] coord in way)
+                foreach (Point coord in way)
                 {
-                    deepWaterCoords += coord[0] + "," + coord[1] + ",0 ";
-                    if (doItSides && j == sides)
-                    {
-                        break;
-                    }
-                    j++;
+                    deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
                 }
                 deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
                 kml.Add(deepWaterCoords);
@@ -391,30 +370,18 @@ namespace FSEarthTilesDLL
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
                 string coastCoords = "";
-                Console.WriteLine("whyyyy " + i);
-                List<double[]> shiftedWay = getShiftedWay(way);
-                j = 0;
-                foreach (double[] coord in shiftedWay)
+                Way shiftedWay = getShiftedWay(way);
+                foreach (Point coord in shiftedWay)
                 {
-                    coastCoords += coord[0] + "," + coord[1] + ",0 ";
-                    if (j == sides)
-                    {
-                    }
-                    j++;
+                    coastCoords += coord.X + "," + coord.Y + ",0 ";
                 }
                 coastCoords = coastCoords.Remove(coastCoords.Length - 1, 1);
                 kml.Add(coastCoords);
                 kml.Add("</coordinates>");
                 kml.Add("</LineString>");
                 kml.Add("</Placemark>");
-                if (doIt && i == theside)
-                {
-                    break;
-                }
-                i++;
             }
-            n = 0;
-            foreach (List<double[]> way in waterWays)
+            foreach (Way way in waterWays)
             {
                 kml.Add("<Placemark>");
                 kml.Add("<name>Blend</name>");
@@ -422,16 +389,15 @@ namespace FSEarthTilesDLL
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
                 string coords = "";
-                foreach (double[] coord in way)
+                foreach (Point coord in way)
                 {
-                    coords += coord[0] + "," + coord[1] + ",0 ";
+                    coords += coord.X + "," + coord.Y + ",0 ";
                 }
                 coords = coords.Remove(coords.Length - 1, 1);
                 kml.Add(coords);
                 kml.Add("</coordinates>");
                 kml.Add("</LineString>");
                 kml.Add("</Placemark>");
-                n++;
             }
 
             kml.Add("</Folder>");
@@ -580,7 +546,6 @@ namespace FSEarthTilesDLL
                 waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
-            Console.WriteLine(EarthConfig.mWorkFolder + "\\AreaKML.kml");
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
         }
     }
