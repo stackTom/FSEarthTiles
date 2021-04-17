@@ -18,10 +18,10 @@ namespace FSEarthTilesDLL
         private static bool doIt = false;
         private static bool doItSides = false;
         private static int theside = 65;
-        private static List<List<double[]>> GetWays(string path)
+        private static List<List<double[]>> GetWays(string OSMKML)
         {
             XmlDocument d = new XmlDocument();
-            d.Load(path);
+            d.LoadXml(OSMKML);
             XmlNodeList wayTags = d.GetElementsByTagName("way");
             Dictionary<string, List<string>> waysToNodes = new Dictionary<string, List<string>>();
             Dictionary<string, double[]> nodesToCoords = new Dictionary<string, double[]>();
@@ -330,8 +330,8 @@ namespace FSEarthTilesDLL
         }
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM)
         {
-            List<List<double[]>> waterWays = GetWays(@"F:\ortho4xpvm\fset-103\FSET\+26-081_water.osm");
-            List<List<double[]>> coastWays = GetWays(@"F:\ortho4xpvm\fset-103\FSET\+26-081_coastline.osm");
+            List<List<double[]>> waterWays = GetWays(waterOSM);
+            List<List<double[]>> coastWays = GetWays(coastOSM);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -463,12 +463,13 @@ namespace FSEarthTilesDLL
                         try
                         {
                             contents = wc.DownloadString(server + queryParams);
+                            Console.WriteLine(server + queryParams);
                             keepTrying = false;
                             break;
                         }
                         catch (System.Net.WebException e)
                         {
-                            //iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
+                            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
                             keepTrying = true;
                             System.Threading.Thread.Sleep(sleepTime);
                         }
@@ -483,12 +484,29 @@ namespace FSEarthTilesDLL
 
             return contents;
         }
-        private static string downloadOsmWaterData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private struct DownloadArea
         {
+            public double startLon;
+            public double endLon;
+            public double startLat;
+            public double endLat;
+
+            public DownloadArea(double startLon, double endLon, double startLat, double endLat)
+            {
+                this.startLon = startLon;
+                this.endLon = endLon;
+                this.startLat = startLat;
+                this.endLat = endLat;
+            }
+        }
+
+        private static string downloadOsmWaterData(DownloadArea d, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        {
+            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
             string[] waterQueries = { "rel[\"natural\"=\"water\"]", "rel[\"waterway\"=\"riverbank\"]", "way[\"natural\"=\"water\"]", "way[\"waterway\"=\"riverbank\"]", "way[\"waterway\"=\"dock\"]" };
             string waterOSM = null;
             string queryParams = "?data=(";
-            string bbox = "(" + iEarthArea.AreaSnapStopLatitude + ", " + iEarthArea.AreaSnapStartLongitude + ", " + iEarthArea.AreaSnapStartLatitude + ", " + iEarthArea.AreaSnapStopLongitude + ")";
+            string bbox = "(" + d.endLat + ", " + d.startLon + ", " + d.startLat + ", " + d.endLon + ")";
             foreach (string query in waterQueries)
             {
                 queryParams += query + bbox + ";";
@@ -496,18 +514,20 @@ namespace FSEarthTilesDLL
             queryParams = queryParams.Remove(queryParams.Length - 1, 1);
             queryParams += ";);(._;>>;);out body;";
 
-            //waterOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
-            waterOSM = File.ReadAllText(@"F:\ortho4xpvm\fset-103\FSET\+26-081_water.osm");
+            waterOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
+            File.WriteAllText(EarthConfig.mWorkFolder + "\\OSMWaterData.osm", waterOSM);
+            Console.WriteLine("wrote water osm at " + EarthConfig.mWorkFolder + "\\OSMWaterData.osm");
 
             return waterOSM;
         }
         // http://overpass-api.de/api/interpreter?data=(way["natural"="coastline"](23, -83, 24, -82););(._;>>;);out meta;
-        private static string downloadOsmCoastData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static string downloadOsmCoastData(DownloadArea d, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
+            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM coast data for water masking...");
             string[] coastQueries = { "way[\"natural\"=\"coastline\"]" };
             string coastOSM = null;
             string queryParams = "?data=(";
-            string bbox = "(" + iEarthArea.AreaSnapStopLatitude + ", " + iEarthArea.AreaSnapStartLongitude + ", " + iEarthArea.AreaSnapStartLatitude + ", " + iEarthArea.AreaSnapStopLongitude + ")";
+            string bbox = "(" + d.endLat + ", " + d.startLon + ", " + d.startLat + ", " + d.endLon + ")";
             foreach (string query in coastQueries)
             {
                 queryParams += query + bbox + ";";
@@ -515,16 +535,38 @@ namespace FSEarthTilesDLL
             queryParams = queryParams.Remove(queryParams.Length - 1, 1);
             queryParams += ";);(._;>>;);out body;";
 
-            //coastOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
-            coastOSM = File.ReadAllText(@"F:\ortho4xpvm\fset-103\FSET\+26-081_coastline.osm");
+            coastOSM = downloadOSM(queryParams, iFSEarthTilesInternalInterface);
+            File.WriteAllText(EarthConfig.mWorkFolder + "\\OSMCoastData.osm", coastOSM);
+            Console.WriteLine("wrote coast osm at " + EarthConfig.mWorkFolder + "\\OSMCoastData.osm");
 
             return coastOSM;
         }
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
-            string coastOSM = downloadOsmCoastData(iEarthArea, iFSEarthTilesInternalInterface);
-            string waterOSM = downloadOsmWaterData(iEarthArea, iFSEarthTilesInternalInterface);
+            DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
+            double PADDING = 0.0005;
+            d.startLat += PADDING;
+            d.endLat -= PADDING;
+            d.startLon -= PADDING;
+            d.endLon += PADDING;
+            string coastOSM = null;
+            if (File.Exists(EarthConfig.mWorkFolder + "\\OSMCoastData.osm"))
+            {
+                coastOSM = File.ReadAllText(EarthConfig.mWorkFolder + "\\OSMCoastData.osm");
+            } else
+            {
+                coastOSM = downloadOsmCoastData(d, iFSEarthTilesInternalInterface);
+            }
+            string waterOSM = null;
+            if (File.Exists(EarthConfig.mWorkFolder + "\\OSMWaterData.osm"))
+            {
+                waterOSM = File.ReadAllText(EarthConfig.mWorkFolder + "\\OSMWaterData.osm");
+            } else
+            {
+                waterOSM = downloadOsmWaterData(d, iFSEarthTilesInternalInterface);
+            }
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
+            Console.WriteLine(EarthConfig.mWorkFolder + "\\AreaKML.kml");
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
         }
     }
