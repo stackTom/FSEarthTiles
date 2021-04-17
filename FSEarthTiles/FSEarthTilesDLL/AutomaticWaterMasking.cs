@@ -519,7 +519,8 @@ namespace FSEarthTilesDLL
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
-            double PADDING = 0.05;
+            // don't think this padding stuff is needed, but leave it just in case to be extra sure
+            double PADDING = 0.0005;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
