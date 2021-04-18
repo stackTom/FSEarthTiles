@@ -2379,12 +2379,12 @@ namespace FSEarthTilesDLL
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
         {
-            if (EarthConfig.mCreateAreaMask)
-            {
-                AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this);
-            }
             if (!mStopProcess)
             {
+                if (EarthConfig.mCreateWaterMaskBitmap)
+                {
+                    AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this);
+                }
                 
                     EarthScriptsHandler.DoBeforeResampleing(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
