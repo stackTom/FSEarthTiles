@@ -8,6 +8,7 @@ using System.Text;
 using System.Xml;
 using System.Drawing;
 using System.Windows;
+using TGASharpLib;
 
 
 using Way = System.Collections.Generic.List<FSEarthTilesDLL.AreaKMLFromOSMDataCreator.Point>;
@@ -27,10 +28,6 @@ namespace FSEarthTilesDLL
                 this.Y = y;
             }
         }
-        private static int sides = 1000000;
-        private static bool doIt = false;
-        private static bool doItSides = false;
-        private static int theside = 65;
         private static List<Way> GetWays(string OSMKML)
         {
             XmlDocument d = new XmlDocument();
@@ -551,6 +548,41 @@ namespace FSEarthTilesDLL
             }
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
+        }
+        private static bool BMPAllBlack(Bitmap b)
+        {
+            for (int x = 0; x < b.Width; x++)
+            {
+                for (int y = 0; y < b.Height; y++)
+                {
+                    // if even one alpha is not black, then bmp is not all black
+                    byte curAlphaVal = b.GetPixel(x, y).A;
+                    if (curAlphaVal != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+        public static void ensureTGAsNotAllBlack(string directoryToCheck)
+        {
+            string[] tgas = Directory.GetFiles(directoryToCheck, "*.tga");
+            foreach (string f in tgas)
+            {
+                TGA t = new TGA(f);
+                Bitmap b = t.ToBitmap(true);
+                if (BMPAllBlack(b))
+                {
+                    Color color = b.GetPixel(0, 0);
+                    Color newColor = Color.FromArgb(255, color);
+                    b.SetPixel(0, 0, newColor);
+                    TGA newAlphaTGA = new TGA(b);
+                    string newAlphaTGAPath = Path.GetDirectoryName(f) + @"\" + Path.GetFileNameWithoutExtension(f) + @".tga";
+                    newAlphaTGA.Save(newAlphaTGAPath);
+                }
+            }
         }
     }
 }

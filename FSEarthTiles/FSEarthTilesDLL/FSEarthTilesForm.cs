@@ -5807,6 +5807,16 @@ namespace FSEarthTilesDLL
                         if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
                         {
 
+                            SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
+
+                            // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
+                            // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
+                            // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
+                            // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
+                            // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
+                            // and I don't want to write my own when this simpler solution gets the job done
+                            AutomaticWaterMasking.ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
+
                             SetStatusFromFriendThread("Starting FS2004 Imagetool..");
                             Thread.Sleep(1000);
 
