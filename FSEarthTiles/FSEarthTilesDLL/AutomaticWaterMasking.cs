@@ -384,7 +384,7 @@ namespace FSEarthTilesDLL
             foreach (Way way in waterWays)
             {
                 kml.Add("<Placemark>");
-                kml.Add("<name>Blend</name>");
+                kml.Add("<name>WaterPool</name>");
                 kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
