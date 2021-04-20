@@ -516,8 +516,8 @@ namespace FSEarthTilesDLL
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
-            // don't think this padding stuff is needed, but leave it just in case to be extra sure
-            double PADDING = 0.0005;
+            // we need a padding otherwise there seems to be rounding errors and edge cases when creating coasts
+            double PADDING = 0.5;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
