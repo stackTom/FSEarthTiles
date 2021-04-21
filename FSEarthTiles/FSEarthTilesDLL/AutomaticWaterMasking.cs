@@ -14,22 +14,64 @@ using TGASharpLib;
 namespace FSEarthTilesDLL
 {
 
-    class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.AreaKMLFromOSMDataCreator.Point
+    public class Point
+    {
+        public double X;
+        public double Y;
+        public Point(double x, double y)
+        {
+            this.X = x;
+            this.Y = y;
+        }
+    }
+    class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
+        public bool mergeWithWay(Way<T> way)
+        {
+            Point w1p1 = this[0];
+            Point w1p2 = this[this.Count - 1];
+            Point w2p1 = way[0];
+            Point w2p2 = way[way.Count - 1];
+            if (w1p1 == w2p1)
+            {
+                this.Reverse();
+                for (int w2 = 1; w2 < way.Count; w2++)
+                {
+                    this.Add(way[w2]);
+                }
+                return true;
+            }
+            else if (w1p2 == w2p2)
+            {
+                for (int w2 = way.Count - 2; w2 >= 0; w2--)
+                {
+                    this.Add(way[w2]);
+                }
+                return true;
+            }
+            else if (w1p2 == w2p1)
+            {
+                for (int w2 = 1; w2 < way.Count; w2++)
+                {
+                    this.Add(way[w2]);
+                }
+                return true;
+            }
+            else if (w1p1 == w2p2)
+            {
+                this.Reverse();
+                for (int w2 = way.Count - 2; w2 >= 0; w2--)
+                {
+                    this.Add(way[w2]);
+                }
+                return true;
+            }
+            return false;
+        }
     }
     class AreaKMLFromOSMDataCreator
     {
-        public class Point
-        {
-            public double X;
-            public double Y;
-            public Point(double x, double y)
-            {
-                this.X = x;
-                this.Y = y;
-            }
-        }
         private static List<Way<Point>> GetWays(string OSMKML)
         {
             XmlDocument d = new XmlDocument();
@@ -93,7 +135,8 @@ namespace FSEarthTilesDLL
                             if (curRole == null)
                             {
                                 wayIDsToRelation.Add(wayID, role);
-                            } else if (curRole != role)
+                            }
+                            else if (curRole != role)
                             {
                                 // should hopefully never get here. if we do, this will help users give me test cases so I can investigate
                                 throw new Exception("A way has more than one role type!");
@@ -120,64 +163,10 @@ namespace FSEarthTilesDLL
                         {
                             Way<Point> way1 = wayIDsToways[waysInThisMultipolygon[i]];
                             Way<Point> way2 = wayIDsToways[waysInThisMultipolygon[j]];
-                            Point w1p1 = way1[0];
-                            Point w1p2 = way1[way1.Count - 1];
-                            Point w2p1 = way2[0];
-                            Point w2p2 = way2[way2.Count - 1];
-                            if (w1p1 == w2p1)
+                            bool ableToMerge = way1.mergeWithWay(way2);
+                            if (ableToMerge)
                             {
-                                Way<Point> combinedWay = new Way<Point>();
-                                for (int w1 = way1.Count - 1; w1 >= 0; w1--)
-                                {
-                                    combinedWay.Add(way1[w1]);
-                                }
-                                for (int w2 = 1; w2 < way2.Count; w2++)
-                                {
-                                    combinedWay.Add(way2[w2]);
-                                }
-                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
-                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
-                            }
-                            else if (w1p2 == w2p2)
-                            {
-                                Way<Point> combinedWay = new Way<Point>();
-                                for (int w1 = 0; w1 < way1.Count; w1++)
-                                {
-                                    combinedWay.Add(way1[w1]);
-                                }
-                                for (int w2 = way2.Count - 2; w2 >= 0; w2--)
-                                {
-                                    combinedWay.Add(way2[w2]);
-                                }
-                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
-                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
-                            }
-                            else if (w1p2 == w2p1)
-                            {
-                                Way<Point> combinedWay = new Way<Point>();
-                                for (int w1 = 0; w1 < way1.Count; w1++)
-                                {
-                                    combinedWay.Add(way1[w1]);
-                                }
-                                for (int w2 = 1; w2 < way2.Count; w2++)
-                                {
-                                    combinedWay.Add(way2[w2]);
-                                }
-                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
-                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
-                            }
-                            else if (w1p1 == w2p2)
-                            {
-                                Way<Point> combinedWay = new Way<Point>();
-                                for (int w1 = way1.Count - 1; w1 >= 0; w1--)
-                                {
-                                    combinedWay.Add(way1[w1]);
-                                }
-                                for (int w2 = way2.Count - 2; w2 >= 0; w2--)
-                                {
-                                    combinedWay.Add(way2[w2]);
-                                }
-                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
+                                wayIDsToways[waysInThisMultipolygon[i]] = way1;
                                 wayIDsToways.Remove(waysInThisMultipolygon[j]);
                             }
                         }
@@ -707,7 +696,7 @@ namespace FSEarthTilesDLL
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
             // we need a padding otherwise there seems to be rounding errors and edge cases when creating coasts
-            double PADDING = 0.5;
+            double PADDING = 0.0;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
