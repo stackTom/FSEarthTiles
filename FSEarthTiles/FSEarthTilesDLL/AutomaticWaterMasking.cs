@@ -40,58 +40,63 @@ namespace FSEarthTilesDLL
                 {
                     this.Add(way[w2]);
                 }
+
                 return true;
             }
-            else if (w1p2 == w2p2)
+            if (w1p2 == w2p2)
             {
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
                 {
                     this.Add(way[w2]);
                 }
+
                 return true;
             }
-            else if (w1p2 == w2p1)
+            if (w1p2 == w2p1)
             {
                 for (int w2 = 1; w2 < way.Count; w2++)
                 {
                     this.Add(way[w2]);
                 }
+
                 return true;
             }
-            else if (w1p1 == w2p2)
+            if (w1p1 == w2p2)
             {
                 this.Reverse();
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
                 {
                     this.Add(way[w2]);
                 }
+
                 return true;
             }
+
             return false;
         }
     }
     class AreaKMLFromOSMDataCreator
     {
-        private static List<Way<Point>> GetWays(string OSMKML)
+        private static Dictionary<string, Point> getNodeIDsToCoords(XmlDocument d)
         {
-            XmlDocument d = new XmlDocument();
-            d.LoadXml(OSMKML);
-            XmlNodeList wayTags = d.GetElementsByTagName("way");
-            Dictionary<string, List<string>> wayIDsToWayNodes = new Dictionary<string, List<string>>();
-            Dictionary<string, Point> nodesToCoords = new Dictionary<string, Point>();
-            // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
-            Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
-
+            Dictionary<string, Point> nodeIDsToCoords = new Dictionary<string, Point>();
             XmlNodeList nodeTags = d.GetElementsByTagName("node");
-            XmlNodeList relationTags = d.GetElementsByTagName("relation");
             foreach (XmlElement node in nodeTags)
             {
                 double lat = Convert.ToDouble(node.GetAttribute("lat"));
                 double lon = Convert.ToDouble(node.GetAttribute("lon"));
                 string id = node.GetAttribute("id");
                 Point coords = new Point(lon, lat);
-                nodesToCoords.Add(id, coords);
+                nodeIDsToCoords.Add(id, coords);
             }
+
+            return nodeIDsToCoords;
+        }
+
+        private static Dictionary<string, List<string>> getWayIDsToWayNodes(XmlDocument d)
+        {
+            Dictionary<string, List<string>> wayIDsToWayNodes = new Dictionary<string, List<string>>();
+            XmlNodeList wayTags = d.GetElementsByTagName("way");
             foreach (XmlElement way in wayTags)
             {
                 string id = way.GetAttribute("id");
@@ -105,7 +110,14 @@ namespace FSEarthTilesDLL
                 }
                 wayIDsToWayNodes.Add(id, nodes);
             }
+
+            return wayIDsToWayNodes;
+        }
+
+        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords)
+        {
             Dictionary<string, Way<Point>> wayIDsToways = new Dictionary<string, Way<Point>>();
+
             foreach (KeyValuePair<string, List<string>> kv in wayIDsToWayNodes)
             {
                 string wayID = kv.Key;
@@ -113,77 +125,112 @@ namespace FSEarthTilesDLL
                 Way<Point> way = new Way<Point>();
                 foreach (string id in nodIDs)
                 {
-                    Point coords = nodesToCoords[id];
+                    Point coords = nodeIDsToCoords[id];
                     way.Add(coords);
                 }
                 wayIDsToways.Add(wayID, way);
             }
+
+            return wayIDsToways;
+        }
+        private static List<string> getWaysInThisMultipolygonAndUpdateRelations(XmlElement rel, Dictionary<string, string> wayIDsToRelation)
+        {
             List<string> waysInThisMultipolygon = new List<string>();
-            foreach (XmlElement rel in relationTags)
+
+            foreach (XmlElement tag in rel.GetElementsByTagName("tag"))
             {
-                foreach (XmlElement tag in rel.GetElementsByTagName("tag"))
+                if (tag.GetAttribute("v") == "multipolygon")
                 {
-                    if (tag.GetAttribute("v") == "multipolygon")
+                    foreach (XmlElement member in rel.GetElementsByTagName("member"))
                     {
-                        foreach (XmlElement member in rel.GetElementsByTagName("member"))
+                        string wayID = member.GetAttribute("ref");
+                        waysInThisMultipolygon.Add(wayID);
+                        string role = member.GetAttribute("role");
+                        string curRole = null;
+                        wayIDsToRelation.TryGetValue(wayID, out curRole);
+                        if (curRole == null)
                         {
-                            string wayID = member.GetAttribute("ref");
-                            waysInThisMultipolygon.Add(wayID);
-                            string role = member.GetAttribute("role");
-                            string curRole = null;
-                            wayIDsToRelation.TryGetValue(wayID, out curRole);
-                            if (curRole == null)
-                            {
-                                wayIDsToRelation.Add(wayID, role);
-                            }
-                            else if (curRole != role)
-                            {
-                                // should hopefully never get here. if we do, this will help users give me test cases so I can investigate
-                                throw new Exception("A way has more than one role type!");
-                            }
+                            wayIDsToRelation.Add(wayID, role);
                         }
-                    }
-                }
-                // unite multipolygon pieces into one big linestring, since fset just looks at line. no point in doing a kml polygon
-                // since fset seems to not understand outer vs inner relation
-                // here we compare every way to every other way.
-                for (int i = 0; i < waysInThisMultipolygon.Count; i++)
-                {
-                    for (int j = 0; j < waysInThisMultipolygon.Count; j++)
-                    {
-                        // i != j makes sure not comparing to the same way
-                        if (i != j)
+                        else if (curRole != role)
                         {
-                            string way1id = waysInThisMultipolygon[i];
-                            string way2id = waysInThisMultipolygon[j];
-                            // make sure the way hasn't been removed due to being combined previously...
-                            if (!wayIDsToways.ContainsKey(way1id) || !wayIDsToways.ContainsKey(way2id))
-                            {
-                                continue;
-                            }
-                            Way<Point> way1 = wayIDsToways[waysInThisMultipolygon[i]];
-                            Way<Point> way2 = wayIDsToways[waysInThisMultipolygon[j]];
-                            bool ableToMerge = way1.mergeWithWay(way2);
-                            if (ableToMerge)
-                            {
-                                wayIDsToways[waysInThisMultipolygon[i]] = way1;
-                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
-                            }
+                            // should hopefully never get here. if we do, this will help users give me test cases so I can investigate
+                            throw new Exception("A way has more than one role type!");
                         }
-                    }
-                }
-                foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToways)
-                {
-                    string wayID = kv.Key;
-                    Way<Point> way = kv.Value;
-                    way.relation = null;
-                    if (wayIDsToRelation.ContainsKey(wayID))
-                    {
-                        way.relation = wayIDsToRelation[wayID];
                     }
                 }
             }
-            return wayIDsToways.Values.ToList();
+
+            return waysInThisMultipolygon;
+        }
+
+        // NOTE: this function modifies WayIDsToWays by removing all individual multipolygon segments that are able to be combined
+        // with another segment
+        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays)
+        {
+            for (int i = 0; i < waysInThisMultipolygon.Count; i++)
+            {
+                for (int j = 0; j < waysInThisMultipolygon.Count; j++)
+                {
+                    // i != j makes sure not comparing to the same way
+                    if (i != j)
+                    {
+                        string way1id = waysInThisMultipolygon[i];
+                        string way2id = waysInThisMultipolygon[j];
+                        // make sure the way hasn't been removed due to being combined previously...
+                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id))
+                        {
+                            continue;
+                        }
+                        Way<Point> way1 = wayIDsToWays[waysInThisMultipolygon[i]];
+                        Way<Point> way2 = wayIDsToWays[waysInThisMultipolygon[j]];
+                        bool ableToMerge = way1.mergeWithWay(way2);
+                        if (ableToMerge)
+                        {
+                            wayIDsToWays[waysInThisMultipolygon[i]] = way1;
+                            wayIDsToWays.Remove(waysInThisMultipolygon[j]);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static List<Way<Point>> GetWays(string OSMKML)
+        {
+            XmlDocument d = new XmlDocument();
+            d.LoadXml(OSMKML);
+
+            Dictionary<string, List<string>> wayIDsToWayNodes = getWayIDsToWayNodes(d);
+            Dictionary<string, Point> nodeIDsToCoords = getNodeIDsToCoords(d);
+            Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords);
+            // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
+            Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
+
+            XmlNodeList relationTags = d.GetElementsByTagName("relation");
+            foreach (XmlElement rel in relationTags)
+            {
+                // unite multipolygon pieces into one big linestring, since fset just looks at line. no point in doing a kml polygon
+                // since fset seems to not understand outer vs inner relation. we need this because singular way lines of inner water are problematic
+                // it is hard to determine direction the water is in relative to the way because I believe OSM only requires direction
+                // for coastal ways. but if we make them a full polygon, then it is easy to determine that the water is inside the polygon
+                // here we compare every way to every other way.
+                List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation);
+                mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
+            }
+
+            // update relations
+            foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
+            {
+                string wayID = kv.Key;
+                Way<Point> way = kv.Value;
+                way.relation = null;
+                if (wayIDsToRelation.ContainsKey(wayID))
+                {
+                    way.relation = wayIDsToRelation[wayID];
+                }
+            }
+
+            return wayIDsToWays.Values.ToList();
         }
 
         // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2020/12/enlarge-a-polygon-that-has-colinear-vertices-in-c/)
