@@ -151,16 +151,16 @@ namespace FSEarthTilesDLL
                 {
                     for (int j = 0; j < waysInThisMultipolygon.Count; j++)
                     {
-                        string way1id = waysInThisMultipolygon[i];
-                        string way2id = waysInThisMultipolygon[j];
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!wayIDsToways.ContainsKey(way1id) || !wayIDsToways.ContainsKey(way2id))
-                        {
-                            continue;
-                        }
                         // i != j makes sure not comparing to the same way
                         if (i != j)
                         {
+                            string way1id = waysInThisMultipolygon[i];
+                            string way2id = waysInThisMultipolygon[j];
+                            // make sure the way hasn't been removed due to being combined previously...
+                            if (!wayIDsToways.ContainsKey(way1id) || !wayIDsToways.ContainsKey(way2id))
+                            {
+                                continue;
+                            }
                             Way<Point> way1 = wayIDsToways[waysInThisMultipolygon[i]];
                             Way<Point> way2 = wayIDsToways[waysInThisMultipolygon[j]];
                             bool ableToMerge = way1.mergeWithWay(way2);
