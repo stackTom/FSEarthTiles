@@ -11,14 +11,16 @@ using System.Windows;
 using TGASharpLib;
 
 
-using Way = System.Collections.Generic.List<FSEarthTilesDLL.AreaKMLFromOSMDataCreator.Point>;
-
 namespace FSEarthTilesDLL
 {
 
+    class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.AreaKMLFromOSMDataCreator.Point
+    {
+        public string relation;
+    }
     class AreaKMLFromOSMDataCreator
     {
-        public struct Point
+        public class Point
         {
             public double X;
             public double Y;
@@ -28,15 +30,18 @@ namespace FSEarthTilesDLL
                 this.Y = y;
             }
         }
-        private static List<Way> GetWays(string OSMKML)
+        private static List<Way<Point>> GetWays(string OSMKML)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
             XmlNodeList wayTags = d.GetElementsByTagName("way");
-            Dictionary<string, List<string>> waysToNodes = new Dictionary<string, List<string>>();
+            Dictionary<string, List<string>> wayIDsToWayNodes = new Dictionary<string, List<string>>();
             Dictionary<string, Point> nodesToCoords = new Dictionary<string, Point>();
+            // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
+            Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
 
             XmlNodeList nodeTags = d.GetElementsByTagName("node");
+            XmlNodeList relationTags = d.GetElementsByTagName("relation");
             foreach (XmlElement node in nodeTags)
             {
                 double lat = Convert.ToDouble(node.GetAttribute("lat"));
@@ -56,30 +61,140 @@ namespace FSEarthTilesDLL
                     string ndId = nd.GetAttribute("ref");
                     nodes.Add(ndId);
                 }
-                waysToNodes.Add(id, nodes);
+                wayIDsToWayNodes.Add(id, nodes);
             }
-            List<Way> ways = new List<Way>();
-            foreach (KeyValuePair<string, List<string>> kv in waysToNodes)
+            Dictionary<string, Way<Point>> wayIDsToways = new Dictionary<string, Way<Point>>();
+            foreach (KeyValuePair<string, List<string>> kv in wayIDsToWayNodes)
             {
                 string wayID = kv.Key;
                 List<string> nodIDs = kv.Value;
-                Way way = new Way();
+                Way<Point> way = new Way<Point>();
                 foreach (string id in nodIDs)
                 {
                     Point coords = nodesToCoords[id];
                     way.Add(coords);
                 }
-                ways.Add(way);
+                Console.WriteLine(wayID);
+                wayIDsToways.Add(wayID, way);
             }
-            return ways;
+            List<string> waysInThisMultipolygon = new List<string>();
+            foreach (XmlElement rel in relationTags)
+            {
+                foreach (XmlElement tag in rel.GetElementsByTagName("tag"))
+                {
+                    if (tag.GetAttribute("v") == "multipolygon")
+                    {
+                        foreach (XmlElement member in rel.GetElementsByTagName("member"))
+                        {
+                            string wayID = member.GetAttribute("ref");
+                            waysInThisMultipolygon.Add(wayID);
+                            Console.WriteLine(wayID);
+                            string role = member.GetAttribute("role");
+                            string curRole = null;
+                            wayIDsToRelation.TryGetValue(wayID, out curRole);
+                            if (curRole == null)
+                            {
+                                wayIDsToRelation.Add(wayID, role);
+                            } else if (curRole != role)
+                            {
+                                // should hopefully never get here. if we do, this will help users give me test cases so I can investigate
+                                throw new Exception("A way has more than one role type!");
+                            }
+                        }
+                    }
+                }
+                // unite multipolygon pieces into one big linestring, since fset just looks at line. no point in doing a kml polygon
+                // since fset seems to not understand outer vs inner relation
+                // here we compare every way to every other way.
+                for (int i = 0; i < waysInThisMultipolygon.Count; i++)
+                {
+                    for (int j = 0; j < waysInThisMultipolygon.Count; j++)
+                    {
+                        string way1id = waysInThisMultipolygon[i];
+                        string way2id = waysInThisMultipolygon[j];
+                        // make sure the way hasn't been removed due to being combined previously...
+                        if (!wayIDsToways.ContainsKey(way1id) || !wayIDsToways.ContainsKey(way2id))
+                        {
+                            continue;
+                        }
+                        // i != j makes sure not comparing to the same way
+                        if (i != j)
+                        {
+                            Way<Point> way1 = wayIDsToways[waysInThisMultipolygon[i]];
+                            Way<Point> way2 = wayIDsToways[waysInThisMultipolygon[j]];
+                            Point w1p1 = way1[0];
+                            Point w1p2 = way1[way1.Count - 1];
+                            Point w2p1 = way2[0];
+                            Point w2p2 = way2[way2.Count - 1];
+                            if (w1p1 == w2p1)
+                            {
+                                Way<Point> combinedWay = new Way<Point>();
+                                for (int w1 = way1.Count - 1; w1 >= 0; w1--)
+                                {
+                                    combinedWay.Add(way1[w1]);
+                                }
+                                for (int w2 = 1; w2 < way2.Count; w2++)
+                                {
+                                    combinedWay.Add(way2[w2]);
+                                }
+                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
+                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
+                            }
+                            else if (w1p2 == w2p2)
+                            {
+                                Way<Point> combinedWay = new Way<Point>();
+                                for (int w1 = 0; w1 < way1.Count; w1++)
+                                {
+                                    combinedWay.Add(way1[w1]);
+                                }
+                                for (int w2 = way2.Count - 2; w2 >= 0; w2--)
+                                {
+                                    combinedWay.Add(way2[w2]);
+                                }
+                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
+                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
+                            }
+                            else if (w1p2 == w2p1)
+                            {
+                                Way<Point> combinedWay = new Way<Point>();
+                                for (int w1 = 0; w1 < way1.Count; w1++)
+                                {
+                                    combinedWay.Add(way1[w1]);
+                                }
+                                for (int w2 = 1; w2 < way2.Count; w2++)
+                                {
+                                    combinedWay.Add(way2[w2]);
+                                }
+                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
+                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
+                            }
+                            else if (w1p1 == w2p2)
+                            {
+                                Way<Point> combinedWay = new Way<Point>();
+                                for (int w1 = way1.Count - 1; w1 >= 0; w1--)
+                                {
+                                    combinedWay.Add(way1[w1]);
+                                }
+                                for (int w2 = way2.Count - 2; w2 >= 0; w2--)
+                                {
+                                    combinedWay.Add(way2[w2]);
+                                }
+                                wayIDsToways[waysInThisMultipolygon[i]] = combinedWay;
+                                wayIDsToways.Remove(waysInThisMultipolygon[j]);
+                            }
+                        }
+                    }
+                }
+            }
+            return wayIDsToways.Values.ToList();
         }
 
         // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2020/12/enlarge-a-polygon-that-has-colinear-vertices-in-c/)
         // I've modified it slightly for this use case, but the fundamental idea is the same
         // ------------------------------------------------------------------------------------------------------
-        private static Way GetEnlargedPolygon(Way old_points, double offset)
+        private static Way<Point> GetEnlargedPolygon(Way<Point> old_points, double offset)
         {
-            Way enlarged_points = new Way();
+            Way<Point> enlarged_points = new Way<Point>();
             int num_points = old_points.Count;
             for (int j = 0; j < num_points; j++)
             {
@@ -131,17 +246,17 @@ namespace FSEarthTilesDLL
         }
         // basically uses GetEnlargedPolygon, except changes the first and last points so it forms a line and not a polygon.
         // Code is messy, but it works. TODO: try to refactor and make less messy?
-        private static Way GetEnlargedLine(Way old_points, double offset)
+        private static Way<Point> GetEnlargedLine(Way<Point> old_points, double offset)
         {
-            Way enlarged_points = GetEnlargedPolygon(old_points, offset);
+            Way<Point> enlarged_points = GetEnlargedPolygon(old_points, offset);
             // Move the points by the offset.
             int j = 0;
             int i = old_points.Count - 1;
             int k = 1;
             if (old_points.Count == 2)
             {
-                enlarged_points.Add(new Point());
-                enlarged_points.Add(new Point());
+                enlarged_points.Add(new Point(0.0, 0.0));
+                enlarged_points.Add(new Point(0.0, 0.0));
             }
             Vector v1 = new Vector(
                 old_points[j].X - old_points[i].X,
@@ -282,15 +397,26 @@ namespace FSEarthTilesDLL
         }
         // ------------------------------------------------------------------------------------------------------
 
-        private static Way getShiftedWay(Way way)
+        private static double getWayArea(Way<Point> way)
         {
-            Way shiftedWay = new Way();
+            double area = Math.Abs(way.Take(way.Count - 1).Select((p, i) => (way[i + 1].X - p.X) * (way[i + 1].Y + p.Y)).Sum() / 2);
+
+            return area;
+        }
+        private static bool isClosedWay(Way<Point> way)
+        {
             Point firstCoord = way[0];
             Point lastCoord = way[way.Count - 1];
-            bool closedWay = firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
 
-            Way ps = new Way();
-            Way t = new Way();
+            return firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
+        }
+        private static Way<Point> getShiftedWay(Way<Point> way)
+        {
+            Way<Point> shiftedWay = new Way<Point>();
+            bool closedWay = isClosedWay(way);
+
+            Way<Point> ps = new Way<Point>();
+            Way<Point> t = new Way<Point>();
             int mult = 100000;
             foreach (Point coord in way)
             {
@@ -300,7 +426,7 @@ namespace FSEarthTilesDLL
             {
                 ps.RemoveAt(ps.Count - 1);
             }
-            Way deepWaterPoints = null;
+            Way<Point> deepWaterPoints = null;
             if (!closedWay)
             {
                 deepWaterPoints = GetEnlargedLine(ps, 1);
@@ -321,10 +447,14 @@ namespace FSEarthTilesDLL
 
             return shiftedWay;
         }
+        private static string getLineStringPlacemark(string name, string coordinates)
+        {
+            return null;
+        }
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM)
         {
-            List<Way> waterWays = GetWays(waterOSM);
-            List<Way> coastWays = GetWays(coastOSM);
+            List<Way<Point>> waterWays = GetWays(waterOSM);
+            List<Way<Point>> coastWays = GetWays(coastOSM);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -341,7 +471,7 @@ namespace FSEarthTilesDLL
             kml.Add("<Folder>");
             kml.Add("<name>Test</name>");
             kml.Add("<open>1</open>");
-            foreach (Way way in coastWays)
+            foreach (Way<Point> way in coastWays)
             {
                 // the we take the coast from osm and use that as our DeepWater.
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
@@ -367,7 +497,7 @@ namespace FSEarthTilesDLL
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
                 string coastCoords = "";
-                Way shiftedWay = getShiftedWay(way);
+                Way<Point> shiftedWay = getShiftedWay(way);
                 foreach (Point coord in shiftedWay)
                 {
                     coastCoords += coord.X + "," + coord.Y + ",0 ";
@@ -378,20 +508,30 @@ namespace FSEarthTilesDLL
                 kml.Add("</LineString>");
                 kml.Add("</Placemark>");
             }
-            foreach (Way way in waterWays)
+            foreach (Way<Point> way in waterWays)
             {
+                Way<Point> shiftedWay = getShiftedWay(way);
+                Way<Point> coastWay = shiftedWay;
+                Way<Point> deepWaterWay = way;
                 kml.Add("<Placemark>");
-                kml.Add("<name>WaterPool</name>");
+                if (way.relation == "inner")
+                {
+                    kml.Add("<name>LandPool</name>");
+                }
+                else
+                {
+                    kml.Add("<name>BlendPool</name>");
+                }
                 kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
                 kml.Add("<LineString>");
                 kml.Add("<coordinates>");
-                string coords = "";
-                foreach (Point coord in way)
+                string blendCoords = "";
+                foreach (Point coord in deepWaterWay)
                 {
-                    coords += coord.X + "," + coord.Y + ",0 ";
+                    blendCoords += coord.X + "," + coord.Y + ",0 ";
                 }
-                coords = coords.Remove(coords.Length - 1, 1);
-                kml.Add(coords);
+                blendCoords = blendCoords.Remove(blendCoords.Length - 1, 1);
+                kml.Add(blendCoords);
                 kml.Add("</coordinates>");
                 kml.Add("</LineString>");
                 kml.Add("</Placemark>");
@@ -517,7 +657,7 @@ namespace FSEarthTilesDLL
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
             // we need a padding otherwise there seems to be rounding errors and edge cases when creating coasts
-            double PADDING = 0.5;
+            double PADDING = 0.0;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
