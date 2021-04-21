@@ -499,7 +499,7 @@ namespace FSEarthTilesDLL
         private static void appendLineStringPlacemark(List<string> kml, string name, Way<Point> way)
         {
             kml.Add("<Placemark>");
-            kml.Add("<name>" + name + "DeepWater</name>");
+            kml.Add("<name>" + name + "</name>");
             kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
             kml.Add("<LineString>");
             kml.Add("<coordinates>");
