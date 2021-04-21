@@ -535,27 +535,38 @@ namespace FSEarthTilesDLL
             kml.Add("<Folder>");
             kml.Add("<name>Test</name>");
             kml.Add("<open>1</open>");
+            Way<Point> coastWay = null;
+            Way<Point> deepWaterWay = null;
             foreach (Way<Point> way in coastWays)
             {
                 // the we take the coast from osm and use that as our DeepWater.
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
-                appendLineStringPlacemark(kml, "DeepWater", way);
                 Way<Point> shiftedWay = getShiftedWay(way);
-                appendLineStringPlacemark(kml, "Coast", shiftedWay);
+                double origArea = getWayArea(way);
+                double shiftedArea = getWayArea(shiftedWay);
+                if (shiftedArea > origArea)
+                {
+                    deepWaterWay = shiftedWay;
+                    coastWay = way;
+                }
+                else
+                {
+                    deepWaterWay = way;
+                    coastWay = shiftedWay;
+                }
+                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                appendLineStringPlacemark(kml, "Coast", coastWay);
             }
             foreach (Way<Point> way in waterWays)
             {
                 Way<Point> shiftedWay = getShiftedWay(way);
-                Way<Point> coastWay = shiftedWay;
-                Way<Point> deepWaterWay = way;
                 if (way.relation == "inner")
                 {
                     appendLineStringPlacemark(kml, "LandPool", way);
                 }
-                else
+                else if (way.relation == "outer")
                 {
-                    appendLineStringPlacemark(kml, "DeepWaterTwo", deepWaterWay);
                     shiftedWay = getShiftedWay(way);
                     double origArea = getWayArea(way);
                     double shiftedArea = getWayArea(shiftedWay);
@@ -570,6 +581,16 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                     appendLineStringPlacemark(kml, "CoastTwo", coastWay);
+                    appendLineStringPlacemark(kml, "DeepWaterTwo", deepWaterWay);
+                }
+                else if (way.relation == null)
+                {
+                    appendLineStringPlacemark(kml, "BlendPool", way);
+                }
+                else
+                {
+                    // should never get here. if it does, user's can send me their AreaKML.kml so I can investigate
+                    throw new Exception("Unknown way relation for way!");
                 }
             }
 
@@ -690,7 +711,7 @@ namespace FSEarthTilesDLL
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
-            // we need a padding otherwise there seems to be rounding errors and edge cases when creating coasts
+            // TODO: don't think we need padding. If we don't, remove this padding code
             double PADDING = 0.0;
             d.startLat += PADDING;
             d.endLat -= PADDING;
