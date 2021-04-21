@@ -74,7 +74,6 @@ namespace FSEarthTilesDLL
                     Point coords = nodesToCoords[id];
                     way.Add(coords);
                 }
-                Console.WriteLine(wayID);
                 wayIDsToways.Add(wayID, way);
             }
             List<string> waysInThisMultipolygon = new List<string>();
@@ -88,7 +87,6 @@ namespace FSEarthTilesDLL
                         {
                             string wayID = member.GetAttribute("ref");
                             waysInThisMultipolygon.Add(wayID);
-                            Console.WriteLine(wayID);
                             string role = member.GetAttribute("role");
                             string curRole = null;
                             wayIDsToRelation.TryGetValue(wayID, out curRole);
@@ -183,6 +181,16 @@ namespace FSEarthTilesDLL
                                 wayIDsToways.Remove(waysInThisMultipolygon[j]);
                             }
                         }
+                    }
+                }
+                foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToways)
+                {
+                    string wayID = kv.Key;
+                    Way<Point> way = kv.Value;
+                    way.relation = null;
+                    if (wayIDsToRelation.ContainsKey(wayID))
+                    {
+                        way.relation = wayIDsToRelation[wayID];
                     }
                 }
             }
@@ -513,28 +521,70 @@ namespace FSEarthTilesDLL
                 Way<Point> shiftedWay = getShiftedWay(way);
                 Way<Point> coastWay = shiftedWay;
                 Way<Point> deepWaterWay = way;
-                kml.Add("<Placemark>");
                 if (way.relation == "inner")
                 {
-                    kml.Add("<name>LandPool</name>");
+                    kml.Add("<Placemark>");
+                    kml.Add("<name>BlendPool</name>");
+                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                    kml.Add("<LineString>");
+                    kml.Add("<coordinates>");
+                    string blendCoords = "";
+                    foreach (Point coord in deepWaterWay)
+                    {
+                        blendCoords += coord.X + "," + coord.Y + ",0 ";
+                    }
+                    blendCoords = blendCoords.Remove(blendCoords.Length - 1, 1);
+                    kml.Add(blendCoords);
+                    kml.Add("</coordinates>");
+                    kml.Add("</LineString>");
+                    kml.Add("</Placemark>");
                 }
                 else
                 {
-                    kml.Add("<name>BlendPool</name>");
+                    kml.Add("<Placemark>");
+                    kml.Add("<name>DeepWaterTwo</name>");
+                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                    kml.Add("<LineString>");
+                    kml.Add("<coordinates>");
+                    string deepWaterCoords = "";
+                    shiftedWay = getShiftedWay(way);
+                    double origArea = getWayArea(way);
+                    double shiftedArea = getWayArea(shiftedWay);
+                    if (origArea < shiftedArea)
+                    {
+                        deepWaterWay = way;
+                        coastWay = shiftedWay;
+                    }
+                    else
+                    {
+                        deepWaterWay = shiftedWay;
+                        coastWay = way;
+                    }
+                    foreach (Point coord in deepWaterWay)
+                    {
+                        deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
+                    }
+                    deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
+                    kml.Add(deepWaterCoords);
+                    kml.Add("</coordinates>");
+                    kml.Add("</LineString>");
+                    kml.Add("</Placemark>");
+                    kml.Add("<Placemark>");
+                    kml.Add("<name>CoastTwo</name>");
+                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+                    kml.Add("<LineString>");
+                    kml.Add("<coordinates>");
+                    string coastCoords = "";
+                    foreach (Point coord in coastWay)
+                    {
+                        coastCoords += coord.X + "," + coord.Y + ",0 ";
+                    }
+                    coastCoords = coastCoords.Remove(coastCoords.Length - 1, 1);
+                    kml.Add(coastCoords);
+                    kml.Add("</coordinates>");
+                    kml.Add("</LineString>");
+                    kml.Add("</Placemark>");
                 }
-                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                kml.Add("<LineString>");
-                kml.Add("<coordinates>");
-                string blendCoords = "";
-                foreach (Point coord in deepWaterWay)
-                {
-                    blendCoords += coord.X + "," + coord.Y + ",0 ";
-                }
-                blendCoords = blendCoords.Remove(blendCoords.Length - 1, 1);
-                kml.Add(blendCoords);
-                kml.Add("</coordinates>");
-                kml.Add("</LineString>");
-                kml.Add("</Placemark>");
             }
 
             kml.Add("</Folder>");
@@ -657,7 +707,7 @@ namespace FSEarthTilesDLL
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
             // we need a padding otherwise there seems to be rounding errors and edge cases when creating coasts
-            double PADDING = 0.0;
+            double PADDING = 0.5;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
