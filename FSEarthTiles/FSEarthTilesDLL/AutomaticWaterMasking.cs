@@ -495,6 +495,26 @@ namespace FSEarthTilesDLL
         {
             return null;
         }
+
+        private static void appendLineStringPlacemark(List<string> kml, string name, Way<Point> way)
+        {
+            kml.Add("<Placemark>");
+            kml.Add("<name>" + name + "DeepWater</name>");
+            kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
+            kml.Add("<LineString>");
+            kml.Add("<coordinates>");
+            string deepWaterCoords = "";
+            foreach (Point coord in way)
+            {
+                deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
+            }
+            deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
+            kml.Add(deepWaterCoords);
+            kml.Add("</coordinates>");
+            kml.Add("</LineString>");
+            kml.Add("</Placemark>");
+        }
+
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM)
         {
             List<Way<Point>> waterWays = GetWays(waterOSM);
@@ -520,37 +540,9 @@ namespace FSEarthTilesDLL
                 // the we take the coast from osm and use that as our DeepWater.
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
-                kml.Add("<Placemark>");
-                kml.Add("<name>DeepWater</name>");
-                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                kml.Add("<LineString>");
-                kml.Add("<coordinates>");
-                string deepWaterCoords = "";
-                foreach (Point coord in way)
-                {
-                    deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
-                }
-                deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
-                kml.Add(deepWaterCoords);
-                kml.Add("</coordinates>");
-                kml.Add("</LineString>");
-                kml.Add("</Placemark>");
-                kml.Add("<Placemark>");
-                kml.Add("<name>Coast</name>");
-                kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                kml.Add("<LineString>");
-                kml.Add("<coordinates>");
-                string coastCoords = "";
+                appendLineStringPlacemark(kml, "DeepWater", way);
                 Way<Point> shiftedWay = getShiftedWay(way);
-                foreach (Point coord in shiftedWay)
-                {
-                    coastCoords += coord.X + "," + coord.Y + ",0 ";
-                }
-                coastCoords = coastCoords.Remove(coastCoords.Length - 1, 1);
-                kml.Add(coastCoords);
-                kml.Add("</coordinates>");
-                kml.Add("</LineString>");
-                kml.Add("</Placemark>");
+                appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
             foreach (Way<Point> way in waterWays)
             {
@@ -559,30 +551,11 @@ namespace FSEarthTilesDLL
                 Way<Point> deepWaterWay = way;
                 if (way.relation == "inner")
                 {
-                    kml.Add("<Placemark>");
-                    kml.Add("<name>BlendPool</name>");
-                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                    kml.Add("<LineString>");
-                    kml.Add("<coordinates>");
-                    string blendCoords = "";
-                    foreach (Point coord in deepWaterWay)
-                    {
-                        blendCoords += coord.X + "," + coord.Y + ",0 ";
-                    }
-                    blendCoords = blendCoords.Remove(blendCoords.Length - 1, 1);
-                    kml.Add(blendCoords);
-                    kml.Add("</coordinates>");
-                    kml.Add("</LineString>");
-                    kml.Add("</Placemark>");
+                    appendLineStringPlacemark(kml, "BlendPool", way);
                 }
                 else
                 {
-                    kml.Add("<Placemark>");
-                    kml.Add("<name>DeepWaterTwo</name>");
-                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                    kml.Add("<LineString>");
-                    kml.Add("<coordinates>");
-                    string deepWaterCoords = "";
+                    appendLineStringPlacemark(kml, "DeepWaterTwo", deepWaterWay);
                     shiftedWay = getShiftedWay(way);
                     double origArea = getWayArea(way);
                     double shiftedArea = getWayArea(shiftedWay);
@@ -596,30 +569,7 @@ namespace FSEarthTilesDLL
                         deepWaterWay = shiftedWay;
                         coastWay = way;
                     }
-                    foreach (Point coord in deepWaterWay)
-                    {
-                        deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
-                    }
-                    deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
-                    kml.Add(deepWaterCoords);
-                    kml.Add("</coordinates>");
-                    kml.Add("</LineString>");
-                    kml.Add("</Placemark>");
-                    kml.Add("<Placemark>");
-                    kml.Add("<name>CoastTwo</name>");
-                    kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-                    kml.Add("<LineString>");
-                    kml.Add("<coordinates>");
-                    string coastCoords = "";
-                    foreach (Point coord in coastWay)
-                    {
-                        coastCoords += coord.X + "," + coord.Y + ",0 ";
-                    }
-                    coastCoords = coastCoords.Remove(coastCoords.Length - 1, 1);
-                    kml.Add(coastCoords);
-                    kml.Add("</coordinates>");
-                    kml.Add("</LineString>");
-                    kml.Add("</Placemark>");
+                    appendLineStringPlacemark(kml, "CoastTwo", coastWay);
                 }
             }
 
@@ -648,7 +598,6 @@ namespace FSEarthTilesDLL
             {
                 foreach (string server in overPassServers)
                 {
-
                     using (var wc = new System.Net.WebClient())
                     {
                         try
@@ -666,7 +615,6 @@ namespace FSEarthTilesDLL
                             keepTrying = true;
                             System.Threading.Thread.Sleep(sleepTime);
                         }
-
                     }
                 }
                 if (sleepTime < 32)
