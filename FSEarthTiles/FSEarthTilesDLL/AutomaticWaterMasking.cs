@@ -551,7 +551,7 @@ namespace FSEarthTilesDLL
                 Way<Point> deepWaterWay = way;
                 if (way.relation == "inner")
                 {
-                    appendLineStringPlacemark(kml, "BlendPool", way);
+                    appendLineStringPlacemark(kml, "LandPool", way);
                 }
                 else
                 {
