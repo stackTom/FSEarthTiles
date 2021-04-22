@@ -543,20 +543,8 @@ namespace FSEarthTilesDLL
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
                 Way<Point> shiftedWay = getShiftedWay(way);
-                double origArea = getWayArea(way);
-                double shiftedArea = getWayArea(shiftedWay);
-                if (shiftedArea > origArea)
-                {
-                    deepWaterWay = shiftedWay;
-                    coastWay = way;
-                }
-                else
-                {
-                    deepWaterWay = way;
-                    coastWay = shiftedWay;
-                }
-                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast", coastWay);
+                appendLineStringPlacemark(kml, "DeepWater", way);
+                appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
             foreach (Way<Point> way in waterWays)
             {
@@ -580,8 +568,8 @@ namespace FSEarthTilesDLL
                         deepWaterWay = shiftedWay;
                         coastWay = way;
                     }
-                    appendLineStringPlacemark(kml, "CoastTwo", coastWay);
-                    appendLineStringPlacemark(kml, "DeepWaterTwo", deepWaterWay);
+                    appendLineStringPlacemark(kml, "Coast", coastWay);
+                    appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 }
                 else if (way.relation == null)
                 {
@@ -626,6 +614,7 @@ namespace FSEarthTilesDLL
                             // make sure to kill any zombie queries...
                             wc.DownloadString("http://overpass-api.de/api/kill_my_queries");
 
+                            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM data using server: " + server + ". This might take a while. Please wait...");
                             contents = wc.DownloadString(server + queryParams);
                             keepTrying = false;
                             break;
@@ -741,6 +730,7 @@ namespace FSEarthTilesDLL
                 iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
                 waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
             }
+            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Creating AreaKML.kml file from the OSM data...");
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
         }
