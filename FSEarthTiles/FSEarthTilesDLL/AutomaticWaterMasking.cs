@@ -515,7 +515,7 @@ namespace FSEarthTilesDLL
             kml.Add("</Placemark>");
         }
 
-        public static string createWaterKMLFromOSM(string waterOSM, string coastOSM)
+        public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
             List<Way<Point>> waterWays = GetWays(waterOSM);
             List<Way<Point>> coastWays = GetWays(coastOSM);
@@ -576,7 +576,19 @@ namespace FSEarthTilesDLL
                 }
                 else if (way.relation == null)
                 {
-                    appendLineStringPlacemark(kml, "BlendPool", way);
+                    if (selectedCompiler == "FSX")
+                    {
+                        appendLineStringPlacemark(kml, "BlendPool", way);
+                    }
+                    else if (selectedCompiler == "FS2004")
+                    {
+                        appendLineStringPlacemark(kml, "WaterPool", way);
+                    }
+                    else
+                    {
+                        // should never get here. If we do, user's will mention it
+                        throw new Exception("Compiler " + selectedCompiler + " is not recognized!");
+                    }
                 }
                 else
                 {
@@ -700,7 +712,7 @@ namespace FSEarthTilesDLL
 
             return startLon + stopLon + startLat + stopLat;
         }
-        public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface, string selectedCompiler)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
             // TODO: don't think we need padding. If we don't, remove this padding code
@@ -734,7 +746,7 @@ namespace FSEarthTilesDLL
                 waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Creating AreaKML.kml file from the OSM data...");
-            string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM);
+            string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM, selectedCompiler);
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
         }
         private static bool BMPAllBlack(Bitmap b)

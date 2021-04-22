@@ -2383,7 +2383,7 @@ namespace FSEarthTilesDLL
             {
                 if (EarthConfig.mCreateWaterMaskBitmap)
                 {
-                    AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this);
+                    AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this, EarthConfig.mSelectedSceneryCompiler);
                 }
                 
                     EarthScriptsHandler.DoBeforeResampleing(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
