@@ -570,6 +570,9 @@ namespace FSEarthTilesDLL
                     }
                     appendLineStringPlacemark(kml, "Coast", coastWay);
                     appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                    // prevents blend masking of inland water. I guess I can just use the values in FSEarthMasks.ini, but this is a quick way
+                    // to do that. TODO: remove this and figure out FSEarthMasks.ini
+                    appendLineStringPlacemark(kml, "Water", deepWaterWay);
                 }
                 else if (way.relation == null)
                 {
