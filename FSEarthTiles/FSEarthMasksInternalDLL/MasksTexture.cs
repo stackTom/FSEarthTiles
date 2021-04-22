@@ -2914,7 +2914,7 @@ namespace FSEarthMasksInternalDLL
                     }
                     else
                     {
-                        vWaterRegionType = tWaterRegionType.eTransition;
+                        vWaterRegionType = tWaterRegionType.eLand;
                     }
                 }
 
