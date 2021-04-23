@@ -512,13 +512,13 @@ namespace FSEarthTilesDLL
             kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
             kml.Add("<LineString>");
             kml.Add("<coordinates>");
-            string deepWaterCoords = "";
+            string coords = "";
             foreach (Point coord in way)
             {
-                deepWaterCoords += coord.X + "," + coord.Y + ",0 ";
+                coords += coord.X + "," + coord.Y + ",0 ";
             }
-            deepWaterCoords = deepWaterCoords.Remove(deepWaterCoords.Length - 1, 1);
-            kml.Add(deepWaterCoords);
+            coords = coords.Remove(coords.Length - 1, 1);
+            kml.Add(coords);
             kml.Add("</coordinates>");
             kml.Add("</LineString>");
             kml.Add("</Placemark>");
