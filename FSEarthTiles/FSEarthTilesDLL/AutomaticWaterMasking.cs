@@ -1,4 +1,4 @@
-﻿using FSEarthTilesInternalDLL;
+using FSEarthTilesInternalDLL;
 using FSEarthTilesDLL;
 using System;
 using System.Collections.Generic;
@@ -148,14 +148,20 @@ namespace FSEarthTilesDLL
                         string role = member.GetAttribute("role");
                         string curRole = null;
                         wayIDsToRelation.TryGetValue(wayID, out curRole);
+                        // Bug in OSM data?
+                        if (role == "" || role == " ")
+                        {
+                            continue;
+                        }
                         if (curRole == null)
                         {
                             wayIDsToRelation.Add(wayID, role);
                         }
-                        else if (curRole != role)
+                        else if (curRole != role && role == "inner")
                         {
-                            // should hopefully never get here. if we do, this will help users give me test cases so I can investigate
-                            throw new Exception("A way has more than one role type!");
+                            // set it to inner whether it's previous role was inner or outer. if it's inner, just treat it as land.
+                            // TODO: what about water that is inner in another land... need to fix
+                            wayIDsToRelation[wayID] = role;
                         }
                     }
                 }
@@ -454,6 +460,9 @@ namespace FSEarthTilesDLL
 
             return firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
         }
+
+        // BUG: manhattan is flawed. Need to 1) possibly use Single or higher precision as one of the getshifted ways horribly fails
+        // and 2) deal with the case that a river is also coastline... etc.
         private static Way<Point> getShiftedWay(Way<Point> way)
         {
             Way<Point> shiftedWay = new Way<Point>();
@@ -593,7 +602,7 @@ namespace FSEarthTilesDLL
                 else
                 {
                     // should never get here. if it does, user's can send me their AreaKML.kml so I can investigate
-                    throw new Exception("Unknown way relation for way!");
+                    throw new Exception("Unknown way relation " + way.relation + " for way!");
                 }
             }
 
