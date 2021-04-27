@@ -27,6 +27,7 @@ namespace FSEarthTilesDLL
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
+        public int smallestPointIdx = -1;
         public bool mergeWithWay(Way<T> way)
         {
             Point w1p1 = this[0];
@@ -74,7 +75,92 @@ namespace FSEarthTilesDLL
 
             return false;
         }
+        private int getIndexOfPoint(T point)
+        {
+            int idx = 0;
+            foreach (T p in this)
+            {
+                if (p.X != point.X || p.Y != point.Y)
+                {
+                    return idx;
+                }
+                idx++;
+            }
+
+            return -1;
+        }
+
+        public override bool Equals(object obj)
+        {
+            Way<T> cmp = (Way<T>)obj;
+
+            if (this.Count != cmp.Count)
+            {
+                return false;
+            }
+
+            T firstPoint = cmp[0];
+            int idx = getIndexOfPoint(firstPoint);
+            if (idx == -1)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < this.Count; i++)
+            {
+                int thisIdx = (i + idx) % this.Count;
+                if (cmp[i].X != this[thisIdx].X || cmp[i].Y != this[thisIdx].Y)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public int calculateSmallestPointIdx()
+        {
+            double smallestLat = this[0].Y;
+            double smallestLon = this[0].X;
+            this.smallestPointIdx = 0;
+
+            for (int i = 0; i < this.Count; i++)
+            {
+                Point p = this[i];
+
+                if (p.Y == smallestLat)
+                {
+                    if (p.X < smallestLon)
+                    {
+                        this.smallestPointIdx = i;
+                        smallestLat = p.Y;
+                        smallestLon = p.X;
+                    }
+                }
+                else if (p.Y < smallestLat)
+                {
+                    this.smallestPointIdx = i;
+                    smallestLat = p.Y;
+                    smallestLon = p.X;
+                }
+            }
+
+            return this.smallestPointIdx;
+        }
+        public override int GetHashCode()
+        {
+            string str = "";
+
+            for (int i = 0; i < this.Count; i++)
+            {
+                int idx = (i + this.smallestPointIdx) % this.Count;
+                str += this[idx].X + "" + this[idx].Y;
+            }
+
+            return str.GetHashCode();
+        }
     }
+
     class AreaKMLFromOSMDataCreator
     {
         private static Dictionary<string, Point> getNodeIDsToCoords(XmlDocument d)
@@ -114,7 +200,7 @@ namespace FSEarthTilesDLL
             return wayIDsToWayNodes;
         }
 
-        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords)
+        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords, HashSet<Way<Point>> alreadySeenWays)
         {
             Dictionary<string, Way<Point>> wayIDsToways = new Dictionary<string, Way<Point>>();
 
@@ -188,8 +274,8 @@ namespace FSEarthTilesDLL
                         {
                             continue;
                         }
-                        Way<Point> way1 = wayIDsToWays[waysInThisMultipolygon[i]];
-                        Way<Point> way2 = wayIDsToWays[waysInThisMultipolygon[j]];
+                        Way<Point> way1 = wayIDsToWays[way1id];
+                        Way<Point> way2 = wayIDsToWays[way2id];
                         bool ableToMerge = way1.mergeWithWay(way2);
                         if (ableToMerge)
                         {
@@ -201,14 +287,14 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private static List<Way<Point>> GetWays(string OSMKML)
+        private static List<Way<Point>> GetWays(string OSMKML, HashSet<Way<Point>> alreadySeenWays, bool mergeWays)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
 
             Dictionary<string, List<string>> wayIDsToWayNodes = getWayIDsToWayNodes(d);
             Dictionary<string, Point> nodeIDsToCoords = getNodeIDsToCoords(d);
-            Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords);
+            Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords, alreadySeenWays);
             // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
             Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
 
@@ -221,7 +307,20 @@ namespace FSEarthTilesDLL
                 // for coastal ways. but if we make them a full polygon, then it is easy to determine that the water is inside the polygon
                 // here we compare every way to every other way.
                 List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation);
-                mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
+                if (mergeWays)
+                {
+                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
+                }
+            }
+
+            if (mergeWays)
+            {
+                List<string> allWays = new List<string>(wayIDsToWays.Count);
+                foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
+                {
+                    allWays.Add(kv.Key);
+                }
+                mergeMultipolygonWays(allWays, wayIDsToWays);
             }
 
             // update relations
@@ -526,8 +625,9 @@ namespace FSEarthTilesDLL
 
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
-            List<Way<Point>> waterWays = GetWays(waterOSM);
-            List<Way<Point>> coastWays = GetWays(coastOSM);
+            HashSet<Way<Point>> alreadySeenWays = new HashSet<Way<Point>>();
+            List<Way<Point>> coastWays = GetWays(coastOSM, alreadySeenWays, false);
+            List<Way<Point>> waterWays = GetWays(waterOSM, alreadySeenWays, true);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -577,11 +677,20 @@ namespace FSEarthTilesDLL
                         deepWaterWay = shiftedWay;
                         coastWay = way;
                     }
-                    appendLineStringPlacemark(kml, "Coast", coastWay);
-                    appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                    // prevents blend masking of inland water. I guess I can just use the values in FSEarthMasks.ini, but this is a quick way
-                    // to do that. TODO: remove this and figure out FSEarthMasks.ini
-                    appendLineStringPlacemark(kml, "Water", deepWaterWay);
+
+                    if (selectedCompiler == "FSX")
+                    {
+                        appendLineStringPlacemark(kml, "Blend", deepWaterWay);
+                    }
+                    else if (selectedCompiler == "FS2004")
+                    {
+                        appendLineStringPlacemark(kml, "Water", deepWaterWay);
+                    }
+                    else
+                    {
+                        // should never get here. If we do, user's will mention it
+                        throw new Exception("Compiler " + selectedCompiler + " is not recognized!");
+                    }
                 }
                 else if (way.relation == null)
                 {
