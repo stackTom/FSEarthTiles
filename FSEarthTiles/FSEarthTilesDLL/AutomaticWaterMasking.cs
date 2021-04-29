@@ -23,11 +23,19 @@ namespace FSEarthTilesDLL
             this.X = x;
             this.Y = y;
         }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Point point &&
+                   X == point.X &&
+                   Y == point.Y;
+        }
     }
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
         public int smallestPointIdx = -1;
+        public string misc;
         public bool mergeWithWay(Way<T> way)
         {
             Point w1p1 = this[0];
@@ -93,8 +101,9 @@ namespace FSEarthTilesDLL
         public override bool Equals(object obj)
         {
             Way<T> cmp = (Way<T>)obj;
+            return this.misc == cmp.misc;
 
-            if (this.Count != cmp.Count)
+/*            if (this.Count != cmp.Count)
             {
                 return false;
             }
@@ -116,7 +125,7 @@ namespace FSEarthTilesDLL
             }
 
             return true;
-        }
+*/        }
 
         public int calculateSmallestPointIdx()
         {
@@ -149,15 +158,17 @@ namespace FSEarthTilesDLL
         }
         public override int GetHashCode()
         {
-            string str = "";
+            /*            string str = "";
 
-            for (int i = 0; i < this.Count; i++)
-            {
-                int idx = (i + this.smallestPointIdx) % this.Count;
-                str += this[idx].X + "" + this[idx].Y;
-            }
+                        for (int i = 0; i < this.Count; i++)
+                        {
+                            int idx = (i + this.smallestPointIdx) % this.Count;
+                            str += this[idx].X + "" + this[idx].Y;
+                        }
 
-            return str.GetHashCode();
+                        return str.GetHashCode();
+            */
+            return this.misc.GetHashCode();
         }
     }
 
@@ -209,12 +220,20 @@ namespace FSEarthTilesDLL
                 string wayID = kv.Key;
                 List<string> nodIDs = kv.Value;
                 Way<Point> way = new Way<Point>();
+                way.misc = wayID;
                 foreach (string id in nodIDs)
                 {
                     Point coords = nodeIDsToCoords[id];
                     way.Add(coords);
                 }
-                wayIDsToways.Add(wayID, way);
+                // we've constructed the way, let it calculate this important number used to hash it.
+                way.calculateSmallestPointIdx();
+
+                if (!alreadySeenWays.Contains(way))
+                {
+                    wayIDsToways.Add(wayID, way);
+                    alreadySeenWays.Add(way);
+                }
             }
 
             return wayIDsToways;
@@ -287,7 +306,7 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private static List<Way<Point>> GetWays(string OSMKML, HashSet<Way<Point>> alreadySeenWays, bool mergeWays)
+        private static List<Way<Point>> GetWays(string OSMKML, HashSet<Way<Point>> alreadySeenWays, bool mergeWays, bool removeWaysCuttingWater)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
@@ -329,6 +348,7 @@ namespace FSEarthTilesDLL
                 string wayID = kv.Key;
                 Way<Point> way = kv.Value;
                 way.relation = null;
+                way.misc = wayID;
                 if (wayIDsToRelation.ContainsKey(wayID))
                 {
                     way.relation = wayIDsToRelation[wayID];
@@ -623,11 +643,51 @@ namespace FSEarthTilesDLL
             kml.Add("</Placemark>");
         }
 
+        private static List<Way<Point>> removeWaterWaysIntersectingCoast(List<Way<Point>> waterWays, List<Way<Point>> coastWays)
+        {
+            List<Way<Point>> filteredWays = new List<Way<Point>>(waterWays.Count);
+            Point w1p1;
+            Point w1p2;
+            Point w2p1;
+            Point w2p2;
+
+            foreach (Way<Point> waterWay in waterWays)
+            {
+                // NOTE: we do this for speed's sake. But I think we might need to iterate through each point in the way
+                // if we really want to be safe
+                w1p1 = waterWay[0];
+                w1p2 = waterWay[waterWay.Count - 1];
+                bool firstEquals = false;
+                bool lastEquals = false;
+                foreach (Way<Point> coastWay in coastWays)
+                {
+                    foreach (Point p in coastWay)
+                    {
+                        if (w1p1.Equals(p))
+                        {
+                            firstEquals = true;
+                        }
+                        if (w1p2.Equals(p))
+                        {
+                            lastEquals = true;
+                        }
+                    }
+                }
+                if (!(firstEquals && lastEquals))
+                {
+                    filteredWays.Add(waterWay);
+                }
+            }
+
+            return filteredWays;
+        }
+
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
             HashSet<Way<Point>> alreadySeenWays = new HashSet<Way<Point>>();
-            List<Way<Point>> coastWays = GetWays(coastOSM, alreadySeenWays, false);
-            List<Way<Point>> waterWays = GetWays(waterOSM, alreadySeenWays, true);
+            List<Way<Point>> coastWays = GetWays(coastOSM, alreadySeenWays, false, false);
+            List<Way<Point>> waterWays = GetWays(waterOSM, alreadySeenWays, true, false);
+            //waterWays = removeWaterWaysIntersectingCoast(waterWays, coastWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -658,15 +718,23 @@ namespace FSEarthTilesDLL
             foreach (Way<Point> way in waterWays)
             {
                 Way<Point> shiftedWay = getShiftedWay(way);
+                double origArea = getWayArea(way);
+                double shiftedArea = getWayArea(shiftedWay);
                 if (way.relation == "inner")
                 {
-                    appendLineStringPlacemark(kml, "LandPool", way);
+                    if (origArea < shiftedArea)
+                    {
+                        coastWay = way;
+                        deepWaterWay = shiftedWay;
+                    }
+                    else
+                    {
+                        coastWay = shiftedWay;
+                        deepWaterWay = way;
+                    }
                 }
-                else if (way.relation == "outer")
+                else
                 {
-                    shiftedWay = getShiftedWay(way);
-                    double origArea = getWayArea(way);
-                    double shiftedArea = getWayArea(shiftedWay);
                     if (origArea < shiftedArea)
                     {
                         deepWaterWay = way;
@@ -677,42 +745,9 @@ namespace FSEarthTilesDLL
                         deepWaterWay = shiftedWay;
                         coastWay = way;
                     }
-
-                    if (selectedCompiler == "FSX")
-                    {
-                        appendLineStringPlacemark(kml, "Blend", deepWaterWay);
-                    }
-                    else if (selectedCompiler == "FS2004")
-                    {
-                        appendLineStringPlacemark(kml, "Water", deepWaterWay);
-                    }
-                    else
-                    {
-                        // should never get here. If we do, user's will mention it
-                        throw new Exception("Compiler " + selectedCompiler + " is not recognized!");
-                    }
                 }
-                else if (way.relation == null)
-                {
-                    if (selectedCompiler == "FSX")
-                    {
-                        appendLineStringPlacemark(kml, "BlendPool", way);
-                    }
-                    else if (selectedCompiler == "FS2004")
-                    {
-                        appendLineStringPlacemark(kml, "WaterPool", way);
-                    }
-                    else
-                    {
-                        // should never get here. If we do, user's will mention it
-                        throw new Exception("Compiler " + selectedCompiler + " is not recognized!");
-                    }
-                }
-                else
-                {
-                    // should never get here. if it does, user's can send me their AreaKML.kml so I can investigate
-                    throw new Exception("Unknown way relation " + way.relation + " for way!");
-                }
+                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                appendLineStringPlacemark(kml, "Coast" + way.misc, coastWay);
             }
 
             kml.Add("</Folder>");
@@ -904,3 +939,4 @@ namespace FSEarthTilesDLL
         }
     }
 }
+
