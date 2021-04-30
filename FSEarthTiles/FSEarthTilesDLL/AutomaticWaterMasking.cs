@@ -44,10 +44,6 @@ namespace FSEarthTilesDLL
 
         private bool mergeOpen(Way<T> way)
         {
-            if (this.wayID == "28140853")
-            {
-                //Console.WriteLine("mergeopen before " + this.wayID);
-            }
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
             Point w2p1 = way[0];
@@ -143,10 +139,6 @@ namespace FSEarthTilesDLL
 
         private bool mergeClosed(Way<T> way)
         {
-            if (this.wayID == "28140853")
-            {
-                //Console.WriteLine("mergeclosed before " + this.wayID);
-            }
             Tuple<int, int> idxs = this.getStartEndIndexOfSharedEdge(this, way);
             int startIdx = idxs.Item1;
             int endIdx = idxs.Item2;
@@ -220,7 +212,9 @@ namespace FSEarthTilesDLL
             ways.Add(thirdPart);
             ways.Add(fourthPart);
 
-            while (ways.Count > 0)
+            Console.WriteLine("GONNA LOOOPPPP merging " + this.wayID + " with " + way.wayID);
+            int times = 0;
+            while (ways.Count > 0 && times < 100)
             {
                 Way<T> mergedWay = null;
                 foreach (Way<T> w in ways)
@@ -232,10 +226,6 @@ namespace FSEarthTilesDLL
                     }
                     if (this.mergeOpen(w))
                     {
-                        if (this.wayID == "28140853")
-                        {
-                            //Console.WriteLine("mergeopen after " + this.wayID);
-                        }
                         this.setRelationAfterMerge(w);
                         mergedWay = w;
                         break;
@@ -245,7 +235,9 @@ namespace FSEarthTilesDLL
                 {
                     ways.Remove(mergedWay);
                 }
+                times++;
             }
+            Console.WriteLine("DONE WITH ITTTTT");
 
             return true;
         }
@@ -254,11 +246,6 @@ namespace FSEarthTilesDLL
         {
             if (way.relation == "outer")
             {
-                if (this.wayID == "28607382")
-                {
-                    //Console.WriteLine("ITS RELATION IS NOW " + this.relation);
-                }
-                Console.WriteLine("before relation was " + this.relation + " now it will be " + way.relation);
                 this.relation = way.relation;
             }
         }
@@ -268,20 +255,14 @@ namespace FSEarthTilesDLL
             if (this.mergeOpen(way))
             {
                 this.setRelationAfterMerge(way);
-                if (this.wayID == "28140853")
-                {
-                    //Console.WriteLine("mergeopen after " + this.wayID);
-                }
+
                 return true;
             }
 
             if (this.mergeClosed(way))
             {
                 this.setRelationAfterMerge(way);
-                if (this.wayID == "28140853")
-                {
-                    //Console.WriteLine("mergeclose after " + this.wayID);
-                }
+
                 return true;
             }
 
@@ -467,6 +448,19 @@ namespace FSEarthTilesDLL
                 // for coastal ways. but if we make them a full polygon, then it is easy to determine that the water is inside the polygon
                 // here we compare every way to every other way.
                 List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation);
+                // update relations
+                foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
+                {
+                    string wayID = kv.Key;
+                    Way<Point> way = kv.Value;
+                    way.relation = null;
+                    way.wayID = wayID;
+                    if (wayIDsToRelation.ContainsKey(wayID))
+                    {
+                        way.relation = wayIDsToRelation[wayID];
+                    }
+                }
+
                 if (mergeWays)
                 {
                     mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
@@ -486,19 +480,6 @@ namespace FSEarthTilesDLL
             if (type == WayType.WaterWay)
             {
                 wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays.ToList());
-            }
-
-            // update relations
-            foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
-            {
-                string wayID = kv.Key;
-                Way<Point> way = kv.Value;
-                way.relation = null;
-                way.wayID = wayID;
-                if (wayIDsToRelation.ContainsKey(wayID))
-                {
-                    way.relation = wayIDsToRelation[wayID];
-                }
             }
 
             return wayIDsToWays.Values.ToList();
@@ -893,8 +874,8 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
-                //appendLineStringPlacemark(kml, "DeepWater {" + way.relation + " " + way.wayID, deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast {" + way.relation + "} " + way.wayID, coastWay);
+                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                appendLineStringPlacemark(kml, "Coast", coastWay);
             }
 
             kml.Add("</Folder>");
