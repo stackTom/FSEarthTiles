@@ -44,6 +44,10 @@ namespace FSEarthTilesDLL
 
         private bool mergeOpen(Way<T> way)
         {
+            if (this.wayID == "28140853")
+            {
+                //Console.WriteLine("mergeopen before " + this.wayID);
+            }
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
             Point w2p1 = way[0];
@@ -109,7 +113,27 @@ namespace FSEarthTilesDLL
                             startIdx = i;
                         }
 
-                        endIdx = i;
+                        if (startIdx == 0)
+                        {
+                            // walk back to get endIdx
+                            for (int j = first.Count - 1; j > 0; j--)
+                            {
+                                T cur = first[j];
+                                if (waySet.Contains(cur))
+                                {
+                                    endIdx = j;
+                                }
+                                else
+                                {
+                                    // no more? break
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            endIdx = i;
+                        }
                     }
                 }
             }
@@ -119,6 +143,10 @@ namespace FSEarthTilesDLL
 
         private bool mergeClosed(Way<T> way)
         {
+            if (this.wayID == "28140853")
+            {
+                //Console.WriteLine("mergeclosed before " + this.wayID);
+            }
             Tuple<int, int> idxs = this.getStartEndIndexOfSharedEdge(this, way);
             int startIdx = idxs.Item1;
             int endIdx = idxs.Item2;
@@ -131,9 +159,6 @@ namespace FSEarthTilesDLL
 
             List<T> commonEdge = this.GetRange(startIdx, (endIdx - startIdx + 1));
             HashSet<T> commonEdgeSet = new HashSet<T>(commonEdge);
-
-            Console.WriteLine("MERGING " + way.wayID + " with " + this.wayID);
-            Console.WriteLine("startfirst " + startIdx + " endfirst " + endIdx);
 
             Way<T> firstPart = new Way<T>();
             for (int i = 0; i <= startIdx; i++)
@@ -151,7 +176,7 @@ namespace FSEarthTilesDLL
             idxs = this.getStartEndIndexOfSharedEdge(way, this);
             startIdx = idxs.Item1;
             endIdx = idxs.Item2;
-            Console.WriteLine("startsecond " + startIdx + " endsecond " + endIdx);
+
             // unable to find a common edge
             if (startIdx == endIdx)
             {
@@ -159,15 +184,28 @@ namespace FSEarthTilesDLL
             }
 
             Way<T> thirdPart = new Way<T>();
-            for (int i = 0; i <= startIdx; i++)
+            if (startIdx == 0)
             {
-                thirdPart.Add(way[i]);
+                for (int i = 0; i <= endIdx; i++)
+                {
+                    thirdPart.Add(way[i]);
+                }
+            }
+            else
+            {
+                for (int i = 0; i <= startIdx; i++)
+                {
+                    thirdPart.Add(way[i]);
+                }
             }
             thirdPart.wayID = way.wayID;
             Way<T> fourthPart = new Way<T>();
-            for (int i = endIdx; i < way.Count; i++)
+            if (startIdx != 0)
             {
-                fourthPart.Add(way[i]);
+                for (int i = endIdx; i < way.Count; i++)
+                {
+                    fourthPart.Add(way[i]);
+                }
             }
             fourthPart.wayID = way.wayID + "second";
 
@@ -194,6 +232,11 @@ namespace FSEarthTilesDLL
                     }
                     if (this.mergeOpen(w))
                     {
+                        if (this.wayID == "28140853")
+                        {
+                            //Console.WriteLine("mergeopen after " + this.wayID);
+                        }
+                        this.setRelationAfterMerge(w);
                         mergedWay = w;
                         break;
                     }
@@ -207,14 +250,42 @@ namespace FSEarthTilesDLL
             return true;
         }
 
+        private void setRelationAfterMerge(Way<T> way)
+        {
+            if (way.relation == "outer")
+            {
+                if (this.wayID == "28607382")
+                {
+                    //Console.WriteLine("ITS RELATION IS NOW " + this.relation);
+                }
+                Console.WriteLine("before relation was " + this.relation + " now it will be " + way.relation);
+                this.relation = way.relation;
+            }
+        }
+
         public bool mergeWithWay(Way<T> way)
         {
             if (this.mergeOpen(way))
             {
+                this.setRelationAfterMerge(way);
+                if (this.wayID == "28140853")
+                {
+                    //Console.WriteLine("mergeopen after " + this.wayID);
+                }
                 return true;
             }
 
-            return this.mergeClosed(way);
+            if (this.mergeClosed(way))
+            {
+                this.setRelationAfterMerge(way);
+                if (this.wayID == "28140853")
+                {
+                    //Console.WriteLine("mergeclose after " + this.wayID);
+                }
+                return true;
+            }
+
+            return false;
         }
 
         public bool isClosedWay()
@@ -415,10 +486,6 @@ namespace FSEarthTilesDLL
             if (type == WayType.WaterWay)
             {
                 wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays.ToList());
-                if (mergeWays)
-                {
-                    List<string> w = wayIDsToRelation.Keys.ToList();
-                }
             }
 
             // update relations
@@ -670,16 +737,16 @@ namespace FSEarthTilesDLL
             {
                 ps.RemoveAt(ps.Count - 1);
             }
-            Way<Point> deepWaterPoints = null;
+            Way<Point> shiftedPoints = null;
             if (!closedWay)
             {
-                deepWaterPoints = GetEnlargedLine(ps, 1);
+                shiftedPoints = GetEnlargedLine(ps, 1);
             }
             else
             {
-                deepWaterPoints = GetEnlargedPolygon(ps, 1);
+                shiftedPoints = GetEnlargedPolygon(ps, 1);
             }
-            foreach (Point p in deepWaterPoints)
+            foreach (Point p in shiftedPoints)
             {
                 shiftedWay.Add(new Point(p.X / mult, p.Y / mult));
             }
@@ -826,8 +893,8 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
-                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast " + way.wayID, coastWay);
+                //appendLineStringPlacemark(kml, "DeepWater {" + way.relation + " " + way.wayID, deepWaterWay);
+                appendLineStringPlacemark(kml, "Coast {" + way.relation + "} " + way.wayID, coastWay);
             }
 
             kml.Add("</Folder>");
