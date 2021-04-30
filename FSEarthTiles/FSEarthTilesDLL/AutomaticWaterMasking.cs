@@ -30,6 +30,11 @@ namespace FSEarthTilesDLL
                    X == point.X &&
                    Y == point.Y;
         }
+
+        public override int GetHashCode()
+        {
+            return (this.X.ToString() + "," + this.Y.ToString()).GetHashCode();
+        }
     }
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
@@ -37,7 +42,7 @@ namespace FSEarthTilesDLL
         public int smallestPointIdx = -1;
         public string wayID;
 
-        public bool mergeWithWay(Way<T> way)
+        private bool mergeOpen(Way<T> way)
         {
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
@@ -83,6 +88,141 @@ namespace FSEarthTilesDLL
             }
 
             return false;
+
+        }
+
+        private Tuple<int, int> getStartEndIndexOfSharedEdge(Way<T> first, Way<T> second)
+        {
+            int startIdx = -1;
+            int endIdx = -1;
+            HashSet<T> waySet = new HashSet<T>(second);
+
+            for (int i = 0; i < first.Count; i++)
+            {
+                T p = first[i];
+                if (waySet.Contains(p))
+                {
+                    if (waySet.Contains(p))
+                    {
+                        if (startIdx == -1)
+                        {
+                            startIdx = i;
+                        }
+
+                        endIdx = i;
+                    }
+                }
+            }
+
+            return Tuple.Create(startIdx, endIdx);
+        }
+
+        private bool mergeClosed(Way<T> way)
+        {
+            Tuple<int, int> idxs = this.getStartEndIndexOfSharedEdge(this, way);
+            int startIdx = idxs.Item1;
+            int endIdx = idxs.Item2;
+
+            // unable to find a common edge
+            if (startIdx == endIdx)
+            {
+                return false;
+            }
+
+            List<T> commonEdge = this.GetRange(startIdx, (endIdx - startIdx + 1));
+            HashSet<T> commonEdgeSet = new HashSet<T>(commonEdge);
+
+            Console.WriteLine("MERGING " + way.wayID + " with " + this.wayID);
+            Console.WriteLine("startfirst " + startIdx + " endfirst " + endIdx);
+
+            Way<T> firstPart = new Way<T>();
+            for (int i = 0; i <= startIdx; i++)
+            {
+                firstPart.Add(this[i]);
+            }
+            firstPart.wayID = this.wayID;
+            Way<T> secondPart = new Way<T>();
+            for (int i = endIdx; i < this.Count; i++)
+            {
+                secondPart.Add(this[i]);
+            }
+            secondPart.wayID = this.wayID + "second";
+
+            idxs = this.getStartEndIndexOfSharedEdge(way, this);
+            startIdx = idxs.Item1;
+            endIdx = idxs.Item2;
+            Console.WriteLine("startsecond " + startIdx + " endsecond " + endIdx);
+            // unable to find a common edge
+            if (startIdx == endIdx)
+            {
+                return false;
+            }
+
+            Way<T> thirdPart = new Way<T>();
+            for (int i = 0; i <= startIdx; i++)
+            {
+                thirdPart.Add(way[i]);
+            }
+            thirdPart.wayID = way.wayID;
+            Way<T> fourthPart = new Way<T>();
+            for (int i = endIdx; i < way.Count; i++)
+            {
+                fourthPart.Add(way[i]);
+            }
+            fourthPart.wayID = way.wayID + "second";
+
+            this.Clear();
+            for (int i = 0; i < firstPart.Count; i++)
+            {
+                this.Add(firstPart[i]);
+            }
+
+            HashSet<Way<T>> ways = new HashSet<Way<T>>();
+            ways.Add(secondPart);
+            ways.Add(thirdPart);
+            ways.Add(fourthPart);
+
+            while (ways.Count > 0)
+            {
+                Way<T> mergedWay = null;
+                foreach (Way<T> w in ways)
+                {
+                    if (w.Count < 2)
+                    {
+                        ways.Remove(w);
+                        break;
+                    }
+                    if (this.mergeOpen(w))
+                    {
+                        mergedWay = w;
+                        break;
+                    }
+                }
+                if (mergedWay != null)
+                {
+                    ways.Remove(mergedWay);
+                }
+            }
+
+            return true;
+        }
+
+        public bool mergeWithWay(Way<T> way)
+        {
+            if (this.mergeOpen(way))
+            {
+                return true;
+            }
+
+            return this.mergeClosed(way);
+        }
+
+        public bool isClosedWay()
+        {
+            Point firstCoord = this[0];
+            Point lastCoord = this[this.Count - 1];
+
+            return firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
         }
 
         public override bool Equals(object obj)
@@ -275,6 +415,10 @@ namespace FSEarthTilesDLL
             if (type == WayType.WaterWay)
             {
                 wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays.ToList());
+                if (mergeWays)
+                {
+                    List<string> w = wayIDsToRelation.Keys.ToList();
+                }
             }
 
             // update relations
@@ -507,20 +651,13 @@ namespace FSEarthTilesDLL
 
             return area;
         }
-        private static bool isClosedWay(Way<Point> way)
-        {
-            Point firstCoord = way[0];
-            Point lastCoord = way[way.Count - 1];
-
-            return firstCoord.X == lastCoord.X && firstCoord.Y == lastCoord.Y;
-        }
 
         // BUG: manhattan is flawed. Need to 1) possibly use Single or higher precision as one of the getshifted ways horribly fails
         // and 2) deal with the case that a river is also coastline... etc.
         private static Way<Point> getShiftedWay(Way<Point> way)
         {
             Way<Point> shiftedWay = new Way<Point>();
-            bool closedWay = isClosedWay(way);
+            bool closedWay = way.isClosedWay();
 
             Way<Point> ps = new Way<Point>();
             Way<Point> t = new Way<Point>();
@@ -690,7 +827,7 @@ namespace FSEarthTilesDLL
                     }
                 }
                 appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast", coastWay);
+                appendLineStringPlacemark(kml, "Coast " + way.wayID, coastWay);
             }
 
             kml.Add("</Folder>");
