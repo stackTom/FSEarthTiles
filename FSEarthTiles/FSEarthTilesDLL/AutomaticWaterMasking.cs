@@ -91,153 +91,131 @@ namespace FSEarthTilesDLL
 
         }
 
-        private Tuple<int, int> getStartEndIndexOfSharedEdge(Way<T> first, Way<T> second)
+        class PolygonPartsBuilder
         {
-            int startIdx = -1;
-            int endIdx = -1;
+            public HashSet<Way<T>> parts = new HashSet<Way<T>>();
+            public void appendParts(Way<T> way, HashSet<T> excludedPoints)
+            {
+                int startIdx = 0;
+
+                Way<T> temp = new Way<T>();
+                while (startIdx < way.Count)
+                {
+                    // move along this edge
+                    while (startIdx < way.Count && excludedPoints.Contains(way[startIdx]))
+                    {
+                        startIdx++;
+                    }
+
+                    temp = new Way<T>();
+
+                    if (startIdx > 0)
+                    {
+                        T p = way[startIdx - 1];
+                        temp.Add(p);
+                    }
+
+                    for (int i = startIdx; i < way.Count; i++)
+                    {
+                        T p = way[i];
+                        temp.Add(p);
+                        startIdx++;
+                        // reached another shared edge, or the end
+                        if (excludedPoints.Contains(p) || i == way.Count - 1)
+                        {
+                            temp.wayID = i.ToString();
+                            parts.Add(temp);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        private HashSet<T> getSharedPoints(Way<T> first, Way<T> second)
+        {
             HashSet<T> waySet = new HashSet<T>(second);
+            HashSet<T> sharedPoints = new HashSet<T>();
 
             for (int i = 0; i < first.Count; i++)
             {
                 T p = first[i];
                 if (waySet.Contains(p))
                 {
-                    if (waySet.Contains(p))
-                    {
-                        if (startIdx == -1)
-                        {
-                            startIdx = i;
-                        }
-
-                        if (startIdx == 0)
-                        {
-                            // walk back to get endIdx
-                            for (int j = first.Count - 1; j > 0; j--)
-                            {
-                                T cur = first[j];
-                                if (waySet.Contains(cur))
-                                {
-                                    endIdx = j;
-                                }
-                                else
-                                {
-                                    // no more? break
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            endIdx = i;
-                        }
-                    }
+                    sharedPoints.Add(p);
                 }
             }
 
-            return Tuple.Create(startIdx, endIdx);
+            return sharedPoints;
         }
 
-        private bool mergeClosed(Way<T> way)
+        private bool mergeClosed(Way<T> way, List<Way<T>> newFormedWays)
         {
-            Tuple<int, int> idxs = this.getStartEndIndexOfSharedEdge(this, way);
-            int startIdx = idxs.Item1;
-            int endIdx = idxs.Item2;
-
-            // unable to find a common edge
-            if (startIdx == endIdx)
+            HashSet<T> sharedPoints = this.getSharedPoints(this, way);
+            if (sharedPoints.Count < 2)
             {
                 return false;
             }
+            PolygonPartsBuilder pb = new PolygonPartsBuilder();
+            pb.appendParts(this, sharedPoints);
+            pb.appendParts(way, sharedPoints);
 
-            List<T> commonEdge = this.GetRange(startIdx, (endIdx - startIdx + 1));
-            HashSet<T> commonEdgeSet = new HashSet<T>(commonEdge);
+            HashSet<Way<T>> parts = pb.parts;
 
-            Way<T> firstPart = new Way<T>();
-            for (int i = 0; i <= startIdx; i++)
-            {
-                firstPart.Add(this[i]);
-            }
-            firstPart.wayID = this.wayID;
-            Way<T> secondPart = new Way<T>();
-            for (int i = endIdx; i < this.Count; i++)
-            {
-                secondPart.Add(this[i]);
-            }
-            secondPart.wayID = this.wayID + "second";
-
-            idxs = this.getStartEndIndexOfSharedEdge(way, this);
-            startIdx = idxs.Item1;
-            endIdx = idxs.Item2;
-
-            // unable to find a common edge
-            if (startIdx == endIdx)
-            {
-                return false;
-            }
-
-            Way<T> thirdPart = new Way<T>();
-            if (startIdx == 0)
-            {
-                for (int i = 0; i <= endIdx; i++)
-                {
-                    thirdPart.Add(way[i]);
-                }
-            }
-            else
-            {
-                for (int i = 0; i <= startIdx; i++)
-                {
-                    thirdPart.Add(way[i]);
-                }
-            }
-            thirdPart.wayID = way.wayID;
-            Way<T> fourthPart = new Way<T>();
-            if (startIdx != 0)
-            {
-                for (int i = endIdx; i < way.Count; i++)
-                {
-                    fourthPart.Add(way[i]);
-                }
-            }
-            fourthPart.wayID = way.wayID + "second";
-
+            // clear this way and set it to the first part in parts
             this.Clear();
-            for (int i = 0; i < firstPart.Count; i++)
+            foreach (T w in parts.First())
             {
-                this.Add(firstPart[i]);
+                this.Add(w);
             }
+            parts.Remove(parts.First());
 
-            HashSet<Way<T>> ways = new HashSet<Way<T>>();
-            ways.Add(secondPart);
-            ways.Add(thirdPart);
-            ways.Add(fourthPart);
-
-            Console.WriteLine("GONNA LOOOPPPP merging " + this.wayID + " with " + way.wayID);
+            // now merge this way with all the parts in parts
             int times = 0;
-            while (ways.Count > 0 && times < 100)
+            int doIt = 4;
+            Way<T> toMerge = this;
+            while (parts.Count > 0 && times < 1000)
             {
-                Way<T> mergedWay = null;
-                foreach (Way<T> w in ways)
-                {
-                    if (w.Count < 2)
-                    {
-                        ways.Remove(w);
-                        break;
-                    }
-                    if (this.mergeOpen(w))
-                    {
-                        this.setRelationAfterMerge(w);
-                        mergedWay = w;
-                        break;
-                    }
-                }
-                if (mergedWay != null)
-                {
-                    ways.Remove(mergedWay);
-                }
                 times++;
+
+                /*                this.Clear();
+                                List<Way<T>> temp = parts.ToList();
+                                Way<T> why = temp[doIt];
+                                foreach (T p in why)
+                                {
+                                    this.Add(p);
+                                }
+                                break;
+                */
+                bool foundCycle = true;
+                foreach (Way<T> w in parts)
+                {
+                    if (toMerge.mergeOpen(w))
+                    {
+                        parts.Remove(w);
+                        foundCycle = false;
+                        break;
+                    }
+                }
+                if (foundCycle)
+                {
+                    // if get here, found a cycle.
+                    if (toMerge != this)
+                    {
+                        newFormedWays.Add(toMerge);
+                    }
+                    toMerge = new Way<T>();
+                    toMerge.wayID = parts.First().wayID + "break_cycle";
+                    foreach (T w in parts.First())
+                    {
+                        toMerge.Add(w);
+                    }
+                    parts.Remove(parts.First());
+                }
             }
-            Console.WriteLine("DONE WITH ITTTTT");
+            if (toMerge != this)
+            {
+                newFormedWays.Add(toMerge);
+            }
 
             return true;
         }
@@ -250,23 +228,22 @@ namespace FSEarthTilesDLL
             }
         }
 
-        public bool mergeWithWay(Way<T> way)
+        public bool mergeWithWay(Way<T> way, List<Way<T>> newFormedWays)
         {
+            bool successfulMerge = false;
             if (this.mergeOpen(way))
             {
                 this.setRelationAfterMerge(way);
-
                 return true;
             }
-
-            if (this.mergeClosed(way))
+            if (this.mergeClosed(way, newFormedWays))
             {
                 this.setRelationAfterMerge(way);
-
                 return true;
             }
 
-            return false;
+
+            return successfulMerge;
         }
 
         public bool isClosedWay()
@@ -417,10 +394,24 @@ namespace FSEarthTilesDLL
                         }
                         Way<Point> way1 = wayIDsToWays[way1id];
                         Way<Point> way2 = wayIDsToWays[way2id];
-                        bool ableToMerge = way1.mergeWithWay(way2);
+                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
+                        bool ableToMerge = way1.mergeWithWay(way2, newFormedWays);
                         if (ableToMerge)
                         {
+                            if (newFormedWays.Count > 0)
+                            {
+                                // cycles detected. that means this way becomes a cycle, and becomes an inner
+                                // possible BUG: does it always become an inner?
+                                way1.relation = "inner";
+                            }
                             wayIDsToWays[waysInThisMultipolygon[i]] = way1;
+                            foreach (Way<Point> w in newFormedWays)
+                            {
+                                // there was a cycle, so the parts formed after the cycle become an outer
+                                // possible BUG: does it always become an outer?
+                                w.relation = "outer";
+                                wayIDsToWays.Add(w.wayID, w);
+                            }
                             wayIDsToWays.Remove(waysInThisMultipolygon[j]);
                         }
                     }
@@ -874,7 +865,7 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
-                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                appendLineStringPlacemark(kml, "DeepWater { " + way.relation + " } " + way.wayID, deepWaterWay);
                 appendLineStringPlacemark(kml, "Coast", coastWay);
             }
 
