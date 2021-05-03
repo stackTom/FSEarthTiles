@@ -392,7 +392,7 @@ namespace FSEarthTilesDLL
             PointToPoint,
             EdgeToEdge
         }
-        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays, bool onlyRivers, MergeType mergeType)
+        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays)
         {
             for (int i = 0; i < waysInThisMultipolygon.Count; i++)
             {
@@ -410,101 +410,75 @@ namespace FSEarthTilesDLL
                         }
                         Way<Point> way1 = wayIDsToWays[way1id];
                         Way<Point> way2 = wayIDsToWays[way2id];
-                        if (onlyRivers && (way1.type != "river" || way2.type != "river"))
-                        {
-                            continue;
-                        }
+
                         List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = false;
-                        if (mergeType == MergeType.PointToPoint)
-                        {
-                            ableToMerge = way1.mergePointToPoint(way2);
-                        }
-                        else if (mergeType == MergeType.EdgeToEdge)
-                        {
-                            ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
-                        }
-                        else
-                        {
-                            throw new Exception("Unknown MergeType");
-                        }
+                        bool ableToMerge = way1.mergePointToPoint(way2);
                         if (ableToMerge)
                         {
-                            if (newFormedWays.Count > 0)
-                            {
-                                // cycles detected. that means this way becomes a cycle, and becomes an inner
-                                // possible BUG: does it always become an inner?
-                                way1.relation = "inner";
-                            }
-                            wayIDsToWays[waysInThisMultipolygon[i]] = way1;
-                            foreach (Way<Point> w in newFormedWays)
-                            {
-                                // there was a cycle, so the parts formed after the cycle become an outer
-                                // possible BUG: does it always become an outer?
-                                w.relation = "outer";
-                                wayIDsToWays.Add(w.wayID, w);
-                            }
-                            wayIDsToWays.Remove(waysInThisMultipolygon[j]);
-                        }
-                    }
-                }
-            }
-            List<Way<Point>> all = wayIDsToWays.Values.ToList();
-            for (int i = 0; i < all.Count; i++)
-            {
-                for (int j = 0; j < all.Count; j++)
-                {
-                    // i != j makes sure not comparing to the same way
-                    if (i != j)
-                    {
-                        string way1id = all[i].wayID;
-                        string way2id = all[j].wayID;
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id))
-                        {
-                            continue;
-                        }
-                        Way<Point> way1 = wayIDsToWays[way1id];
-                        Way<Point> way2 = wayIDsToWays[way2id];
-                        if (false && onlyRivers && (way1.type != "river" && way2.type != "river"))
-                        {
-                            continue;
-                        }
-                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = false;
-                        if (mergeType == MergeType.PointToPoint)
-                        {
-                            ableToMerge = way1.mergePointToPoint(way2);
-                        }
-                        else if (mergeType == MergeType.EdgeToEdge)
-                        {
-                            ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
-                        }
-                        else
-                        {
-                            throw new Exception("Unknown MergeType");
-                        }
-                        if (ableToMerge)
-                        {
-                            if (newFormedWays.Count > 0)
-                            {
-                                // cycles detected. that means this way becomes a cycle, and becomes an inner
-                                // possible BUG: does it always become an inner?
-                                way1.relation = "inner";
-                            }
                             wayIDsToWays[way1id] = way1;
-                            foreach (Way<Point> w in newFormedWays)
-                            {
-                                // there was a cycle, so the parts formed after the cycle become an outer
-                                // possible BUG: does it always become an outer?
-                                w.relation = "outer";
-                                wayIDsToWays.Add(w.wayID, w);
-                            }
                             wayIDsToWays.Remove(way2id);
                         }
                     }
                 }
             }
+        }
+
+        private static void mergeRivers(Dictionary<string, Way<Point>> wayIDsToWays)
+        {
+            bool mergeFound = false;
+
+            do
+            {
+                List<Way<Point>> allWays = wayIDsToWays.Values.ToList();
+                mergeFound = false;
+                for (int i = 0; i < allWays.Count && !mergeFound; i++)
+                {
+                    for (int j = 0; j < allWays.Count; j++)
+                    {
+                        // i != j makes sure not comparing to the same way
+                        if (i != j)
+                        {
+                            string way1id = allWays[i].wayID;
+                            string way2id = allWays[j].wayID;
+                            // make sure the way hasn't been removed due to being combined previously...
+                            if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id))
+                            {
+                                continue;
+                            }
+                            Way<Point> way1 = wayIDsToWays[way1id];
+                            Way<Point> way2 = wayIDsToWays[way2id];
+                            if (way1.type != "river" && way2.type != "river")
+                            {
+                                continue;
+                            }
+                            List<Way<Point>> newFormedWays = new List<Way<Point>>();
+                            bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
+
+                            if (ableToMerge)
+                            {
+                                if (newFormedWays.Count > 0)
+                                {
+                                    // cycles detected. that means this way becomes a cycle, and becomes an inner
+                                    // possible BUG: does it always become an inner?
+                                    way1.relation = "inner";
+                                    wayIDsToWays[way1id] = way1;
+                                    foreach (Way<Point> w in newFormedWays)
+                                    {
+                                        // there was a cycle, so the parts formed after the cycle become an outer
+                                        // possible BUG: does it always become an outer?
+                                        w.relation = "outer";
+                                        wayIDsToWays.Add(w.wayID, w);
+                                    }
+                                }
+                                wayIDsToWays.Remove(way2id);
+                                // if even one merge happened, gotta restart so we make sure we merge all the river pieces
+                                mergeFound = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } while (mergeFound);
         }
 
         private static List<Way<Point>> GetWays(string OSMKML, HashSet<Way<Point>> alreadySeenWays, bool mergeWays, WayType type)
@@ -544,18 +518,13 @@ namespace FSEarthTilesDLL
 
                 if (mergeWays)
                 {
-                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays, false, MergeType.PointToPoint);
+                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
                 }
             }
 
             if (mergeWays)
             {
-                List<string> allWays = new List<string>(wayIDsToWays.Count);
-                foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
-                {
-                    allWays.Add(kv.Key);
-                }
-                mergeMultipolygonWays(allWays, wayIDsToWays, true, MergeType.EdgeToEdge);
+                mergeRivers(wayIDsToWays);
             }
 
             if (type == WayType.WaterWay)
