@@ -39,10 +39,10 @@ namespace FSEarthTilesDLL
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
-        public int smallestPointIdx = -1;
+        public string type;
         public string wayID;
 
-        private bool mergeOpen(Way<T> way)
+        public bool mergePointToPoint(Way<T> way)
         {
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
@@ -148,11 +148,18 @@ namespace FSEarthTilesDLL
             return sharedPoints;
         }
 
-        private bool mergeClosed(Way<T> way, List<Way<T>> newFormedWays)
+        public bool mergeEdgeToEdge(Way<T> way, List<Way<T>> newFormedWays)
         {
             HashSet<T> sharedPoints = this.getSharedPoints(this, way);
+            if (sharedPoints.Count == this.Count || sharedPoints.Count == way.Count)
+            {
+                // duplicate way.
+                // TODO: delete it before we get here
+                return false;
+            }
             if (sharedPoints.Count < 2)
             {
+                // only 1 shared point. need to use other merge method (merge point to point), not this one...
                 return false;
             }
             PolygonPartsBuilder pb = new PolygonPartsBuilder();
@@ -160,6 +167,12 @@ namespace FSEarthTilesDLL
             pb.appendParts(way, sharedPoints);
 
             HashSet<Way<T>> parts = pb.parts;
+            if (pb.parts.Count == 0)
+            {
+                // unable to find parts. happens sometimes, not sure when.
+                // TODO: find out when, this is a source of a possible BUG
+                return false;
+            }
 
             // clear this way and set it to the first part in parts
             this.Clear();
@@ -170,26 +183,14 @@ namespace FSEarthTilesDLL
             parts.Remove(parts.First());
 
             // now merge this way with all the parts in parts
-            int times = 0;
-            int doIt = 4;
             Way<T> toMerge = this;
-            while (parts.Count > 0 && times < 1000)
+            while (parts.Count > 0)
             {
-                times++;
 
-                /*                this.Clear();
-                                List<Way<T>> temp = parts.ToList();
-                                Way<T> why = temp[doIt];
-                                foreach (T p in why)
-                                {
-                                    this.Add(p);
-                                }
-                                break;
-                */
                 bool foundCycle = true;
                 foreach (Way<T> w in parts)
                 {
-                    if (toMerge.mergeOpen(w))
+                    if (toMerge.mergePointToPoint(w))
                     {
                         parts.Remove(w);
                         foundCycle = false;
@@ -231,12 +232,12 @@ namespace FSEarthTilesDLL
         public bool mergeWithWay(Way<T> way, List<Way<T>> newFormedWays)
         {
             bool successfulMerge = false;
-            if (this.mergeOpen(way))
+            if (this.mergePointToPoint(way))
             {
                 this.setRelationAfterMerge(way);
                 return true;
             }
-            if (this.mergeClosed(way, newFormedWays))
+            if (this.mergeEdgeToEdge(way, newFormedWays))
             {
                 this.setRelationAfterMerge(way);
                 return true;
@@ -337,9 +338,17 @@ namespace FSEarthTilesDLL
 
             return wayIDsToways;
         }
-        private static List<string> getWaysInThisMultipolygonAndUpdateRelations(XmlElement rel, Dictionary<string, string> wayIDsToRelation)
+        private static List<string> getWaysInThisMultipolygonAndUpdateRelations(XmlElement rel, Dictionary<string, string> wayIDsToRelation, Dictionary<string, string> wayIDsToType)
         {
             List<string> waysInThisMultipolygon = new List<string>();
+            string type = null;
+            foreach (XmlElement tag in rel.GetElementsByTagName("tag"))
+            {
+                if (tag.GetAttribute("k") == "water")
+                {
+                    type = tag.GetAttribute("v");
+                }
+            }
 
             foreach (XmlElement tag in rel.GetElementsByTagName("tag"))
             {
@@ -352,6 +361,7 @@ namespace FSEarthTilesDLL
                         string role = member.GetAttribute("role");
                         string curRole = null;
                         wayIDsToRelation.TryGetValue(wayID, out curRole);
+                        wayIDsToType[wayID] = type;
                         // Bug in OSM data?
                         if (role == "" || role == " ")
                         {
@@ -376,7 +386,13 @@ namespace FSEarthTilesDLL
 
         // NOTE: this function modifies WayIDsToWays by removing all individual multipolygon segments that are able to be combined
         // with another segment
-        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays)
+        // TODO: rename and refactor this
+        enum MergeType
+        {
+            PointToPoint,
+            EdgeToEdge
+        }
+        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays, bool onlyRivers, MergeType mergeType)
         {
             for (int i = 0; i < waysInThisMultipolygon.Count; i++)
             {
@@ -394,8 +410,24 @@ namespace FSEarthTilesDLL
                         }
                         Way<Point> way1 = wayIDsToWays[way1id];
                         Way<Point> way2 = wayIDsToWays[way2id];
+                        if (onlyRivers && (way1.type != "river" || way2.type != "river"))
+                        {
+                            continue;
+                        }
                         List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = way1.mergeWithWay(way2, newFormedWays);
+                        bool ableToMerge = false;
+                        if (mergeType == MergeType.PointToPoint)
+                        {
+                            ableToMerge = way1.mergePointToPoint(way2);
+                        }
+                        else if (mergeType == MergeType.EdgeToEdge)
+                        {
+                            ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
+                        }
+                        else
+                        {
+                            throw new Exception("Unknown MergeType");
+                        }
                         if (ableToMerge)
                         {
                             if (newFormedWays.Count > 0)
@@ -429,6 +461,7 @@ namespace FSEarthTilesDLL
             Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords, alreadySeenWays);
             // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
             Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
+            Dictionary<string, string> wayIDsToType = new Dictionary<string, string>();
 
             XmlNodeList relationTags = d.GetElementsByTagName("relation");
             foreach (XmlElement rel in relationTags)
@@ -438,7 +471,7 @@ namespace FSEarthTilesDLL
                 // it is hard to determine direction the water is in relative to the way because I believe OSM only requires direction
                 // for coastal ways. but if we make them a full polygon, then it is easy to determine that the water is inside the polygon
                 // here we compare every way to every other way.
-                List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation);
+                List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation, wayIDsToType);
                 // update relations
                 foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
                 {
@@ -449,12 +482,13 @@ namespace FSEarthTilesDLL
                     if (wayIDsToRelation.ContainsKey(wayID))
                     {
                         way.relation = wayIDsToRelation[wayID];
+                        way.type = wayIDsToType[wayID];
                     }
                 }
 
                 if (mergeWays)
                 {
-                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
+                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays, false, MergeType.PointToPoint);
                 }
             }
 
@@ -465,7 +499,7 @@ namespace FSEarthTilesDLL
                 {
                     allWays.Add(kv.Key);
                 }
-                mergeMultipolygonWays(allWays, wayIDsToWays);
+                mergeMultipolygonWays(allWays, wayIDsToWays, true, MergeType.EdgeToEdge);
             }
 
             if (type == WayType.WaterWay)
