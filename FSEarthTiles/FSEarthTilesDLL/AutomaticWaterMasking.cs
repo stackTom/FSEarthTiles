@@ -447,7 +447,7 @@ namespace FSEarthTilesDLL
                             }
                             Way<Point> way1 = wayIDsToWays[way1id];
                             Way<Point> way2 = wayIDsToWays[way2id];
-                            if (way1.type != "river" && way2.type != "river")
+                            if (way1.type != "river" || way2.type != "river")
                             {
                                 continue;
                             }
