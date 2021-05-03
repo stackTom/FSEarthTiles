@@ -855,7 +855,7 @@ namespace FSEarthTilesDLL
             kml.Add("</PolyStyle>");
             kml.Add("</Style>");
             kml.Add("<Folder>");
-            kml.Add("<name>Test</name>");
+            kml.Add("<name>Water Masking</name>");
             kml.Add("<open>1</open>");
             Way<Point> coastWay = null;
             Way<Point> deepWaterWay = null;
@@ -899,7 +899,7 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
-                appendLineStringPlacemark(kml, "DeepWater { " + way.relation + " } " + way.wayID, deepWaterWay);
+                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 appendLineStringPlacemark(kml, "Coast", coastWay);
             }
 
@@ -1051,7 +1051,7 @@ namespace FSEarthTilesDLL
                 iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
                 waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
             }
-            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Creating AreaKML.kml file from the OSM data...");
+            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Creating AreaKML.kml file from the OSM data. This might take a while, please wait...");
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM, selectedCompiler);
             File.WriteAllText(EarthConfig.mWorkFolder + "\\AreaKML.kml", kml);
         }

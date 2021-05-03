@@ -2381,7 +2381,7 @@ namespace FSEarthTilesDLL
         {
             if (!mStopProcess)
             {
-                if (EarthConfig.mCreateWaterMaskBitmap)
+                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
                 {
                     AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this, EarthConfig.mSelectedSceneryCompiler);
                 }
