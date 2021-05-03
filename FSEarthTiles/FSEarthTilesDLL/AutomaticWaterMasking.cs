@@ -431,7 +431,7 @@ namespace FSEarthTilesDLL
             {
                 List<Way<Point>> allWays = wayIDsToWays.Values.ToList();
                 mergeFound = false;
-                for (int i = 0; i < allWays.Count && !mergeFound; i++)
+                for (int i = 0; i < allWays.Count; i++)
                 {
                     for (int j = 0; j < allWays.Count; j++)
                     {
@@ -743,15 +743,6 @@ namespace FSEarthTilesDLL
         }
         // ------------------------------------------------------------------------------------------------------
 
-        private static double getWayArea(Way<Point> way)
-        {
-            double area = Math.Abs(way.Take(way.Count - 1).Select((p, i) => (way[i + 1].X - p.X) * (way[i + 1].Y + p.Y)).Sum() / 2);
-
-            return area;
-        }
-
-        // BUG: manhattan is flawed. Need to 1) possibly use Single or higher precision as one of the getshifted ways horribly fails
-        // and 2) deal with the case that a river is also coastline... etc.
         private static Way<Point> getShiftedWay(Way<Point> way)
         {
             Way<Point> shiftedWay = new Way<Point>();
@@ -861,6 +852,55 @@ namespace FSEarthTilesDLL
             return filteredWays;
         }
 
+        // C# port of Android Maps Utils
+        // thanks to: https://stackoverflow.com/questions/47838187/polygon-area-calculation-using-latitude-and-longitude
+        private static class SphericalUtil
+        {
+            const double EARTH_RADIUS = 6371009;
+
+            static double ToRadians(double input)
+            {
+                return input / 180.0 * Math.PI;
+            }
+
+            public static double ComputeSignedArea(Way<Point> path)
+            {
+                return ComputeSignedArea(path, EARTH_RADIUS);
+            }
+
+            public static double ComputeUnsignedArea(Way<Point> path)
+            {
+                return Math.Abs(ComputeSignedArea(path));
+            }
+
+            static double ComputeSignedArea(Way<Point> path, double radius)
+            {
+                int size = path.Count;
+                if (size < 3) { return 0; }
+                double total = 0;
+                var prev = path[size - 1];
+                double prevTanLat = Math.Tan((Math.PI / 2 - ToRadians(prev.Y)) / 2);
+                double prevLng = ToRadians(prev.X);
+
+                foreach (var point in path)
+                {
+                    double tanLat = Math.Tan((Math.PI / 2 - ToRadians(point.Y)) / 2);
+                    double lng = ToRadians(point.X);
+                    total += PolarTriangleArea(tanLat, lng, prevTanLat, prevLng);
+                    prevTanLat = tanLat;
+                    prevLng = lng;
+                }
+                return total * (radius * radius);
+            }
+
+            static double PolarTriangleArea(double tan1, double lng1, double tan2, double lng2)
+            {
+                double deltaLng = lng1 - lng2;
+                double t = tan1 * tan2;
+                return 2 * Math.Atan2(t * Math.Sin(deltaLng), 1 + t * Math.Cos(deltaLng));
+            }
+        }
+
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
             HashSet<Way<Point>> alreadySeenWays = new HashSet<Way<Point>>();
@@ -896,8 +936,9 @@ namespace FSEarthTilesDLL
             foreach (Way<Point> way in waterWays)
             {
                 Way<Point> shiftedWay = getShiftedWay(way);
-                double origArea = getWayArea(way);
-                double shiftedArea = getWayArea(shiftedWay);
+                double origArea = SphericalUtil.ComputeUnsignedArea(way);
+                double shiftedArea = SphericalUtil.ComputeUnsignedArea(shiftedWay);
+
                 if (way.relation == "inner")
                 {
                     if (origArea < shiftedArea)
@@ -924,6 +965,7 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
+
                 appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 appendLineStringPlacemark(kml, "Coast", coastWay);
             }
