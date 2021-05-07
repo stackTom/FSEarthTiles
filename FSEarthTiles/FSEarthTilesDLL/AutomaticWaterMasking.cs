@@ -426,6 +426,7 @@ namespace FSEarthTilesDLL
         private static void mergeRivers(Dictionary<string, Way<Point>> wayIDsToWays)
         {
             bool mergeFound = false;
+            int numNew = 0;
 
             do
             {
@@ -447,7 +448,7 @@ namespace FSEarthTilesDLL
                             }
                             Way<Point> way1 = wayIDsToWays[way1id];
                             Way<Point> way2 = wayIDsToWays[way2id];
-                            if (way1.type != "river" || way2.type != "river")
+                            if (way1.type != "river" && way2.type != "river")
                             {
                                 continue;
                             }
@@ -458,21 +459,47 @@ namespace FSEarthTilesDLL
                             {
                                 if (newFormedWays.Count > 0)
                                 {
-                                    // cycles detected. that means this way becomes a cycle, and becomes an inner
-                                    // possible BUG: does it always become an inner?
-                                    way1.relation = "inner";
                                     wayIDsToWays[way1id] = way1;
+                                    newFormedWays.Add(way1);
+                                    newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
+                                    {
+                                        double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
+                                        double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
+
+                                        if (w2Area > w1Area)
+                                        {
+                                            return 1;
+                                        }
+                                        else if (w1Area > w2Area)
+                                        {
+                                            return -1;
+                                        }
+
+                                        // they are equal
+                                        return 0;
+                                    });
+
+                                    // biggest one becomes outer
+                                    newFormedWays[0].relation = "outer";
+                                    for (int k = 1; k < newFormedWays.Count; k++)
+                                    {
+                                        // all other ones become inner
+                                        // Possible BUG: this is simplistic. come up with better logic
+                                        Way<Point> w = newFormedWays[k];
+                                        w.relation = "inner";
+                                    }
                                     foreach (Way<Point> w in newFormedWays)
                                     {
-                                        // there was a cycle, so the parts formed after the cycle become an outer
-                                        // possible BUG: does it always become an outer?
-                                        w.relation = "outer";
-                                        wayIDsToWays.Add(w.wayID, w);
+                                        if (w != way1)
+                                        {
+                                            wayIDsToWays.Add(w.wayID + numNew, w);
+                                        }
                                     }
                                 }
                                 wayIDsToWays.Remove(way2id);
                                 // if even one merge happened, gotta restart so we make sure we merge all the river pieces
                                 mergeFound = true;
+                                numNew++;
                                 break;
                             }
                         }
