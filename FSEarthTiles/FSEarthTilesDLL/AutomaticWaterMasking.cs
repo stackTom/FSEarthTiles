@@ -94,7 +94,51 @@ namespace FSEarthTilesDLL
         class PolygonPartsBuilder
         {
             public HashSet<Way<T>> parts = new HashSet<Way<T>>();
-            public void appendParts(Way<T> way, HashSet<T> excludedPoints)
+
+            private bool pointOnLine(Point toCheck, Point lineP1, Point lineP2)
+            {
+                Point minP = lineP1.X < lineP2.X ? lineP1 : lineP2;
+                Point maxP = minP == lineP1 ? lineP2 : lineP1;
+                double dy = maxP.Y - minP.Y;
+                double dx = maxP.X - minP.X;
+                double lineSlope = dy / dx;
+                // here, toCheck is to the right X wise from minP
+                dy = toCheck.Y - minP.Y;
+                dx = toCheck.X - minP.X;
+                double toCheckSlope = dy / dx;
+
+                const double EPSILON = 0.001;
+                if (toCheck.X < minP.X || Math.Abs(lineSlope - toCheckSlope) > EPSILON)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            private bool pointOnSharedEdge(Way<T> way, int idx, List<T> excludedPointsList, HashSet<T> excludedPoints)
+            {
+                if (excludedPoints.Contains(way[idx]))
+                {
+                    return true;
+                }
+
+                for (int i = 0; i < excludedPointsList.Count - 1; i++)
+                {
+                    Point p1 = excludedPointsList[i];
+                    Point p2 = excludedPointsList[i + 1];
+                    Point p3 = way[idx];
+
+                    if (pointOnLine(p3, p1, p2))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            public void appendParts(Way<T> way, List<T> excludedPointsList, HashSet<T> excludedPoints)
             {
                 int startIdx = 0;
 
@@ -102,7 +146,7 @@ namespace FSEarthTilesDLL
                 while (startIdx < way.Count)
                 {
                     // move along this edge
-                    while (startIdx < way.Count && excludedPoints.Contains(way[startIdx]))
+                    while (startIdx < way.Count && pointOnSharedEdge(way, startIdx, excludedPointsList, excludedPoints))
                     {
                         startIdx++;
                     }
@@ -131,10 +175,10 @@ namespace FSEarthTilesDLL
                 }
             }
         }
-        private HashSet<T> getSharedPoints(Way<T> first, Way<T> second)
+        private List<T> getSharedPoints(Way<T> first, Way<T> second)
         {
             HashSet<T> waySet = new HashSet<T>(second);
-            HashSet<T> sharedPoints = new HashSet<T>();
+            List<T> sharedPoints = new List<T>();
 
             for (int i = 0; i < first.Count; i++)
             {
@@ -150,7 +194,8 @@ namespace FSEarthTilesDLL
 
         public bool mergeEdgeToEdge(Way<T> way, List<Way<T>> newFormedWays)
         {
-            HashSet<T> sharedPoints = this.getSharedPoints(this, way);
+            List<T> sharedPointsList = this.getSharedPoints(this, way);
+            HashSet<T> sharedPoints = new HashSet<T>(sharedPointsList);
             if (sharedPoints.Count == this.Count || sharedPoints.Count == way.Count)
             {
                 // duplicate way.
@@ -163,8 +208,8 @@ namespace FSEarthTilesDLL
                 return false;
             }
             PolygonPartsBuilder pb = new PolygonPartsBuilder();
-            pb.appendParts(this, sharedPoints);
-            pb.appendParts(way, sharedPoints);
+            pb.appendParts(this, sharedPointsList, sharedPoints);
+            pb.appendParts(way, sharedPointsList, sharedPoints);
 
             HashSet<Way<T>> parts = pb.parts;
             if (pb.parts.Count == 0)
