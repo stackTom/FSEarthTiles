@@ -495,7 +495,7 @@ namespace FSEarthTilesDLL
                             Way<Point> way2 = wayIDsToWays[way2id];
                             if (way1.type != "river" && way2.type != "river")
                             {
-                                continue;
+                                //continue;
                             }
                             List<Way<Point>> newFormedWays = new List<Way<Point>>();
                             bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
@@ -537,7 +537,8 @@ namespace FSEarthTilesDLL
                                     {
                                         if (w != way1)
                                         {
-                                            wayIDsToWays.Add(w.wayID + numNew, w);
+                                            w.wayID += numNew; // make sure this is a new id and hasn't been added previously
+                                            wayIDsToWays.Add(w.wayID, w);
                                         }
                                     }
                                 }
@@ -1038,8 +1039,8 @@ namespace FSEarthTilesDLL
                     }
                 }
 
-                appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast", coastWay);
+                appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
+                appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
             }
 
             kml.Add("</Folder>");
