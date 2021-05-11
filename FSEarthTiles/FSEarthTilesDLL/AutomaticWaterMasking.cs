@@ -99,16 +99,16 @@ namespace FSEarthTilesDLL
             {
                 Point minP = lineP1.X < lineP2.X ? lineP1 : lineP2;
                 Point maxP = minP == lineP1 ? lineP2 : lineP1;
-                double dy = maxP.Y - minP.Y;
-                double dx = maxP.X - minP.X;
-                double lineSlope = dy / dx;
+                Decimal dy = (Decimal)(maxP.Y - minP.Y);
+                Decimal dx = (Decimal)(maxP.X - minP.X);
+                Decimal lineSlope = dy / dx;
                 // here, toCheck is to the right X wise from minP
-                dy = toCheck.Y - minP.Y;
-                dx = toCheck.X - minP.X;
-                double toCheckSlope = dy / dx;
+                dy = (Decimal)(toCheck.Y - minP.Y);
+                dx = (Decimal)(toCheck.X - minP.X);
+                Decimal toCheckSlope = dy / dx;
 
-                const double EPSILON = 0.001;
-                if (toCheck.X < minP.X || Math.Abs(lineSlope - toCheckSlope) > EPSILON)
+                Decimal EPSILON = Decimal.Parse("0.01");
+                if (toCheck.X < minP.X || Math.Abs(lineSlope - toCheckSlope) > EPSILON || toCheck.X > maxP.X)
                 {
                     return false;
                 }
@@ -165,7 +165,7 @@ namespace FSEarthTilesDLL
                         temp.Add(p);
                         startIdx++;
                         // reached another shared edge, or the end
-                        if (excludedPoints.Contains(p) || i == way.Count - 1)
+                        if (pointOnSharedEdge(way, i, excludedPointsList, excludedPoints) || i == way.Count - 1)
                         {
                             temp.wayID = i.ToString();
                             parts.Add(temp);
@@ -221,6 +221,14 @@ namespace FSEarthTilesDLL
 
             // clear this way and set it to the first part in parts
             this.Clear();
+            /*            int doit = 3;
+                        List<Way<T>> fme = new List<Way<T>>(parts);
+                        foreach (T w in fme[doit])
+                        {
+                            this.Add(w);
+                        }
+                        return true;
+            */
             foreach (T w in parts.First())
             {
                 this.Add(w);
@@ -1039,8 +1047,11 @@ namespace FSEarthTilesDLL
                     }
                 }
 
+                // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
+                // appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
+                //appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
+                //appendLineStringPlacemark(kml, "Coast", coastWay);
             }
 
             kml.Add("</Folder>");
