@@ -99,13 +99,27 @@ namespace FSEarthTilesDLL
             {
                 Point minP = lineP1.X < lineP2.X ? lineP1 : lineP2;
                 Point maxP = minP == lineP1 ? lineP2 : lineP1;
-                Decimal dy = (Decimal)(maxP.Y - minP.Y);
-                Decimal dx = (Decimal)(maxP.X - minP.X);
-                Decimal lineSlope = dy / dx;
+                Decimal dy1 = (Decimal)(maxP.Y - minP.Y);
+                Decimal dx1 = (Decimal)(maxP.X - minP.X);
                 // here, toCheck is to the right X wise from minP
-                dy = (Decimal)(toCheck.Y - minP.Y);
-                dx = (Decimal)(toCheck.X - minP.X);
-                Decimal toCheckSlope = dy / dx;
+                Decimal dy2 = (Decimal)(toCheck.Y - minP.Y);
+                Decimal dx2 = (Decimal)(toCheck.X - minP.X);
+
+                if (dx1 == Decimal.Zero || dx2 == Decimal.Zero)
+                {
+                    if (dx1 == dx2)
+                    {
+                        minP = lineP1.Y < lineP2.Y ? lineP1 : lineP2;
+                        maxP = minP == lineP1 ? lineP2 : lineP1;
+
+                        return toCheck.Y >= minP.Y && toCheck.Y <= maxP.Y;
+                    }
+
+                    return false;
+                }
+
+                Decimal lineSlope = dy1 / dx1;
+                Decimal toCheckSlope = dy2 / dx2;
 
                 Decimal EPSILON = Decimal.Parse("0.01");
                 if (toCheck.X < minP.X || Math.Abs(lineSlope - toCheckSlope) > EPSILON || toCheck.X > maxP.X)
