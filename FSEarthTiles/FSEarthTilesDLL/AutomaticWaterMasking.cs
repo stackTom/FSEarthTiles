@@ -210,11 +210,11 @@ namespace FSEarthTilesDLL
         {
             List<T> sharedPointsList = this.getSharedPoints(this, way);
             HashSet<T> sharedPoints = new HashSet<T>(sharedPointsList);
-            if (sharedPoints.Count == this.Count || sharedPoints.Count == way.Count)
+            if (this.wayID == way.wayID)
             {
                 // duplicate way.
                 // TODO: delete it before we get here
-                //return false;
+                return false;
             }
             if (sharedPoints.Count < 2)
             {
@@ -516,7 +516,7 @@ namespace FSEarthTilesDLL
                             Way<Point> way2 = wayIDsToWays[way2id];
                             if (way1.type != "river" && way2.type != "river")
                             {
-                                continue;
+                                //continue;
                             }
                             List<Way<Point>> newFormedWays = new List<Way<Point>>();
                             bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
@@ -601,16 +601,11 @@ namespace FSEarthTilesDLL
                             }
                             Way<Point> way1 = coastWayIDsToWays[way1id];
                             Way<Point> way2 = waterWayIDsToWays[way2id];
-                            if (way1.type != "river" && way2.type != "river")
-                            {
-                                //continue;
-                            }
                             List<Way<Point>> newFormedWays = new List<Way<Point>>();
                             bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
 
                             if (ableToMerge)
                             {
-                                Console.WriteLine("WE MERGED " + way1.wayID + " with " + way2.wayID);
                                 if (newFormedWays.Count > 0)
                                 {
                                     coastWayIDsToWays[way1id] = way1;
@@ -712,7 +707,7 @@ namespace FSEarthTilesDLL
 
             if (type == WayType.WaterWay)
             {
-                wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays);
+                removePartitions(wayIDsToWays, alreadySeenWays);
             }
 
             return wayIDsToWays;
@@ -987,14 +982,14 @@ namespace FSEarthTilesDLL
             kml.Add("</Placemark>");
         }
 
-        // fix manhattan way's which go through water and connect two coasts...
-        private static Dictionary<string, Way<Point>> removeInlandWaterPartitions(Dictionary<string, Way<Point>> waterWays, Dictionary<string, Way<Point>> coastWays)
+        // fix coast partitioning inland or vice versa
+        private static void removePartitions(Dictionary<string, Way<Point>> waterWays, Dictionary<string, Way<Point>> coastWays)
         {
-            Dictionary<string, Way<Point>> filteredWays = new Dictionary<string, Way<Point>>(waterWays.Count);
             Point w1p1;
             Point w1p2;
 
-            foreach (KeyValuePair<string, Way<Point>> kv in waterWays)
+            Dictionary<string, Way<Point>> waterWaysCopy = new Dictionary<string, Way<Point>>(waterWays);
+            foreach (KeyValuePair<string, Way<Point>> kv in waterWaysCopy)
             {
                 string wayID = kv.Key;
                 Way<Point> waterWay = kv.Value;
@@ -1002,7 +997,6 @@ namespace FSEarthTilesDLL
                 // of handling this peculiarity with OSM
                 if (waterWay.Count > 5)
                 {
-                    filteredWays.Add(wayID, waterWay);
                     continue;
                 }
 
@@ -1027,13 +1021,11 @@ namespace FSEarthTilesDLL
                         }
                     }
                 }
-                if (!(firstEquals && lastEquals))
+                if (firstEquals && lastEquals)
                 {
-                    filteredWays.Add(wayID, waterWay);
+                    waterWays.Remove(wayID);
                 }
             }
-
-            return filteredWays;
         }
 
         // C# port of Android Maps Utils
@@ -1090,6 +1082,7 @@ namespace FSEarthTilesDLL
             Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
             Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
             mergeCoastAndRivers(coastWays, waterWays);
+            removePartitions(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
