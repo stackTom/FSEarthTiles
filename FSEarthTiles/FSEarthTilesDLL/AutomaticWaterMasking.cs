@@ -48,7 +48,7 @@ namespace FSEarthTilesDLL
             Point w1p2 = this[this.Count - 1];
             Point w2p1 = way[0];
             Point w2p2 = way[way.Count - 1];
-            if (w1p1 == w2p1)
+            if (w1p1.Equals(w2p1))
             {
                 this.Reverse();
                 for (int w2 = 1; w2 < way.Count; w2++)
@@ -58,7 +58,7 @@ namespace FSEarthTilesDLL
 
                 return true;
             }
-            if (w1p2 == w2p2)
+            if (w1p2.Equals(w2p2))
             {
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
                 {
@@ -67,7 +67,7 @@ namespace FSEarthTilesDLL
 
                 return true;
             }
-            if (w1p2 == w2p1)
+            if (w1p2.Equals(w2p1))
             {
                 for (int w2 = 1; w2 < way.Count; w2++)
                 {
@@ -76,7 +76,7 @@ namespace FSEarthTilesDLL
 
                 return true;
             }
-            if (w1p1 == w2p2)
+            if (w1p1.Equals(w2p2))
             {
                 this.Reverse();
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
@@ -214,7 +214,7 @@ namespace FSEarthTilesDLL
             {
                 // duplicate way.
                 // TODO: delete it before we get here
-                return false;
+                //return false;
             }
             if (sharedPoints.Count < 2)
             {
@@ -380,7 +380,7 @@ namespace FSEarthTilesDLL
             return wayIDsToWayNodes;
         }
 
-        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords, HashSet<Way<Point>> alreadySeenWays)
+        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords, Dictionary<string, Way<Point>> alreadySeenWays)
         {
             Dictionary<string, Way<Point>> wayIDsToways = new Dictionary<string, Way<Point>>();
 
@@ -396,10 +396,9 @@ namespace FSEarthTilesDLL
                     way.Add(coords);
                 }
 
-                if (!alreadySeenWays.Contains(way))
+                if (alreadySeenWays == null || !alreadySeenWays.ContainsKey(wayID))
                 {
                     wayIDsToways.Add(wayID, way);
-                    alreadySeenWays.Add(way);
                 }
             }
 
@@ -517,7 +516,7 @@ namespace FSEarthTilesDLL
                             Way<Point> way2 = wayIDsToWays[way2id];
                             if (way1.type != "river" && way2.type != "river")
                             {
-                                //continue;
+                                continue;
                             }
                             List<Way<Point>> newFormedWays = new List<Way<Point>>();
                             bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
@@ -576,7 +575,96 @@ namespace FSEarthTilesDLL
             } while (mergeFound);
         }
 
-        private static List<Way<Point>> GetWays(string OSMKML, HashSet<Way<Point>> alreadySeenWays, bool mergeWays, WayType type)
+        private static void mergeCoastAndRivers(Dictionary<string, Way<Point>> coastWayIDsToWays, Dictionary<string, Way<Point>> waterWayIDsToWays)
+        {
+            bool mergeFound = false;
+            int numNew = 0;
+
+            do
+            {
+                List<Way<Point>> allCoastWays = coastWayIDsToWays.Values.ToList();
+                List<Way<Point>> allWaterWays = waterWayIDsToWays.Values.ToList();
+                mergeFound = false;
+                for (int i = 0; i < allCoastWays.Count; i++)
+                {
+                    for (int j = 0; j < allWaterWays.Count; j++)
+                    {
+                        // i != j makes sure not comparing to the same way
+                        if (i != j)
+                        {
+                            string way1id = allCoastWays[i].wayID;
+                            string way2id = allWaterWays[j].wayID;
+                            // make sure the way hasn't been removed due to being combined previously...
+                            if (!coastWayIDsToWays.ContainsKey(way1id) || !waterWayIDsToWays.ContainsKey(way2id))
+                            {
+                                continue;
+                            }
+                            Way<Point> way1 = coastWayIDsToWays[way1id];
+                            Way<Point> way2 = waterWayIDsToWays[way2id];
+                            if (way1.type != "river" && way2.type != "river")
+                            {
+                                //continue;
+                            }
+                            List<Way<Point>> newFormedWays = new List<Way<Point>>();
+                            bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
+
+                            if (ableToMerge)
+                            {
+                                Console.WriteLine("WE MERGED " + way1.wayID + " with " + way2.wayID);
+                                if (newFormedWays.Count > 0)
+                                {
+                                    coastWayIDsToWays[way1id] = way1;
+                                    newFormedWays.Add(way1);
+                                    newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
+                                    {
+                                        double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
+                                        double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
+
+                                        if (w2Area > w1Area)
+                                        {
+                                            return 1;
+                                        }
+                                        else if (w1Area > w2Area)
+                                        {
+                                            return -1;
+                                        }
+
+                                        // they are equal
+                                        return 0;
+                                    });
+
+                                    // biggest one becomes outer
+                                    newFormedWays[0].relation = "outer";
+                                    for (int k = 1; k < newFormedWays.Count; k++)
+                                    {
+                                        // all other ones become inner
+                                        // Possible BUG: this is simplistic. come up with better logic
+                                        Way<Point> w = newFormedWays[k];
+                                        w.relation = "inner";
+                                    }
+                                    foreach (Way<Point> w in newFormedWays)
+                                    {
+                                        if (w != way1)
+                                        {
+                                            w.wayID += numNew; // make sure this is a new id and hasn't been added previously
+                                            coastWayIDsToWays.Add(w.wayID, w);
+                                        }
+                                    }
+                                }
+                                waterWayIDsToWays.Remove(way2id);
+                                // if even one merge happened, gotta restart so we make sure we merge all the river pieces
+                                mergeFound = true;
+                                numNew++;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } while (mergeFound);
+        }
+
+
+        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, Dictionary<string, Way<Point>> alreadySeenWays, bool mergeWays, WayType type)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
@@ -624,10 +712,10 @@ namespace FSEarthTilesDLL
 
             if (type == WayType.WaterWay)
             {
-                wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays.ToList());
+                wayIDsToWays = removeInlandWaterPartitions(wayIDsToWays, alreadySeenWays);
             }
 
-            return wayIDsToWays.Values.ToList();
+            return wayIDsToWays;
         }
 
         // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2020/12/enlarge-a-polygon-that-has-colinear-vertices-in-c/)
@@ -900,7 +988,7 @@ namespace FSEarthTilesDLL
         }
 
         // fix manhattan way's which go through water and connect two coasts...
-        private static Dictionary<string, Way<Point>> removeInlandWaterPartitions(Dictionary<string, Way<Point>> waterWays, List<Way<Point>> coastWays)
+        private static Dictionary<string, Way<Point>> removeInlandWaterPartitions(Dictionary<string, Way<Point>> waterWays, Dictionary<string, Way<Point>> coastWays)
         {
             Dictionary<string, Way<Point>> filteredWays = new Dictionary<string, Way<Point>>(waterWays.Count);
             Point w1p1;
@@ -924,8 +1012,9 @@ namespace FSEarthTilesDLL
                 w1p2 = waterWay[waterWay.Count - 1];
                 bool firstEquals = false;
                 bool lastEquals = false;
-                foreach (Way<Point> coastWay in coastWays)
+                foreach (KeyValuePair<string, Way<Point>> kv2 in coastWays)
                 {
+                    Way<Point> coastWay = kv2.Value;
                     foreach (Point p in coastWay)
                     {
                         if (w1p1.Equals(p))
@@ -998,9 +1087,9 @@ namespace FSEarthTilesDLL
 
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
-            HashSet<Way<Point>> alreadySeenWays = new HashSet<Way<Point>>();
-            List<Way<Point>> coastWays = GetWays(coastOSM, alreadySeenWays, false, WayType.CoastWay);
-            List<Way<Point>> waterWays = GetWays(waterOSM, alreadySeenWays, true, WayType.WaterWay);
+            Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
+            Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
+            mergeCoastAndRivers(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -1019,17 +1108,22 @@ namespace FSEarthTilesDLL
             kml.Add("<open>1</open>");
             Way<Point> coastWay = null;
             Way<Point> deepWaterWay = null;
-            foreach (Way<Point> way in coastWays)
+            foreach (KeyValuePair<string, Way<Point>> kv in coastWays)
             {
+                Way<Point> way = kv.Value;
                 // the we take the coast from osm and use that as our DeepWater.
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
                 Way<Point> shiftedWay = getShiftedWay(way);
-                appendLineStringPlacemark(kml, "DeepWater", way);
-                appendLineStringPlacemark(kml, "Coast", shiftedWay);
+                appendLineStringPlacemark(kml, "DeepWater " + way.wayID, way);
+                appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
+                // debugging
+                //appendLineStringPlacemark(kml, "DeepWater", way);
+                //appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
-            foreach (Way<Point> way in waterWays)
+            foreach (KeyValuePair<string, Way<Point>> kv in waterWays)
             {
+                Way<Point> way = kv.Value;
                 Way<Point> shiftedWay = getShiftedWay(way);
                 double origArea = SphericalUtil.ComputeUnsignedArea(way);
                 double shiftedArea = SphericalUtil.ComputeUnsignedArea(shiftedWay);
@@ -1063,7 +1157,7 @@ namespace FSEarthTilesDLL
 
                 // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
-                // appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
+                appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
                 //appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 //appendLineStringPlacemark(kml, "Coast", coastWay);
             }
