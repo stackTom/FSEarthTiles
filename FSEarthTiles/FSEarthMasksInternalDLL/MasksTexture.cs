@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.IO;
+using System.Globalization;
 
 
 
@@ -2224,8 +2225,8 @@ namespace FSEarthMasksInternalDLL
         {
 
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vCoastMinPoint;
 
@@ -2234,12 +2235,18 @@ namespace FSEarthMasksInternalDLL
             vCoastMinPoint.mSquareDistance = 1.0e12f;
             vCoastMinPoint.mValid = false;
 
+            Decimal vCoastMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
+
             foreach (tPoint vPoint in MasksCommon.mCoastPoints[iTrippleSType])
             {
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vCoastMinPoint.mSquareDistance)
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
+                if (vTempDist < vCoastMinPointMSquareDistance)
                 {
-                    vCoastMinPoint.mSquareDistance = vTempDist;
+                    vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
                     vCoastMinPoint.mValid = true;
@@ -2249,17 +2256,29 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in MasksCommon.mCoastLines[iTrippleSType])
             {
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
 
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vCoastMinPoint.mSquareDistance)
+                    if (vTempDist < vCoastMinPointMSquareDistance)
                     {
-                        vCoastMinPoint.mSquareDistance = vTempDist;
-                        vCoastMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vCoastMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vCoastMinPoint.mValid = true;
                     }
                 }
@@ -2273,8 +2292,8 @@ namespace FSEarthMasksInternalDLL
         {
 
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vCoastMinPoint;
 
@@ -2282,6 +2301,10 @@ namespace FSEarthMasksInternalDLL
             vCoastMinPoint.mY = 0.0f;
             vCoastMinPoint.mSquareDistance = 1.0e12f;
             vCoastMinPoint.mValid = false;
+
+            Decimal vCoastMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
 
             foreach (tPoint vPoint in MasksCommon.mSliceCoastPoints[iTrippleSType])
             {
@@ -2514,51 +2537,51 @@ namespace FSEarthMasksInternalDLL
         public Int32 IsVectorCuttingDeepWater(Int32 iTrippleSType, Single iXp1, Single iYp1, Single iXp2, Single iYp2)
         {
 
-            const Single cCutEpsilon = 12e-7f;  //6e-7 seems to be too small
+            Decimal cCutEpsilon = Decimal.Parse("12e-7", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
 
-            Single vTempN;
-            Single vTempNInv;
-            Single vTempUz;
-            Single vTempLz;
-            Single vTempU;
-            Single vTempL;
+            Decimal vTempN;
+            Decimal vTempNInv;
+            Decimal vTempUz;
+            Decimal vTempLz;
+            Decimal vTempU;
+            Decimal vTempL;
 
-            Single vAx;
-            Single vAy;
-            Single vBx;
-            Single vBy;
+            Decimal vAx;
+            Decimal vAy;
+            Decimal vBx;
+            Decimal vBy;
 
-            Single vCx = iXp1;
-            Single vCy = iYp1;
-            Single vDx = iXp2;
-            Single vDy = iYp2;
+            Decimal vCx = new Decimal(iXp1);
+            Decimal vCy = new Decimal(iYp1);
+            Decimal vDx = new Decimal(iXp2);
+            Decimal vDy = new Decimal(iYp2);
 
             Int32 vCuttingDeepWater = 0;
 
             foreach (tLine vLine in MasksCommon.mForCutCheckDeepWaterLines[iTrippleSType])
             {
-                vAx = vLine.mX1;
-                vAy = vLine.mY1;
-                vBx = vLine.mX2;
-                vBy = vLine.mY2;
+                vAx = new Decimal(vLine.mX1);
+                vAy = new Decimal(vLine.mY1);
+                vBx = new Decimal(vLine.mX2);
+                vBy = new Decimal(vLine.mY2);
                 vTempN = (vBx - vAx) * (vDy - vCy) - (vBy - vAy) * (vDx - vCx);
-                if (vTempN != 0.0)
+                if (vTempN != Decimal.Zero)
                 {
-                    vTempNInv = 1.0f / vTempN;
+                    vTempNInv = Decimal.One / vTempN;
                     vTempUz = -vCy * vDx + vCx * vDy - (vDy - vCy) * vAx + (vDx - vCx) * vAy;
                     vTempU  = vTempUz * vTempNInv;
                     
-                    if ((vTempU > 0.0f) && (vTempU < 1.0f))
+                    if ((vTempU > Decimal.Zero) && (vTempU < Decimal.One))
                     {
                         //The cut point is within the Line AB 
                         vTempLz = vAy * vBx - vAx * vBy + (vBy - vAy) * vCx - (vBx - vAx) * vCy;
                         vTempL  = vTempLz * vTempNInv;
-                        if ((vTempL > 0.0f) && (vTempL < 1.0f))
+                        if ((vTempL > Decimal.Zero) && (vTempL < Decimal.One))
                         {
                             //And it is within Lin CD
                             //Is it a critical cut?
                             if (((vTempU < (cCutEpsilon)) && (vTempU > (-cCutEpsilon))) ||
-                                ((vTempU < (1.0f + cCutEpsilon)) && (vTempU > (1.0f - cCutEpsilon))))
+                                ((vTempU < (Decimal.One + cCutEpsilon)) && (vTempU > (Decimal.One - cCutEpsilon))))
                             {
                                 //Yes critical so exit
                                 vCuttingDeepWater = -1;
@@ -2581,51 +2604,51 @@ namespace FSEarthMasksInternalDLL
         public Int32 IsVectorCuttingCoast(Int32 iTrippleSType, Single iXp1, Single iYp1, Single iXp2, Single iYp2)
         {
 
-            const Single cCutEpsilon = 12e-7f;  //6e-7 seems to be too small
+            Decimal cCutEpsilon = Decimal.Parse("12e-7", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
 
-            Single vTempN;
-            Single vTempNInv;
-            Single vTempUz;
-            Single vTempLz;
-            Single vTempU;
-            Single vTempL;
+            Decimal vTempN;
+            Decimal vTempNInv;
+            Decimal vTempUz;
+            Decimal vTempLz;
+            Decimal vTempU;
+            Decimal vTempL;
 
-            Single vAx;
-            Single vAy;
-            Single vBx;
-            Single vBy;
+            Decimal vAx;
+            Decimal vAy;
+            Decimal vBx;
+            Decimal vBy;
 
-            Single vCx = iXp1;
-            Single vCy = iYp1;
-            Single vDx = iXp2;
-            Single vDy = iYp2;
+            Decimal vCx = new Decimal(iXp1);
+            Decimal vCy = new Decimal(iYp1);
+            Decimal vDx = new Decimal(iXp2);
+            Decimal vDy = new Decimal(iYp2);
 
             Int32 vCuttingCoast = 0; // -1 critical cutting edge, 0 = cutting an even number of lines, 1 = cutting an odd number of vectros
 
             foreach (tLine vLine in MasksCommon.mForCutCheckCoastLines[iTrippleSType])
             {
-                vAx = vLine.mX1;
-                vAy = vLine.mY1;
-                vBx = vLine.mX2;
-                vBy = vLine.mY2;
+                vAx = new Decimal(vLine.mX1);
+                vAy = new Decimal(vLine.mY1);
+                vBx = new Decimal(vLine.mX2);
+                vBy = new Decimal(vLine.mY2);
                 vTempN = (vBx - vAx) * (vDy - vCy) - (vBy - vAy) * (vDx - vCx);
-                if (vTempN != 0.0)
+                if (vTempN != Decimal.Zero)
                 {
-                    vTempNInv = 1.0f / vTempN;
+                    vTempNInv = Decimal.One / vTempN;
                     vTempUz = -vCy * vDx + vCx * vDy - (vDy - vCy) * vAx + (vDx - vCx) * vAy;
                     vTempU = vTempUz * vTempNInv;
 
-                    if ((vTempU > 0.0f) && (vTempU < 1.0f))
+                    if ((vTempU > Decimal.Zero) && (vTempU < Decimal.One))
                     {
                         //The cut point is within the Line AB 
                         vTempLz = vAy * vBx - vAx * vBy + (vBy - vAy) * vCx - (vBx - vAx) * vCy;
                         vTempL = vTempLz * vTempNInv;
-                        if ((vTempL > 0.0f) && (vTempL < 1.0f))
+                        if ((vTempL > Decimal.Zero) && (vTempL < Decimal.One))
                         {
                             //And it is within Lin CD
                             //Is it a critical cut?
                             if (((vTempU < (cCutEpsilon)) && (vTempU > (-cCutEpsilon))) ||
-                                ((vTempU < (1.0f + cCutEpsilon)) && (vTempU > (1.0f - cCutEpsilon))))
+                                ((vTempU < (Decimal.One + cCutEpsilon)) && (vTempU > (Decimal.One - cCutEpsilon))))
                             {
                                 //Yes critical so exit
                                 vCuttingCoast = -1;
