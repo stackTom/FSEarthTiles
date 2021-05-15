@@ -95,6 +95,87 @@ namespace FSEarthTilesDLL
         {
             public HashSet<Way<T>> parts = new HashSet<Way<T>>();
 
+            // Return the cross product AB x BC.
+            // The cross product is a vector perpendicular to AB
+            // and BC having length |AB| * |BC| * Sin(theta) and
+            // with direction given by the right-hand rule.
+            // For two vectors in the X-Y plane, the result is a
+            // vector with X and Y components 0 so the Z component
+            // gives the vector's length and direction.
+            private static double CrossProductLength(double Ax, double Ay,
+                double Bx, double By, double Cx, double Cy)
+            {
+                // Get the vectors' coordinates.
+                double BAx = Ax - Bx;
+                double BAy = Ay - By;
+                double BCx = Cx - Bx;
+                double BCy = Cy - By;
+
+                // Calculate the Z coordinate of the cross product.
+                return (BAx * BCy - BAy * BCx);
+            }
+
+            // Return the dot product AB · BC.
+            // Note that AB · BC = |AB| * |BC| * Cos(theta).
+            private static double DotProduct(double Ax, double Ay,
+                double Bx, double By, double Cx, double Cy)
+            {
+                // Get the vectors' coordinates.
+                double BAx = Ax - Bx;
+                double BAy = Ay - By;
+                double BCx = Cx - Bx;
+                double BCy = Cy - By;
+
+                // Calculate the dot product.
+                return (BAx * BCx + BAy * BCy);
+            }
+
+            // Return the angle ABC.
+            // Return a value between PI and -PI.
+            // Note that the value is the opposite of what you might
+            // expect because Y coordinates increase downward.
+            private static double GetAngle(double Ax, double Ay,
+                double Bx, double By, double Cx, double Cy)
+            {
+                // Get the dot product.
+                double dot_product = DotProduct(Ax, Ay, Bx, By, Cx, Cy);
+
+                // Get the cross product.
+                double cross_product = CrossProductLength(Ax, Ay, Bx, By, Cx, Cy);
+
+                // Calculate the angle.
+                return Math.Atan2(cross_product, dot_product);
+            }
+
+            // Return True if the point is in the polygon.
+            private static bool PointInPolygon(Way<T> Points, double X, double Y)
+            {
+                // Get the angle between the point and the
+                // first and last vertices.
+                int max_point = Points.Count - 1;
+                double total_angle = GetAngle(
+                    Points[max_point].X, Points[max_point].Y,
+                    X, Y,
+                    Points[0].X, Points[0].Y);
+
+                // Add the angles from the point
+                // to each other pair of vertices.
+                for (int i = 0; i < max_point; i++)
+                {
+                    total_angle += GetAngle(
+                        Points[i].X, Points[i].Y,
+                        X, Y,
+                        Points[i + 1].X, Points[i + 1].Y);
+                }
+
+                // The total angle should be 2 * PI or -2 * PI if
+                // the point is in the polygon and close to zero
+                // if the point is outside the polygon.
+                // The following statement was changed. See the comments.
+                //return (Math.Abs(total_angle) > 0.000001);
+                return (Math.Abs(total_angle) > 1);
+            }
+
             private bool pointOnLine(Point toCheck, Point lineP1, Point lineP2)
             {
                 Point minP = lineP1.X < lineP2.X ? lineP1 : lineP2;
@@ -121,7 +202,7 @@ namespace FSEarthTilesDLL
                 Decimal lineSlope = dy1 / dx1;
                 Decimal toCheckSlope = dy2 / dx2;
 
-                Decimal EPSILON = Decimal.Parse("0.01");
+                Decimal EPSILON = Decimal.Parse("0.1");
                 if (toCheck.X < minP.X || Math.Abs(lineSlope - toCheckSlope) > EPSILON || toCheck.X > maxP.X)
                 {
                     return false;
@@ -130,9 +211,14 @@ namespace FSEarthTilesDLL
                 return true;
             }
 
-            private bool pointOnSharedEdge(Way<T> way, int idx, List<T> excludedPointsList, HashSet<T> excludedPoints)
+            private bool pointOnSharedEdge(Way<T> wayToTraverse, Way<T> otherWay, int idx, List<T> excludedPointsList, HashSet<T> excludedPoints)
             {
-                if (excludedPoints.Contains(way[idx]))
+                if (excludedPoints.Contains(wayToTraverse[idx]))
+                {
+                    return true;
+                }
+
+                if (PointInPolygon(otherWay, wayToTraverse[idx].X, wayToTraverse[idx].Y))
                 {
                     return true;
                 }
@@ -141,7 +227,7 @@ namespace FSEarthTilesDLL
                 {
                     Point p1 = excludedPointsList[i];
                     Point p2 = excludedPointsList[i + 1];
-                    Point p3 = way[idx];
+                    Point p3 = wayToTraverse[idx];
 
                     if (pointOnLine(p3, p1, p2))
                     {
@@ -152,37 +238,73 @@ namespace FSEarthTilesDLL
                 return false;
             }
 
-            public void appendParts(Way<T> way, List<T> excludedPointsList, HashSet<T> excludedPoints)
+            public void appendParts(Way<T> wayToTraverse, Way<T> otherWay, List<T> excludedPointsList, HashSet<T> excludedPoints)
             {
                 int startIdx = 0;
 
                 Way<T> temp = new Way<T>();
-                while (startIdx < way.Count)
+                bool inSharedEdge = false;
+                Point sentinel = new Point(-74.0519656, 40.8056687);
+                while (startIdx < wayToTraverse.Count)
                 {
                     // move along this edge
-                    while (startIdx < way.Count && pointOnSharedEdge(way, startIdx, excludedPointsList, excludedPoints))
+                    while (startIdx < wayToTraverse.Count)
                     {
-                        startIdx++;
+                        if (excludedPoints.Contains(wayToTraverse[startIdx]))
+                        {
+                            if (!inSharedEdge)
+                            {
+                                inSharedEdge = true;
+                            }
+                            startIdx++;
+                        }
+                        else if (pointOnSharedEdge(wayToTraverse, otherWay, startIdx, excludedPointsList, excludedPoints))
+                        {
+                            // handle case when we begin iterating in a shared edge, but not in excludedPoints (one of the screwed up points)
+                            if (startIdx == 0)
+                            {
+                                startIdx++;
+                                inSharedEdge = true;
+                            }
+                            else if (inSharedEdge)
+                            {
+                                // here, we don't begin in a shared edge, but we are in an shared edge, so walk along it
+                                startIdx++;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                        if (!inSharedEdge)
+                        {
+                            break;
+                        }
                     }
+                    inSharedEdge = false;
 
                     temp = new Way<T>();
 
                     if (startIdx > 0)
                     {
-                        T p = way[startIdx - 1];
+                        T p = wayToTraverse[startIdx - 1];
                         temp.Add(p);
                     }
 
-                    for (int i = startIdx; i < way.Count; i++)
+                    for (int i = startIdx; i < wayToTraverse.Count; i++)
                     {
-                        T p = way[i];
+                        T p = wayToTraverse[i];
                         temp.Add(p);
                         startIdx++;
                         // reached another shared edge, or the end
-                        if (pointOnSharedEdge(way, i, excludedPointsList, excludedPoints) || i == way.Count - 1)
+                        if (excludedPoints.Contains(wayToTraverse[i]) || i == wayToTraverse.Count - 1)
                         {
                             temp.wayID = i.ToString();
                             parts.Add(temp);
+                            if (i != wayToTraverse.Count - 1)
+                            {
+                                startIdx--;
+                            }
                             break;
                         }
                     }
@@ -222,8 +344,8 @@ namespace FSEarthTilesDLL
                 return false;
             }
             PolygonPartsBuilder pb = new PolygonPartsBuilder();
-            pb.appendParts(this, sharedPointsList, sharedPoints);
-            pb.appendParts(way, sharedPointsList, sharedPoints);
+            pb.appendParts(this, way, sharedPointsList, sharedPoints);
+            pb.appendParts(way, this, sharedPointsList, sharedPoints);
 
             HashSet<Way<T>> parts = pb.parts;
             if (pb.parts.Count == 0)
@@ -235,7 +357,8 @@ namespace FSEarthTilesDLL
 
             // clear this way and set it to the first part in parts
             this.Clear();
-            /*            int doit = 3;
+            // debugging
+            /*            int doit = 1;
                         List<Way<T>> fme = new List<Way<T>>(parts);
                         foreach (T w in fme[doit])
                         {
@@ -589,75 +712,70 @@ namespace FSEarthTilesDLL
                 {
                     for (int j = 0; j < allWaterWays.Count; j++)
                     {
-                        // i != j makes sure not comparing to the same way
-                        if (i != j)
+                        string way1id = allCoastWays[i].wayID;
+                        string way2id = allWaterWays[j].wayID;
+                        // make sure the way hasn't been removed due to being combined previously...
+                        if (!coastWayIDsToWays.ContainsKey(way1id) || !waterWayIDsToWays.ContainsKey(way2id))
                         {
-                            string way1id = allCoastWays[i].wayID;
-                            string way2id = allWaterWays[j].wayID;
-                            // make sure the way hasn't been removed due to being combined previously...
-                            if (!coastWayIDsToWays.ContainsKey(way1id) || !waterWayIDsToWays.ContainsKey(way2id))
-                            {
-                                continue;
-                            }
-                            Way<Point> way1 = coastWayIDsToWays[way1id];
-                            Way<Point> way2 = waterWayIDsToWays[way2id];
-                            List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                            bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
+                            continue;
+                        }
+                        Way<Point> way1 = coastWayIDsToWays[way1id];
+                        Way<Point> way2 = waterWayIDsToWays[way2id];
+                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
+                        bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
 
-                            if (ableToMerge)
+                        if (ableToMerge)
+                        {
+                            if (newFormedWays.Count > 0)
                             {
-                                if (newFormedWays.Count > 0)
+                                coastWayIDsToWays[way1id] = way1;
+                                newFormedWays.Add(way1);
+                                newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
                                 {
-                                    coastWayIDsToWays[way1id] = way1;
-                                    newFormedWays.Add(way1);
-                                    newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
+                                    double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
+                                    double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
+
+                                    if (w2Area > w1Area)
                                     {
-                                        double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
-                                        double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
-
-                                        if (w2Area > w1Area)
-                                        {
-                                            return 1;
-                                        }
-                                        else if (w1Area > w2Area)
-                                        {
-                                            return -1;
-                                        }
-
-                                        // they are equal
-                                        return 0;
-                                    });
-
-                                    // biggest one becomes outer
-                                    newFormedWays[0].relation = "outer";
-                                    for (int k = 1; k < newFormedWays.Count; k++)
-                                    {
-                                        // all other ones become inner
-                                        // Possible BUG: this is simplistic. come up with better logic
-                                        Way<Point> w = newFormedWays[k];
-                                        w.relation = "inner";
+                                        return 1;
                                     }
-                                    foreach (Way<Point> w in newFormedWays)
+                                    else if (w1Area > w2Area)
                                     {
-                                        if (w != way1)
-                                        {
-                                            w.wayID += numNew; // make sure this is a new id and hasn't been added previously
-                                            coastWayIDsToWays.Add(w.wayID, w);
-                                        }
+                                        return -1;
+                                    }
+
+                                    // they are equal
+                                    return 0;
+                                });
+
+                                // biggest one becomes outer
+                                newFormedWays[0].relation = "outer";
+                                for (int k = 1; k < newFormedWays.Count; k++)
+                                {
+                                    // all other ones become inner
+                                    // Possible BUG: this is simplistic. come up with better logic
+                                    Way<Point> w = newFormedWays[k];
+                                    w.relation = "inner";
+                                }
+                                foreach (Way<Point> w in newFormedWays)
+                                {
+                                    if (w != way1)
+                                    {
+                                        w.wayID += numNew; // make sure this is a new id and hasn't been added previously
+                                        coastWayIDsToWays.Add(w.wayID, w);
                                     }
                                 }
-                                waterWayIDsToWays.Remove(way2id);
-                                // if even one merge happened, gotta restart so we make sure we merge all the river pieces
-                                mergeFound = true;
-                                numNew++;
-                                break;
                             }
+                            waterWayIDsToWays.Remove(way2id);
+                            // if even one merge happened, gotta restart so we make sure we merge all the river pieces
+                            mergeFound = true;
+                            numNew++;
+                            break;
                         }
                     }
                 }
             } while (mergeFound);
         }
-
 
         private static Dictionary<string, Way<Point>> GetWays(string OSMKML, Dictionary<string, Way<Point>> alreadySeenWays, bool mergeWays, WayType type)
         {
@@ -700,14 +818,19 @@ namespace FSEarthTilesDLL
                 }
             }
 
-            if (mergeWays)
-            {
-                mergeRivers(wayIDsToWays);
-            }
-
             if (type == WayType.WaterWay)
             {
                 removePartitions(wayIDsToWays, alreadySeenWays);
+                // merge them all. inland water should be a bunch of closed polygons.
+                // except ones intersecting with coasts, which might be open, but still.
+                // shouldn't be able to merge any of them point to point. but we do this
+                // sanity merging point to point just in case
+                List<string> allWays = wayIDsToWays.Keys.ToList();
+                mergeMultipolygonWays(allWays, wayIDsToWays);
+                if (mergeWays)
+                {
+                    mergeRivers(wayIDsToWays);
+                }
             }
 
             return wayIDsToWays;
@@ -1082,7 +1205,6 @@ namespace FSEarthTilesDLL
             Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
             Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
             mergeCoastAndRivers(coastWays, waterWays);
-            removePartitions(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -1108,9 +1230,9 @@ namespace FSEarthTilesDLL
                 // why? because polygon buffering algorithm I found online breaks if try to encase original polygon with new,
                 // bigger one, but works great if make a new, slightly smaller polygon encased by the original, bigger one
                 Way<Point> shiftedWay = getShiftedWay(way);
+                // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID, way);
                 appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
-                // debugging
                 //appendLineStringPlacemark(kml, "DeepWater", way);
                 //appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
@@ -1147,7 +1269,6 @@ namespace FSEarthTilesDLL
                         coastWay = way;
                     }
                 }
-
                 // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
                 appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
