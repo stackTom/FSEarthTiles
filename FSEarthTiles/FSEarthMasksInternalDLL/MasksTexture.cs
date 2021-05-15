@@ -2627,7 +2627,7 @@ namespace FSEarthMasksInternalDLL
         public Int32 IsVectorCuttingDeepWater(Int32 iTrippleSType, Single iXp1, Single iYp1, Single iXp2, Single iYp2)
         {
 
-            Decimal cCutEpsilon = Decimal.Parse("12e-7", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
+            Decimal cCutEpsilon = Decimal.Parse("0", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
 
             Decimal vTempN;
             Decimal vTempNInv;
@@ -2694,7 +2694,7 @@ namespace FSEarthMasksInternalDLL
         public Int32 IsVectorCuttingCoast(Int32 iTrippleSType, Single iXp1, Single iYp1, Single iXp2, Single iYp2)
         {
 
-            Decimal cCutEpsilon = Decimal.Parse("12e-7", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
+            Decimal cCutEpsilon = Decimal.Parse("0", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
 
             Decimal vTempN;
             Decimal vTempNInv;
@@ -2761,50 +2761,50 @@ namespace FSEarthMasksInternalDLL
         public Int32 IsVectorCuttingAnotherVector(tLine iLine, Single iXp1, Single iYp1, Single iXp2, Single iYp2)
         {
 
-            const Single cCutEpsilon = 12e-7f;  //6e-7 seems to be too small
+            Decimal cCutEpsilon = Decimal.Parse("0", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);  //6e-7 seems to be too small
 
-            Single vTempN;
-            Single vTempNInv;
-            Single vTempUz;
-            Single vTempLz;
-            Single vTempU;
-            Single vTempL;
+            Decimal vTempN;
+            Decimal vTempNInv;
+            Decimal vTempUz;
+            Decimal vTempLz;
+            Decimal vTempU;
+            Decimal vTempL;
 
-            Single vAx;
-            Single vAy;
-            Single vBx;
-            Single vBy;
+            Decimal vAx;
+            Decimal vAy;
+            Decimal vBx;
+            Decimal vBy;
 
-            Single vCx = iXp1;
-            Single vCy = iYp1;
-            Single vDx = iXp2;
-            Single vDy = iYp2;
+            Decimal vCx = new Decimal(iXp1);
+            Decimal vCy = new Decimal(iYp1);
+            Decimal vDx = new Decimal(iXp2);
+            Decimal vDy = new Decimal(iYp2);
 
             Int32 vCuttingCoast = 0; // -1 critical cutting edge, 0 = cutting an even number of lines, 1 = cutting an odd number of vectros
 
-            vAx = iLine.mX1;
-            vAy = iLine.mY1;
-            vBx = iLine.mX2;
-            vBy = iLine.mY2;
+            vAx = new Decimal(iLine.mX1);
+            vAy = new Decimal(iLine.mY1);
+            vBx = new Decimal(iLine.mX2);
+            vBy = new Decimal(iLine.mY2);
             vTempN = (vBx - vAx) * (vDy - vCy) - (vBy - vAy) * (vDx - vCx);
 
-            if (vTempN != 0.0)
+            if (vTempN != Decimal.Zero)
             {
-                vTempNInv = 1.0f / vTempN;
+                vTempNInv = Decimal.One / vTempN;
                 vTempUz = -vCy * vDx + vCx * vDy - (vDy - vCy) * vAx + (vDx - vCx) * vAy;
                 vTempU = vTempUz * vTempNInv;
 
-                if ((vTempU > 0.0f) && (vTempU < 1.0f))
+                if ((vTempU > Decimal.Zero) && (vTempU < Decimal.One))
                 {
                     //The cut point is within the Line AB 
                     vTempLz = vAy * vBx - vAx * vBy + (vBy - vAy) * vCx - (vBx - vAx) * vCy;
                     vTempL = vTempLz * vTempNInv;
-                    if ((vTempL > 0.0f) && (vTempL < 1.0f))
+                    if ((vTempL > Decimal.Zero) && (vTempL < Decimal.One))
                     {
                         //And it is within Lin CD
                         //Is it a critical cut?
                         if (((vTempU < (cCutEpsilon)) && (vTempU > (-cCutEpsilon))) ||
-                            ((vTempU < (1.0f + cCutEpsilon)) && (vTempU > (1.0f - cCutEpsilon))))
+                            ((vTempU < (Decimal.One + cCutEpsilon)) && (vTempU > (Decimal.One - cCutEpsilon))))
                         {
                             //Yes critical so exit
                             vCuttingCoast = -1;
