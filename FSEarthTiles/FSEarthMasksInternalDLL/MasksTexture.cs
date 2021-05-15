@@ -2246,6 +2246,7 @@ namespace FSEarthMasksInternalDLL
                 vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
                 if (vTempDist < vCoastMinPointMSquareDistance)
                 {
+                    vCoastMinPointMSquareDistance = vTempDist;
                     vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
@@ -2276,6 +2277,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vCoastMinPointMSquareDistance = vTempDist;
                         vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
@@ -2313,6 +2315,7 @@ namespace FSEarthMasksInternalDLL
                 vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
                 if (vTempDist < vCoastMinPointMSquareDistance)
                 {
+                    vCoastMinPointMSquareDistance = vTempDist;
                     vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
@@ -2343,6 +2346,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vCoastMinPointMSquareDistance = vTempDist;
                         vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
@@ -2382,6 +2386,7 @@ namespace FSEarthMasksInternalDLL
                 vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
                 if (vTempDist < vCoastMinPointMSquareDistance)
                 {
+                    vCoastMinPointMSquareDistance = vTempDist;
                     vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
@@ -2413,6 +2418,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vCoastMinPointMSquareDistance = vTempDist;
                         vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
@@ -2450,6 +2456,7 @@ namespace FSEarthMasksInternalDLL
 
                 if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
+                    vDeepWaterMinPointMSquareDistance = vTempDist;
                     vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
@@ -2479,6 +2486,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vDeepWaterMinPointMSquareDistance = vTempDist;
                         vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
@@ -2515,6 +2523,7 @@ namespace FSEarthMasksInternalDLL
 
                 if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
+                    vDeepWaterMinPointMSquareDistance = vTempDist;
                     vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
@@ -2544,6 +2553,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vDeepWaterMinPointMSquareDistance = vTempDist;
                         vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
@@ -2583,6 +2593,7 @@ namespace FSEarthMasksInternalDLL
 
                 if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
+                    vDeepWaterMinPointMSquareDistance = vTempDist;
                     vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
@@ -2612,6 +2623,7 @@ namespace FSEarthMasksInternalDLL
                         Decimal MY2 = new decimal(vLine.mY2);
                         Decimal MY1 = new decimal(vLine.mY1);
 
+                        vDeepWaterMinPointMSquareDistance = vTempDist;
                         vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                         vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
                         vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
