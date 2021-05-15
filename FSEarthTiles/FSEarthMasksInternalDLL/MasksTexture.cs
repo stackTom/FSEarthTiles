@@ -2308,10 +2308,12 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tPoint vPoint in MasksCommon.mSliceCoastPoints[iTrippleSType])
             {
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vCoastMinPoint.mSquareDistance)
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
+                if (vTempDist < vCoastMinPointMSquareDistance)
                 {
-                    vCoastMinPoint.mSquareDistance = vTempDist;
+                    vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
                     vCoastMinPoint.mValid = true;
@@ -2321,17 +2323,29 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in MasksCommon.mSliceCoastLines[iTrippleSType])
             {
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
 
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vCoastMinPoint.mSquareDistance)
+                    if (vTempDist < vCoastMinPointMSquareDistance)
                     {
-                        vCoastMinPoint.mSquareDistance = vTempDist;
-                        vCoastMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vCoastMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vCoastMinPoint.mValid = true;
                     }
                 }
@@ -2345,8 +2359,8 @@ namespace FSEarthMasksInternalDLL
         {
 
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vCoastMinPoint;
 
@@ -2357,12 +2371,18 @@ namespace FSEarthMasksInternalDLL
 
             Int32 vCell = ((Int32)(iXp)) / cXCellsSpace;
 
+            Decimal vCoastMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
+
             foreach (tPoint vPoint in mCellsCoastPoints[iTrippleSType, vCell])
             {
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vCoastMinPoint.mSquareDistance)
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
+                if (vTempDist < vCoastMinPointMSquareDistance)
                 {
-                    vCoastMinPoint.mSquareDistance = vTempDist;
+                    vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vCoastMinPoint.mX = vPoint.mX;
                     vCoastMinPoint.mY = vPoint.mY;
                     vCoastMinPoint.mValid = true;
@@ -2372,17 +2392,30 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in mCellsCoastLines[iTrippleSType, vCell])
             {
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
 
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vCoastMinPoint.mSquareDistance)
+                    if (vTempDist < vCoastMinPointMSquareDistance)
                     {
-                        vCoastMinPoint.mSquareDistance = vTempDist;
-                        vCoastMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vCoastMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vCoastMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vCoastMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vCoastMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vCoastMinPoint.mValid = true;
                     }
                 }
@@ -2395,8 +2428,8 @@ namespace FSEarthMasksInternalDLL
         public tPointWithSquareDistance GetDeepWaterMinPoint(Int32 iTrippleSType, Single iXp, Single iYp)
         {
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vDeepWaterMinPoint;
 
@@ -2405,13 +2438,19 @@ namespace FSEarthMasksInternalDLL
             vDeepWaterMinPoint.mSquareDistance = 1.0e12f;
             vDeepWaterMinPoint.mValid = false;
 
+            Decimal vDeepWaterMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
+
             foreach (tPoint vPoint in MasksCommon.mDeepWaterPoints[iTrippleSType])
             {
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
 
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
-                    vDeepWaterMinPoint.mSquareDistance = vTempDist;
+                    vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
                     vDeepWaterMinPoint.mValid = true;
@@ -2420,16 +2459,29 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in MasksCommon.mDeepWaterLines[iTrippleSType])
             {
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
+
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                    if (vTempDist < vDeepWaterMinPointMSquareDistance)
                     {
-                        vDeepWaterMinPoint.mSquareDistance = vTempDist;
-                        vDeepWaterMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vDeepWaterMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vDeepWaterMinPoint.mValid = true;
                     }
                 }
@@ -2441,8 +2493,8 @@ namespace FSEarthMasksInternalDLL
         public tPointWithSquareDistance GetSliceDeepWaterMinPoint(Int32 iTrippleSType, Single iXp, Single iYp)
         {
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vDeepWaterMinPoint;
 
@@ -2451,13 +2503,19 @@ namespace FSEarthMasksInternalDLL
             vDeepWaterMinPoint.mSquareDistance = 1.0e12f;
             vDeepWaterMinPoint.mValid = false;
 
+            Decimal vDeepWaterMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
+
             foreach (tPoint vPoint in MasksCommon.mSliceDeepWaterPoints[iTrippleSType])
             {
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
 
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
-                    vDeepWaterMinPoint.mSquareDistance = vTempDist;
+                    vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
                     vDeepWaterMinPoint.mValid = true;
@@ -2466,16 +2524,29 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in MasksCommon.mSliceDeepWaterLines[iTrippleSType])
             {
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
+
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                    if (vTempDist < vDeepWaterMinPointMSquareDistance)
                     {
-                        vDeepWaterMinPoint.mSquareDistance = vTempDist;
-                        vDeepWaterMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vDeepWaterMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vDeepWaterMinPoint.mValid = true;
                     }
                 }
@@ -2488,8 +2559,8 @@ namespace FSEarthMasksInternalDLL
         public tPointWithSquareDistance GetCellsDeepWaterMinPoint(Int32 iTrippleSType, Single iXp, Single iYp)
         {
 
-            Single vTempDist;
-            Single vTempUFactor;
+            Decimal vTempDist;
+            Decimal vTempUFactor;
 
             tPointWithSquareDistance vDeepWaterMinPoint;
 
@@ -2500,13 +2571,19 @@ namespace FSEarthMasksInternalDLL
 
             Int32 vCell = ((Int32)(iXp)) / cXCellsSpace;
 
+            Decimal vDeepWaterMinPointMSquareDistance = Decimal.Parse("1.0e12", NumberStyles.AllowExponent | NumberStyles.AllowDecimalPoint);
+            Decimal IXP = new decimal(iXp);
+            Decimal IYP = new decimal(iYp);
+
             foreach (tPoint vPoint in mCellsDeepWaterPoints[iTrippleSType, vCell])
             {
+                Decimal MX = new decimal(vPoint.mX);
+                Decimal MY = new decimal(vPoint.mY);
+                vTempDist = (MX - IXP) * (MX - IXP) + (MY - IYP) * (MY - IYP);
 
-                vTempDist = (vPoint.mX - iXp) * (vPoint.mX - iXp) + (vPoint.mY - iYp) * (vPoint.mY - iYp);
-                if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                if (vTempDist < vDeepWaterMinPointMSquareDistance)
                 {
-                    vDeepWaterMinPoint.mSquareDistance = vTempDist;
+                    vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
                     vDeepWaterMinPoint.mX = vPoint.mX;
                     vDeepWaterMinPoint.mY = vPoint.mY;
                     vDeepWaterMinPoint.mValid = true;
@@ -2515,16 +2592,29 @@ namespace FSEarthMasksInternalDLL
 
             foreach (tLine vLine in mCellsDeepWaterLines[iTrippleSType, vCell])
             {
-                vTempUFactor = vLine.mUo + vLine.mUx * iXp + vLine.mUy * iYp;
-                if ((vTempUFactor > 0.0) && (vTempUFactor < 1.0)) //Distance Within Line?
+                Decimal MUO = new decimal(vLine.mUo);
+                Decimal MUX = new decimal(vLine.mUx);
+                Decimal MUY = new decimal(vLine.mUy);
+
+                vTempUFactor = MUO + MUX * IXP + MUY * IYP;
+                if ((vTempUFactor > Decimal.Zero) && (vTempUFactor < Decimal.One)) //Distance Within Line?
                 {
-                    vTempDist = vLine.mDo + vLine.mDx * iXp + vLine.mDy * iYp;
+                    Decimal MDO = new decimal(vLine.mDo);
+                    Decimal MDX = new decimal(vLine.mDx);
+                    Decimal MDY = new decimal(vLine.mDy);
+
+                    vTempDist = MDO + MDX * IXP + MDY * IYP;
                     vTempDist = vTempDist * vTempDist;
-                    if (vTempDist < vDeepWaterMinPoint.mSquareDistance)
+                    if (vTempDist < vDeepWaterMinPointMSquareDistance)
                     {
-                        vDeepWaterMinPoint.mSquareDistance = vTempDist;
-                        vDeepWaterMinPoint.mX = vTempUFactor * (vLine.mX2 - vLine.mX1) + vLine.mX1;
-                        vDeepWaterMinPoint.mY = vTempUFactor * (vLine.mY2 - vLine.mY1) + vLine.mY1;
+                        Decimal MX2 = new decimal(vLine.mX2);
+                        Decimal MX1 = new decimal(vLine.mX1);
+                        Decimal MY2 = new decimal(vLine.mY2);
+                        Decimal MY1 = new decimal(vLine.mY1);
+
+                        vDeepWaterMinPoint.mSquareDistance = Convert.ToSingle(vTempDist);
+                        vDeepWaterMinPoint.mX = Convert.ToSingle(vTempUFactor * (MX2 - MX1) + MX1);
+                        vDeepWaterMinPoint.mY = Convert.ToSingle(vTempUFactor * (MY2 - MY1) + MY1);
                         vDeepWaterMinPoint.mValid = true;
                     }
                 }
