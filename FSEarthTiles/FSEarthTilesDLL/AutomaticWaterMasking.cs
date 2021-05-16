@@ -507,17 +507,16 @@ namespace FSEarthTilesDLL
             foreach (KeyValuePair<string, List<string>> kv in wayIDsToWayNodes)
             {
                 string wayID = kv.Key;
-                List<string> nodIDs = kv.Value;
-                Way<Point> way = new Way<Point>();
-                way.wayID = wayID;
-                foreach (string id in nodIDs)
-                {
-                    Point coords = nodeIDsToCoords[id];
-                    way.Add(coords);
-                }
-
                 if (alreadySeenWays == null || !alreadySeenWays.ContainsKey(wayID))
                 {
+                    List<string> nodIDs = kv.Value;
+                    Way<Point> way = new Way<Point>();
+                    way.wayID = wayID;
+                    foreach (string id in nodIDs)
+                    {
+                        Point coords = nodeIDsToCoords[id];
+                        way.Add(coords);
+                    }
                     wayIDsToways.Add(wayID, way);
                 }
             }
@@ -1205,6 +1204,7 @@ namespace FSEarthTilesDLL
             Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
             Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
             mergeCoastAndRivers(coastWays, waterWays);
+            removePartitions(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
