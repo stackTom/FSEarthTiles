@@ -252,10 +252,7 @@ namespace FSEarthTilesDLL
                     {
                         if (excludedPoints.Contains(wayToTraverse[startIdx]))
                         {
-                            if (!inSharedEdge)
-                            {
-                                inSharedEdge = true;
-                            }
+                            inSharedEdge = !inSharedEdge;
                             startIdx++;
                         }
                         else if (pointOnSharedEdge(wayToTraverse, otherWay, startIdx, excludedPointsList, excludedPoints))
@@ -823,8 +820,11 @@ namespace FSEarthTilesDLL
                 removePartitions(wayIDsToWays, alreadySeenWays);
                 // merge them all. inland water should be a bunch of closed polygons.
                 // except ones intersecting with coasts, which might be open, but still.
-                // shouldn't be able to merge any of them point to point. but we do this
-                // sanity merging point to point just in case
+                // in the process of removing duplicate inland's which are the same way as coast,
+                // sometimes multipolygons aren't formed properly above. because a way that is part
+                // of the multipolygon is also part of a coast. so it is removed, and the multipolygon doesn't
+                // form properly. because of this, we go one final round through all the inland ways. making
+                // sure all the ones that can be merged Point To Point are
                 List<string> allWays = wayIDsToWays.Keys.ToList();
                 mergeMultipolygonWays(allWays, wayIDsToWays);
                 if (mergeWays)
@@ -1061,7 +1061,7 @@ namespace FSEarthTilesDLL
                 ps.RemoveAt(ps.Count - 1);
             }
             Way<Point> shiftedPoints = null;
-            if (!closedWay)
+            if (!closedWay || ps.Count == 2)
             {
                 shiftedPoints = GetEnlargedLine(ps, 1);
             }
