@@ -253,7 +253,10 @@ namespace FSEarthTilesDLL
                         if (excludedPoints.Contains(wayToTraverse[startIdx]))
                         {
                             inSharedEdge = !inSharedEdge;
-                            startIdx++;
+                            do
+                            {
+                                startIdx++;
+                            } while (startIdx < wayToTraverse.Count && excludedPoints.Contains(wayToTraverse[startIdx]));
                         }
                         else if (pointOnSharedEdge(wayToTraverse, otherWay, startIdx, excludedPointsList, excludedPoints))
                         {
@@ -633,7 +636,6 @@ namespace FSEarthTilesDLL
                             {
                                 waysWhichIntersect.Add(idThere);
                             }
-                            break;
                         }
                     }
                     else
