@@ -411,9 +411,9 @@ namespace FSEarthTilesDLL
             return true;
         }
 
-        private void setRelationAfterMerge(Way<T> way)
+        public void setRelationAfterMerge(Way<T> way)
         {
-            if (way.relation == "outer")
+            if (way.relation == "outer" || way.relation == "inner")
             {
                 this.relation = way.relation;
             }
@@ -732,6 +732,7 @@ namespace FSEarthTilesDLL
 
                         if (ableToMerge)
                         {
+                            way1.setRelationAfterMerge(way2);
                             if (newFormedWays.Count > 0)
                             {
                                 wayIDsToWays[way1id] = way1;
