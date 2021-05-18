@@ -148,7 +148,7 @@ namespace FSEarthTilesDLL
             }
 
             // Return True if the point is in the polygon.
-            private static bool PointInPolygon(Way<T> Points, double X, double Y)
+            public static bool PointInPolygon(Way<T> Points, double X, double Y)
             {
                 // Get the angle between the point and the
                 // first and last vertices.
@@ -211,14 +211,9 @@ namespace FSEarthTilesDLL
                 return true;
             }
 
-            private bool pointOnSharedEdge(Way<T> wayToTraverse, Way<T> otherWay, int idx, List<T> excludedPointsList, HashSet<T> excludedPoints)
+            private bool pointOnSharedEdge(T point, T nextPoint, Way<T> otherWay, List<T> excludedPointsList, HashSet<T> excludedPoints)
             {
-                if (excludedPoints.Contains(wayToTraverse[idx]))
-                {
-                    return true;
-                }
-
-                if (PointInPolygon(otherWay, wayToTraverse[idx].X, wayToTraverse[idx].Y))
+                if (excludedPoints.Contains(point))
                 {
                     return true;
                 }
@@ -227,9 +222,21 @@ namespace FSEarthTilesDLL
                 {
                     Point p1 = excludedPointsList[i];
                     Point p2 = excludedPointsList[i + 1];
-                    Point p3 = wayToTraverse[idx];
 
-                    if (pointOnLine(p3, p1, p2))
+                    if (pointOnLine(point, p1, p2))
+                    {
+                        return true;
+                    }
+                    bool lines_intersect, segments_intersect;
+                    Point poi, close1, close2;
+                    AreaKMLFromOSMDataCreator.FindIntersection(p1, p2, point, nextPoint,
+                        out lines_intersect, out segments_intersect,
+                        out poi, out close1, out close2);
+
+                    // make sure segments intersect before checking if pointinpolygon
+                    // otherwise, we can have cases like in Torry Island where it has a body of water
+                    // fully inside it. so all points in this body of water are in the Torry Island polygon...
+                    if (segments_intersect && PointInPolygon(otherWay, point.X, point.Y))
                     {
                         return true;
                     }
@@ -244,7 +251,6 @@ namespace FSEarthTilesDLL
 
                 Way<T> temp = new Way<T>();
                 bool inSharedEdge = false;
-                Point sentinel = new Point(-74.0519656, 40.8056687);
                 while (startIdx < wayToTraverse.Count)
                 {
                     // move along this edge
@@ -258,27 +264,31 @@ namespace FSEarthTilesDLL
                                 startIdx++;
                             } while (startIdx < wayToTraverse.Count && excludedPoints.Contains(wayToTraverse[startIdx]));
                         }
-                        else if (pointOnSharedEdge(wayToTraverse, otherWay, startIdx, excludedPointsList, excludedPoints))
-                        {
-                            // handle case when we begin iterating in a shared edge, but not in excludedPoints (one of the screwed up points)
-                            if (startIdx == 0)
-                            {
-                                startIdx++;
-                                inSharedEdge = true;
-                            }
-                            else if (inSharedEdge)
-                            {
-                                // here, we don't begin in a shared edge, but we are in an shared edge, so walk along it
-                                startIdx++;
-                            }
-                        }
                         else
                         {
-                            break;
-                        }
-                        if (!inSharedEdge)
-                        {
-                            break;
+                            T nextPoint = startIdx == wayToTraverse.Count - 1 ? wayToTraverse[0] : wayToTraverse[startIdx];
+                            if (pointOnSharedEdge(wayToTraverse[startIdx], nextPoint, otherWay, excludedPointsList, excludedPoints))
+                            {
+                                // handle case when we begin iterating in a shared edge, but not in excludedPoints (one of the screwed up points)
+                                if (startIdx == 0)
+                                {
+                                    startIdx++;
+                                    inSharedEdge = true;
+                                }
+                                else if (inSharedEdge)
+                                {
+                                    // here, we don't begin in a shared edge, but we are in an shared edge, so walk along it
+                                    startIdx++;
+                                }
+                            }
+                            else
+                            {
+                                break;
+                            }
+                            if (!inSharedEdge)
+                            {
+                                break;
+                            }
                         }
                     }
                     inSharedEdge = false;
@@ -1068,7 +1078,7 @@ namespace FSEarthTilesDLL
 
         // Find the point of intersection between
         // the lines p1 --> p2 and p3 --> p4.
-        private static void FindIntersection(
+        public static void FindIntersection(
             Point p1, Point p2, Point p3, Point p4,
             out bool lines_intersect, out bool segments_intersect,
             out Point intersection,
