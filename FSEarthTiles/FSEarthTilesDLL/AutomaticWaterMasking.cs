@@ -33,7 +33,12 @@ namespace FSEarthTilesDLL
 
         public override int GetHashCode()
         {
-            return (this.X.ToString() + "," + this.Y.ToString()).GetHashCode();
+            return this.ToString().GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return this.X.ToString() + "," + this.Y.ToString();
         }
     }
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
@@ -44,6 +49,12 @@ namespace FSEarthTilesDLL
 
         public bool mergePointToPoint(Way<T> way)
         {
+            // closed Ways should never be merged point to point
+            if (this.isClosedWay() || way.isClosedWay())
+            {
+                return false;
+            }
+
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
             Point w2p1 = way[0];
@@ -91,9 +102,113 @@ namespace FSEarthTilesDLL
 
         }
 
+        class Edge<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
+        {
+            public T firstPoint;
+            public T secondPoint;
+
+            // these two ensure Edge(A, B) == Edge(B, A)
+            private Point _firstPoint;
+            private Point _secondPoint;
+            public int length;
+
+            public Edge(T firstPoint, T secondPoint, int length)
+            {
+                this.firstPoint = firstPoint;
+                this.secondPoint = secondPoint;
+                this.length = length;
+
+                if (firstPoint.Y == secondPoint.Y)
+                {
+                    _firstPoint = firstPoint.X < secondPoint.X ? firstPoint : secondPoint;
+                }
+                else
+                {
+                    _firstPoint = firstPoint.Y < secondPoint.Y ? firstPoint : secondPoint;
+                }
+                _secondPoint = _firstPoint == firstPoint ? secondPoint : firstPoint;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Edge<T> edge &&
+                       EqualityComparer<Point>.Default.Equals(firstPoint, edge.firstPoint) &&
+                       EqualityComparer<Point>.Default.Equals(secondPoint, edge.secondPoint);
+            }
+
+            public override int GetHashCode()
+            {
+                return this.ToString().GetHashCode();
+            }
+
+            public override string ToString()
+            {
+                return _firstPoint.ToString() + secondPoint.ToString();
+            }
+        }
+
         class PolygonPartsBuilder
         {
             public HashSet<Way<T>> parts = new HashSet<Way<T>>();
+            // this is built lazily when needed
+            public HashSet<Edge<T>> edges = null;
+
+            private HashSet<Edge<T>> buildEdgesForWay(Way<T> way, HashSet<T> excludedPoints)
+            {
+                int startIdx = 0;
+
+                bool inSharedEdge = false;
+                T firstPoint = null;
+                T secondPoint = null;
+                int length = 0;
+                HashSet<Edge<T>> toReturn = new HashSet<Edge<T>>();
+                while (startIdx < way.Count)
+                {
+                    // move along this edge
+                    if (excludedPoints.Contains(way[startIdx]))
+                    {
+                        inSharedEdge = !inSharedEdge;
+                        if (inSharedEdge)
+                        {
+                            firstPoint = way[startIdx];
+                        }
+                        else
+                        {
+                            secondPoint = way[startIdx];
+                            Edge<T> e = new Edge<T>(firstPoint, secondPoint, length);
+                            if (!toReturn.Contains(e))
+                            {
+                                toReturn.Add(e);
+                            }
+                            firstPoint = null;
+                            secondPoint = null;
+                            length = 0;
+                            startIdx--; // make sure we get this point as the first point of the next possible edge
+                        }
+                    }
+                    startIdx++;
+                    if (inSharedEdge)
+                    {
+                        length++;
+                    }
+                }
+
+                return toReturn;
+            }
+
+            public void buildEdges(Way<T> way, Way<T> otherWay, HashSet<T> excludedPoints)
+            {
+                HashSet<Edge<T>> wayEdges = this.buildEdgesForWay(way, excludedPoints);
+                HashSet<Edge<T>> otherWayEdges = this.buildEdgesForWay(otherWay, excludedPoints);
+
+                foreach (Edge<T> e in wayEdges)
+                {
+                    if (otherWayEdges.Contains(e))
+                    {
+                        this.edges.Add(e);
+                    }
+                }
+            }
 
             // Return the cross product AB x BC.
             // The cross product is a vector perpendicular to AB
@@ -211,17 +326,27 @@ namespace FSEarthTilesDLL
                 return true;
             }
 
-            private bool pointOnSharedEdge(T point, T nextPoint, Way<T> otherWay, List<T> excludedPointsList, HashSet<T> excludedPoints)
+
+            private bool pointOnSharedEdge(Way<T> wayToTraverse, int idx, T nextPoint, Way<T> otherWay, HashSet<T> excludedPoints)
             {
+                T point = wayToTraverse[idx];
+
                 if (excludedPoints.Contains(point))
                 {
                     return true;
                 }
 
-                for (int i = 0; i < excludedPointsList.Count - 1; i++)
+                // build edges lazily for performance reasons
+                if (this.edges == null)
                 {
-                    Point p1 = excludedPointsList[i];
-                    Point p2 = excludedPointsList[i + 1];
+                    this.edges = new HashSet<Edge<T>>();
+                    this.buildEdges(wayToTraverse, otherWay, excludedPoints);
+                }
+
+                foreach (Edge<T> e in this.edges)
+                {
+                    T p1 = e.firstPoint;
+                    T p2 = e.secondPoint;
 
                     if (pointOnLine(point, p1, p2))
                     {
@@ -267,7 +392,7 @@ namespace FSEarthTilesDLL
                         else
                         {
                             T nextPoint = startIdx == wayToTraverse.Count - 1 ? wayToTraverse[0] : wayToTraverse[startIdx];
-                            if (pointOnSharedEdge(wayToTraverse[startIdx], nextPoint, otherWay, excludedPointsList, excludedPoints))
+                            if (pointOnSharedEdge(wayToTraverse, startIdx, nextPoint, otherWay, excludedPoints))
                             {
                                 // handle case when we begin iterating in a shared edge, but not in excludedPoints (one of the screwed up points)
                                 if (startIdx == 0)
@@ -285,10 +410,10 @@ namespace FSEarthTilesDLL
                             {
                                 break;
                             }
-                            if (!inSharedEdge)
-                            {
-                                break;
-                            }
+                        }
+                        if (!inSharedEdge)
+                        {
+                            break;
                         }
                     }
                     inSharedEdge = false;
@@ -348,11 +473,13 @@ namespace FSEarthTilesDLL
                 // TODO: delete it before we get here
                 return false;
             }
+
             if (sharedPoints.Count < 2)
             {
                 // only 1 shared point. need to use other merge method (merge point to point), not this one...
                 return false;
             }
+
             PolygonPartsBuilder pb = new PolygonPartsBuilder();
             pb.appendParts(this, way, sharedPointsList, sharedPoints);
             pb.appendParts(way, this, sharedPointsList, sharedPoints);
@@ -432,7 +559,7 @@ namespace FSEarthTilesDLL
         public bool mergeWithWay(Way<T> way, List<Way<T>> newFormedWays)
         {
             bool successfulMerge = false;
-            if (this.mergePointToPoint(way))
+            if (!this.isClosedWay() && !way.isClosedWay() && this.mergePointToPoint(way))
             {
                 this.setRelationAfterMerge(way);
                 return true;
@@ -738,11 +865,10 @@ namespace FSEarthTilesDLL
                         Way<Point> way1 = wayIDsToWays[way1id];
                         Way<Point> way2 = wayIDsToWays[way2id];
                         List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
+                        bool ableToMerge = way1.mergeWithWay(way2, newFormedWays);
 
                         if (ableToMerge)
                         {
-                            way1.setRelationAfterMerge(way2);
                             if (newFormedWays.Count > 0)
                             {
                                 wayIDsToWays[way1id] = way1;
