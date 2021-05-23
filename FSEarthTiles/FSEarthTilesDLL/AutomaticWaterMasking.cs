@@ -1435,8 +1435,8 @@ namespace FSEarthTilesDLL
         {
             Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
             Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
-            mergeCoastAndRivers(coastWays, waterWays);
             removePartitions(coastWays, waterWays);
+            mergeCoastAndRivers(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
