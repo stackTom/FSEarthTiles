@@ -9,10 +9,14 @@ using System.Xml;
 using System.Drawing;
 using System.Windows;
 using TGASharpLib;
+using ClipperLib;
 
 
 namespace FSEarthTilesDLL
 {
+    using CPath = List<IntPoint>;
+    using CPaths = List<List<IntPoint>>;
+
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
@@ -74,7 +78,7 @@ namespace FSEarthTilesDLL
 
         }
 
-        private List<T> getSharedPoints(Way<T> first, Way<T> second)
+        public static List<T> getSharedPoints(Way<T> first, Way<T> second)
         {
             HashSet<T> waySet = new HashSet<T>(second);
             List<T> sharedPoints = new List<T>();
@@ -93,7 +97,7 @@ namespace FSEarthTilesDLL
 
         public bool mergeEdgeToEdge(Way<T> way, List<Way<T>> newFormedWays)
         {
-            List<T> sharedPointsList = this.getSharedPoints(this, way);
+            List<T> sharedPointsList = getSharedPoints(this, way);
             HashSet<T> sharedPoints = new HashSet<T>(sharedPointsList);
             if (this.wayID == way.wayID)
             {
@@ -171,6 +175,54 @@ namespace FSEarthTilesDLL
             if (toMerge != this)
             {
                 newFormedWays.Add(toMerge);
+            }
+
+            return true;
+        }
+
+        public bool mergeWithClipper(Way<T> way)
+        {
+            // enough to accomodate +-180 longitude without overflowing int
+            // although, Clipper supposedly handles up to 10^18 or so, but there is no point in that much precision
+            double mult = 10000000;
+            CPath subj = new CPath();
+            foreach (T p in this)
+            {
+                subj.Add(new IntPoint(p.X * mult, p.Y * mult));
+            }
+
+            CPath clip = new CPath();
+            foreach (T p in way)
+            {
+                clip.Add(new IntPoint(p.X * mult, p.Y * mult));
+            }
+
+            CPaths solution = new CPaths();
+            Clipper c = new Clipper();
+            c.AddPath(subj, PolyType.ptSubject, true);
+            c.AddPath(clip, PolyType.ptClip, true);
+            c.Execute(ClipType.ctUnion, solution, PolyFillType.pftEvenOdd, PolyFillType.pftEvenOdd);
+            if (solution.Count == 0)
+            {
+                return false;
+            }
+
+            // clear this way and set it to the solution
+            bool originalWayClosed = this.isClosedWay();
+            this.Clear();
+            foreach (CPath path in solution)
+            {
+                foreach (IntPoint p in path)
+                {
+                    this.Add((T)new Point(p.X / mult, p.Y / mult));
+                }
+            }
+
+            // clipper does this sometimes. or maybe I misunderstood how it works
+            if (originalWayClosed && !this.isClosedWay())
+            {
+                // close it
+                this.Add(this[0]);
             }
 
             return true;
@@ -550,6 +602,63 @@ namespace FSEarthTilesDLL
             } while (mergeFound);
         }
 
+        // sometimes, OSM has two ways almost identical to each other describing the same inland waterway
+        // see here: https://www.openstreetmap.org/way/794851854#map=19/40.87524/-73.99375&layers=D
+        // this function fixes that by merging those using Clipper. We don't just use Clipper for everything
+        // because 1) I am not sure how it will deal with multiple cycles (although there is a way to deal with this
+        // using Clipper) and 2) Clipper sometimes leaves polygons with their common edge...
+        // see: https://documentation.help/The-Clipper-Library/FAQ.htm (Some solution polygons share a common edge. Is this a bug?)
+        private static void mergeNearlyDuplicateWays(Dictionary<string, Way<Point>> wayIDsToWays)
+        {
+            bool mergeFound = false;
+            int numNew = 0;
+            HashSet<string> waysWhichInterSect = getWaysWhichIntersect(wayIDsToWays);
+
+            do
+            {
+                List<string> intersectingWays = waysWhichInterSect.ToList();
+                mergeFound = false;
+                for (int i = 0; i < intersectingWays.Count; i++)
+                {
+                    for (int j = 0; j < intersectingWays.Count; j++)
+                    {
+                        string way1id = intersectingWays[i];
+                        string way2id = intersectingWays[j];
+                        // make sure the way hasn't been removed due to being combined previously...
+                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id) || way1id == way2id)
+                        {
+                            continue;
+                        }
+                        Way<Point> way1 = wayIDsToWays[way1id];
+                        Way<Point> way2 = wayIDsToWays[way2id];
+
+                        PolygonPartsBuilder<Point> pb = new PolygonPartsBuilder<Point>();
+                        List<Point> sharedPointsList = Way<Point>.getSharedPoints(way1, way2);
+                        pb.buildEdges(way1, way2, new HashSet<Point>(sharedPointsList));
+                        float percentEdge1 = (float)pb.edges.Count / (float)way1.Count;
+                        float percentEdge2 = (float)pb.edges.Count / (float)way2.Count;
+                        float PERCENT_CUTOFF = 0.5f;
+
+                        if (percentEdge1 > PERCENT_CUTOFF || percentEdge2 > PERCENT_CUTOFF)
+                        {
+                            bool ableToMerge = way1.mergeWithClipper(way2);
+
+                            if (ableToMerge)
+                            {
+                                wayIDsToWays.Remove(way2id);
+                                waysWhichInterSect.Remove(way2id);
+                                // if even one merge happened, gotta restart so we make sure we merge all the river pieces
+                                mergeFound = true;
+                                numNew++;
+                                break;
+                            }
+                        }
+
+                    }
+                }
+            } while (mergeFound);
+        }
+
         private static void mergeCoastAndRivers(Dictionary<string, Way<Point>> coastWayIDsToWays, Dictionary<string, Way<Point>> waterWayIDsToWays)
         {
             bool mergeFound = false;
@@ -687,6 +796,7 @@ namespace FSEarthTilesDLL
                 mergeMultipolygonWays(waysWhichInterSect, wayIDsToWays);
                 if (mergeWays)
                 {
+                    mergeNearlyDuplicateWays(wayIDsToWays);
                     mergeRivers(wayIDsToWays);
                 }
             }
