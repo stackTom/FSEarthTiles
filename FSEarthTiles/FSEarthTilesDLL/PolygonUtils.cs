@@ -129,6 +129,7 @@ namespace FSEarthTilesDLL
 
         public void buildEdges(Way<T> way, Way<T> otherWay, HashSet<T> excludedPoints)
         {
+            this.edges = new HashSet<Edge<T>>();
             HashSet<Edge<T>> wayEdges = this.buildEdgesForWay(way, excludedPoints);
             HashSet<Edge<T>> otherWayEdges = this.buildEdgesForWay(otherWay, excludedPoints);
 
@@ -141,6 +142,11 @@ namespace FSEarthTilesDLL
             }
         }
 
+
+        // the below code is thanks to Rod Stephens (http://csharphelper.com/blog/2014/07/determine-whether-a-point-is-inside-a-polygon-in-c/)
+        // and (http://csharphelper.com/blog/2014/07/determine-whether-a-polygon-is-convex-in-c/)
+        // I've modified it slightly for this use case, but the fundamental idea is the same
+        // ------------------------------------------------------------------------------------------------------
         // Return the cross product AB x BC.
         // The cross product is a vector perpendicular to AB
         // and BC having length |AB| * |BC| * Sin(theta) and
@@ -221,6 +227,7 @@ namespace FSEarthTilesDLL
             //return (Math.Abs(total_angle) > 0.000001);
             return (Math.Abs(total_angle) > 1);
         }
+        // ------------------------------------------------------------------------------------------------------
 
         private bool pointOnLine(Point toCheck, Point lineP1, Point lineP2)
         {
@@ -270,7 +277,6 @@ namespace FSEarthTilesDLL
             // build edges lazily for performance reasons
             if (this.edges == null)
             {
-                this.edges = new HashSet<Edge<T>>();
                 this.buildEdges(wayToTraverse, otherWay, excludedPoints);
             }
 
