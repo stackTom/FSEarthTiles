@@ -33,21 +33,16 @@ namespace FSEarthTilesDLL
         }
     }
 
-    class Edge<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
+    class Edge<T> : Way<T> where T : FSEarthTilesDLL.Point
     {
-        public T firstPoint;
-        public T secondPoint;
+        const int MAX_DISSIMILAR_POINTS = 5;
 
-        // these two ensure Edge(A, B) == Edge(B, A)
-        private Point _firstPoint;
-        private Point _secondPoint;
-        public int length;
-
-        public Edge(T firstPoint, T secondPoint, int length)
+        public Tuple<T, T> getPointsOrdered()
         {
-            this.firstPoint = firstPoint;
-            this.secondPoint = secondPoint;
-            this.length = length;
+            T firstPoint = this[0];
+            T secondPoint = this[this.Count - 1];
+            T _firstPoint = null;
+            T _secondPoint = null;
 
             if (firstPoint.Y == secondPoint.Y)
             {
@@ -58,13 +53,41 @@ namespace FSEarthTilesDLL
                 _firstPoint = firstPoint.Y < secondPoint.Y ? firstPoint : secondPoint;
             }
             _secondPoint = _firstPoint == firstPoint ? secondPoint : firstPoint;
+
+            return new Tuple<T, T>(_firstPoint, _secondPoint);
         }
 
         public override bool Equals(object obj)
         {
-            return obj is Edge<T> edge &&
-                   EqualityComparer<Point>.Default.Equals(firstPoint, edge.firstPoint) &&
-                   EqualityComparer<Point>.Default.Equals(secondPoint, edge.secondPoint);
+            if (!(obj is Edge<T>))
+            {
+                return false;
+            }
+            Edge<T> objEdge = (Edge<T>)obj;
+            Tuple<T, T> thisPoints = getPointsOrdered();
+            Tuple<T, T> objPoints = objEdge.getPointsOrdered();
+
+            return obj is Edge<T> edge && thisPoints.Item1 == objPoints.Item1 && thisPoints.Item2 == objPoints.Item2;
+        }
+
+        public bool edgesSimilarEnough(Edge<T> e)
+        {
+            if (Math.Abs(this.Count - e.Count) > MAX_DISSIMILAR_POINTS)
+            {
+                return false;
+            }
+            HashSet<T> ePoints = new HashSet<T>(e);
+
+            int numDissimilar = 0;
+            foreach (T p in this)
+            {
+                if (ePoints.Contains(p))
+                {
+                    numDissimilar++;
+                }
+            }
+
+            return numDissimilar <= MAX_DISSIMILAR_POINTS;
         }
 
         public override int GetHashCode()
@@ -74,53 +97,96 @@ namespace FSEarthTilesDLL
 
         public override string ToString()
         {
-            return _firstPoint.ToString() + secondPoint.ToString();
+            Tuple<T, T> points = getPointsOrdered();
+            T firstPoint = points.Item1;
+            T secondPoint = points.Item2;
+
+            return firstPoint.ToString() + secondPoint.ToString();
         }
     }
 
-    class PolygonPartsBuilder<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
+    class PolygonPartsBuilder<T> where T : FSEarthTilesDLL.Point
     {
         public HashSet<Way<T>> parts = new HashSet<Way<T>>();
         // this is built lazily when needed
         public HashSet<Edge<T>> edges = null;
 
-        private HashSet<Edge<T>> buildEdgesForWay(Way<T> way, HashSet<T> excludedPoints)
+        private Dictionary<Edge<T>, List<Edge<T>>> buildEdgesForWay(Way<T> way, HashSet<T> excludedPoints)
         {
             int startIdx = 0;
 
             bool inSharedEdge = false;
-            T firstPoint = null;
-            T secondPoint = null;
-            int length = 0;
-            HashSet<Edge<T>> toReturn = new HashSet<Edge<T>>();
-            while (startIdx < way.Count)
+            Dictionary<Edge<T>, List<Edge<T>>> toReturn = new Dictionary<Edge<T>, List<Edge<T>>>();
+            Edge<T> curEdge = new Edge<T>();
+            T firstEdgePoint = null;
+            int lastIdx = way.isClosedWay() ? way.Count - 1 : way.Count;
+            while (startIdx < lastIdx)
             {
                 // move along this edge
                 if (excludedPoints.Contains(way[startIdx]))
                 {
+                    Console.WriteLine(way[startIdx]);
+                    curEdge.Add(way[startIdx]);
                     inSharedEdge = !inSharedEdge;
                     if (inSharedEdge)
                     {
-                        firstPoint = way[startIdx];
+                        if (firstEdgePoint == null)
+                        {
+                            firstEdgePoint = way[startIdx];
+                        }
                     }
                     else
                     {
-                        secondPoint = way[startIdx];
-                        Edge<T> e = new Edge<T>(firstPoint, secondPoint, length);
-                        if (!toReturn.Contains(e))
+                        Console.WriteLine(curEdge.ToString());
+                        if (!toReturn.ContainsKey(curEdge))
                         {
-                            toReturn.Add(e);
+                            List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
+                            potentiallySimilarEdges.Add(curEdge);
+                            toReturn.Add(curEdge, potentiallySimilarEdges);
                         }
-                        firstPoint = null;
-                        secondPoint = null;
-                        length = 0;
+                        else
+                        {
+                            List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
+                            potentiallySimilarEdges.Add(curEdge);
+                        }
+                        curEdge = new Edge<T>();
                         startIdx--; // make sure we get this point as the first point of the next possible edge
                     }
                 }
-                startIdx++;
-                if (inSharedEdge)
+                else if (inSharedEdge)
                 {
-                    length++;
+                    curEdge.Add(firstEdgePoint);
+                    if (startIdx == lastIdx - 1)
+                    {
+                        Console.WriteLine(curEdge.ToString());
+                        if (!toReturn.ContainsKey(curEdge))
+                        {
+                            List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
+                            potentiallySimilarEdges.Add(curEdge);
+                            toReturn.Add(curEdge, potentiallySimilarEdges);
+                        }
+                        else
+                        {
+                            List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
+                            potentiallySimilarEdges.Add(curEdge);
+                        }
+                    }
+                }
+                startIdx++;
+            }
+            if (inSharedEdge)
+            {
+                curEdge.Add(firstEdgePoint);
+                if (!toReturn.ContainsKey(curEdge))
+                {
+                    List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
+                    potentiallySimilarEdges.Add(curEdge);
+                    toReturn.Add(curEdge, potentiallySimilarEdges);
+                }
+                else
+                {
+                    List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
+                    potentiallySimilarEdges.Add(curEdge);
                 }
             }
 
@@ -130,14 +196,21 @@ namespace FSEarthTilesDLL
         public void buildEdges(Way<T> way, Way<T> otherWay, HashSet<T> excludedPoints)
         {
             this.edges = new HashSet<Edge<T>>();
-            HashSet<Edge<T>> wayEdges = this.buildEdgesForWay(way, excludedPoints);
-            HashSet<Edge<T>> otherWayEdges = this.buildEdgesForWay(otherWay, excludedPoints);
+            Dictionary<Edge<T>, List<Edge<T>>> wayEdges = this.buildEdgesForWay(way, excludedPoints);
+            Dictionary<Edge<T>, List<Edge<T>>> otherWayEdges = this.buildEdgesForWay(otherWay, excludedPoints);
 
-            foreach (Edge<T> e in wayEdges)
+            foreach (KeyValuePair<Edge<T>, List<Edge<T>>> kv in wayEdges)
             {
-                if (otherWayEdges.Contains(e))
+                Edge<T> e = kv.Key;
+                Console.WriteLine(e);
+                List<Edge<T>> wayEdgesList = kv.Value;
+                List<Edge<T>> otherWayEdgesList = otherWayEdges[e];
+                foreach (Edge<T> wayEdge in wayEdgesList)
                 {
-                    this.edges.Add(e);
+                    foreach (Edge<T> otherWayEdge in otherWayEdgesList)
+                    {
+                        Console.WriteLine(wayEdge + " " + otherWayEdge);
+                    }
                 }
             }
         }
@@ -282,8 +355,8 @@ namespace FSEarthTilesDLL
 
             foreach (Edge<T> e in this.edges)
             {
-                T p1 = e.firstPoint;
-                T p2 = e.secondPoint;
+                T p1 = e[0];
+                T p2 = e[e.Count - 1];
 
                 if (pointOnLine(point, p1, p2))
                 {
