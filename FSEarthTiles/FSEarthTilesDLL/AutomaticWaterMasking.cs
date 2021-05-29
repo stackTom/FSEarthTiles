@@ -19,58 +19,59 @@ namespace FSEarthTilesDLL
         public string type;
         public string wayID;
 
-        public bool mergePointToPoint(Way<T> way)
+        public Way() : base()
+        {
+        }
+        public Way(Way<T> way) : base(way)
+        {
+        }
+
+        public Way<T> mergePointToPoint(Way<T> way)
         {
             // closed Ways should never be merged point to point
             if (this.isClosedWay() || way.isClosedWay())
             {
-                return false;
+                return null;
             }
 
             Point w1p1 = this[0];
             Point w1p2 = this[this.Count - 1];
             Point w2p1 = way[0];
             Point w2p2 = way[way.Count - 1];
+            Way<T> newWay = new Way<T>(this);
+
             if (w1p1.Equals(w2p1))
             {
-                this.Reverse();
+                newWay.Reverse();
                 for (int w2 = 1; w2 < way.Count; w2++)
                 {
-                    this.Add(way[w2]);
+                    newWay.Add(way[w2]);
                 }
-
-                return true;
             }
-            if (w1p2.Equals(w2p2))
+            else if (w1p2.Equals(w2p2))
             {
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
                 {
-                    this.Add(way[w2]);
+                    newWay.Add(way[w2]);
                 }
-
-                return true;
             }
-            if (w1p2.Equals(w2p1))
+            else if (w1p2.Equals(w2p1))
             {
                 for (int w2 = 1; w2 < way.Count; w2++)
                 {
-                    this.Add(way[w2]);
+                    newWay.Add(way[w2]);
                 }
-
-                return true;
             }
-            if (w1p1.Equals(w2p2))
+            else if (w1p1.Equals(w2p2))
             {
-                this.Reverse();
+                newWay.Reverse();
                 for (int w2 = way.Count - 2; w2 >= 0; w2--)
                 {
-                    this.Add(way[w2]);
+                    newWay.Add(way[w2]);
                 }
-
-                return true;
             }
 
-            return false;
+            return newWay;
 
         }
 
@@ -209,8 +210,10 @@ namespace FSEarthTilesDLL
             return waysInThisMultipolygon;
         }
 
-        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays)
+        private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays, string relationID, HashSet<Way<Point>> toDelete, HashSet<Way<Point>> toAdd)
         {
+            Dictionary<string, Way<Point>> waysCopy = new Dictionary<string, Way<Point>>(wayIDsToWays);
+            HashSet<Way<Point>> merged = new HashSet<Way<Point>>();
             for (int i = 0; i < waysInThisMultipolygon.Count; i++)
             {
                 for (int j = 0; j < waysInThisMultipolygon.Count; j++)
@@ -221,20 +224,48 @@ namespace FSEarthTilesDLL
                         string way1id = waysInThisMultipolygon[i];
                         string way2id = waysInThisMultipolygon[j];
                         // make sure the way hasn't been removed due to being combined previously...
-                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id))
+                        if (!waysCopy.ContainsKey(way1id) || !waysCopy.ContainsKey(way2id))
                         {
                             continue;
                         }
-                        Way<Point> way1 = wayIDsToWays[way1id];
-                        Way<Point> way2 = wayIDsToWays[way2id];
+                        Way<Point> way1 = waysCopy[way1id];
+                        Way<Point> way2 = waysCopy[way2id];
 
-                        bool ableToMerge = way1.mergePointToPoint(way2);
-                        if (ableToMerge)
+                        Way<Point> mergedWay = way1.mergePointToPoint(way2);
+                        if (mergedWay != null)
                         {
-                            wayIDsToWays[way1id] = way1;
-                            wayIDsToWays.Remove(way2id);
+                            mergedWay.wayID = way1id;
+                            waysCopy[way1id] = mergedWay;
+                            waysCopy.Remove(way2id);
+                            if (!merged.Contains(mergedWay))
+                            {
+                                merged.Add(mergedWay);
+                            }
+                            else
+                            {
+                                merged.Remove(mergedWay);
+                                merged.Add(mergedWay);
+                            }
+
+                            if (!toDelete.Contains(way1))
+                            {
+                                toDelete.Add(way1);
+                            }
+
+                            if (!toDelete.Contains(way2))
+                            {
+                                toDelete.Add(way2);
+                            }
                         }
                     }
+                }
+            }
+
+            foreach (Way<Point> w in merged)
+            {
+                if (!toAdd.Contains(w))
+                {
+                    toAdd.Add(w);
                 }
             }
         }
@@ -252,6 +283,8 @@ namespace FSEarthTilesDLL
             Dictionary<string, string> wayIDsToType = new Dictionary<string, string>();
 
             XmlNodeList relationTags = d.GetElementsByTagName("relation");
+            HashSet<Way<Point>> toAdd = new HashSet<Way<Point>>();
+            HashSet<Way<Point>> toDelete = new HashSet<Way<Point>>();
             foreach (XmlElement rel in relationTags)
             {
                 // unite multipolygon pieces into one big linestring, since fset just looks at line. no point in doing a kml polygon
@@ -260,6 +293,7 @@ namespace FSEarthTilesDLL
                 // for coastal ways. but if we make them a full polygon, then it is easy to determine that the water is inside the polygon
                 // here we compare every way to every other way.
                 List<string> waysInThisMultipolygon = getWaysInThisMultipolygonAndUpdateRelations(rel, wayIDsToRelation, wayIDsToType);
+                string relationID = rel.GetAttribute("id");
                 // update relations
                 foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
                 {
@@ -276,8 +310,18 @@ namespace FSEarthTilesDLL
 
                 if (mergeWays)
                 {
-                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
+                    mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays, relationID, toDelete, toAdd);
                 }
+            }
+
+            foreach (Way<Point> way in toDelete)
+            {
+                wayIDsToWays.Remove(way.wayID);
+            }
+
+            foreach (Way<Point> way in toAdd)
+            {
+                wayIDsToWays.Add(way.wayID, way);
             }
 
             return wayIDsToWays;
@@ -659,17 +703,16 @@ namespace FSEarthTilesDLL
 
                 if (way.relation == "inner")
                 {
+                    // debugging
                     appendLineStringPlacemark(kml, "LandPool " + way.wayID + " { " + way.relation + " } ", way);
+                    //appendLineStringPlacemark(kml, "LandPool", way);
                 }
                 else
                 {
+                    // debugging
                     appendLineStringPlacemark(kml, "WaterPool " + way.wayID + " { " + way.relation + " } ", way);
+                    //appendLineStringPlacemark(kml, "WaterPool", way);
                 }
-                // debugging
-                //appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
-                //appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
-                //appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
-                //appendLineStringPlacemark(kml, "Coast", coastWay);
             }
 
             kml.Add("</Folder>");
