@@ -1202,7 +1202,7 @@ namespace FSEarthTilesDLL
                 Way<Point> shiftedWay = getShiftedWay(way);
                 // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID, way);
-                appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
+                //appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
                 //appendLineStringPlacemark(kml, "DeepWater", way);
                 //appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
@@ -1241,7 +1241,7 @@ namespace FSEarthTilesDLL
                 }
                 // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
-                appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
+                //appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
                 //appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 //appendLineStringPlacemark(kml, "Coast", coastWay);
             }
