@@ -9,14 +9,10 @@ using System.Xml;
 using System.Drawing;
 using System.Windows;
 using TGASharpLib;
-using ClipperLib;
 
 
 namespace FSEarthTilesDLL
 {
-    using CPath = List<IntPoint>;
-    using CPaths = List<List<IntPoint>>;
-
     class Way<T> : System.Collections.Generic.List<T> where T : FSEarthTilesDLL.Point
     {
         public string relation;
@@ -78,180 +74,12 @@ namespace FSEarthTilesDLL
 
         }
 
-        public static List<T> getSharedPoints(Way<T> first, Way<T> second)
-        {
-            HashSet<T> waySet = new HashSet<T>(second);
-            List<T> sharedPoints = new List<T>();
-
-            for (int i = 0; i < first.Count; i++)
-            {
-                T p = first[i];
-                if (waySet.Contains(p))
-                {
-                    sharedPoints.Add(p);
-                }
-            }
-
-            return sharedPoints;
-        }
-
-        public bool mergeEdgeToEdge(Way<T> way, List<Way<T>> newFormedWays)
-        {
-            List<T> sharedPointsList = getSharedPoints(this, way);
-            HashSet<T> sharedPoints = new HashSet<T>(sharedPointsList);
-            if (this.wayID == way.wayID)
-            {
-                // duplicate way.
-                // TODO: delete it before we get here
-                return false;
-            }
-
-            if (sharedPoints.Count < 2)
-            {
-                // only 1 shared point. need to use other merge method (merge point to point), not this one...
-                return false;
-            }
-
-            PolygonPartsBuilder<T> pb = new PolygonPartsBuilder<T>();
-            pb.appendParts(this, way, sharedPointsList, sharedPoints);
-            pb.appendParts(way, this, sharedPointsList, sharedPoints);
-
-            HashSet<Way<T>> parts = pb.parts;
-            if (pb.parts.Count == 0)
-            {
-                // unable to find parts. happens sometimes, not sure when.
-                // TODO: find out when, this is a source of a possible BUG
-                return false;
-            }
-
-            // clear this way and set it to the first part in parts
-            this.Clear();
-            // debugging
-            /*            int doit = 1;
-                        List<Way<T>> fme = new List<Way<T>>(parts);
-                        foreach (T w in fme[doit])
-                        {
-                            this.Add(w);
-                        }
-                        return true;
-            */
-            foreach (T w in parts.First())
-            {
-                this.Add(w);
-            }
-            parts.Remove(parts.First());
-
-            // now merge this way with all the parts in parts
-            Way<T> toMerge = this;
-            while (parts.Count > 0)
-            {
-
-                bool foundCycle = true;
-                foreach (Way<T> w in parts)
-                {
-                    if (toMerge.mergePointToPoint(w))
-                    {
-                        parts.Remove(w);
-                        foundCycle = false;
-                        break;
-                    }
-                }
-                if (foundCycle)
-                {
-                    // if get here, found a cycle.
-                    if (toMerge != this)
-                    {
-                        newFormedWays.Add(toMerge);
-                    }
-                    toMerge = new Way<T>();
-                    toMerge.wayID = parts.First().wayID + "break_cycle";
-                    foreach (T w in parts.First())
-                    {
-                        toMerge.Add(w);
-                    }
-                    parts.Remove(parts.First());
-                }
-            }
-            if (toMerge != this)
-            {
-                newFormedWays.Add(toMerge);
-            }
-
-            return true;
-        }
-
-        public bool mergeWithClipper(Way<T> way)
-        {
-            // enough to accomodate +-180 longitude without overflowing int
-            // although, Clipper supposedly handles up to 10^18 or so, but there is no point in that much precision
-            double mult = 10000000;
-            CPath subj = new CPath();
-            foreach (T p in this)
-            {
-                subj.Add(new IntPoint(p.X * mult, p.Y * mult));
-            }
-
-            CPath clip = new CPath();
-            foreach (T p in way)
-            {
-                clip.Add(new IntPoint(p.X * mult, p.Y * mult));
-            }
-
-            CPaths solution = new CPaths();
-            Clipper c = new Clipper();
-            c.AddPath(subj, PolyType.ptSubject, true);
-            c.AddPath(clip, PolyType.ptClip, true);
-            c.Execute(ClipType.ctUnion, solution, PolyFillType.pftEvenOdd, PolyFillType.pftEvenOdd);
-            if (solution.Count == 0)
-            {
-                return false;
-            }
-
-            // clear this way and set it to the solution
-            bool originalWayClosed = this.isClosedWay();
-            this.Clear();
-            foreach (CPath path in solution)
-            {
-                foreach (IntPoint p in path)
-                {
-                    this.Add((T)new Point(p.X / mult, p.Y / mult));
-                }
-            }
-
-            // clipper does this sometimes. or maybe I misunderstood how it works
-            if (originalWayClosed && !this.isClosedWay())
-            {
-                // close it
-                this.Add(this[0]);
-            }
-
-            return true;
-        }
-
         public void setRelationAfterMerge(Way<T> way)
         {
             if (way.relation == "outer" || way.relation == "inner")
             {
                 this.relation = way.relation;
             }
-        }
-
-        public bool mergeWithWay(Way<T> way, List<Way<T>> newFormedWays)
-        {
-            bool successfulMerge = false;
-            if (!this.isClosedWay() && !way.isClosedWay() && this.mergePointToPoint(way))
-            {
-                this.setRelationAfterMerge(way);
-                return true;
-            }
-            if (this.mergeEdgeToEdge(way, newFormedWays))
-            {
-                this.setRelationAfterMerge(way);
-                return true;
-            }
-
-
-            return successfulMerge;
         }
 
         public bool isClosedWay()
@@ -277,12 +105,6 @@ namespace FSEarthTilesDLL
 
     class AreaKMLFromOSMDataCreator
     {
-        private enum WayType
-        {
-            WaterWay,
-            CoastWay
-        }
-
         private static Dictionary<string, Point> getNodeIDsToCoords(XmlDocument d)
         {
             Dictionary<string, Point> nodeIDsToCoords = new Dictionary<string, Point>();
@@ -320,29 +142,27 @@ namespace FSEarthTilesDLL
             return wayIDsToWayNodes;
         }
 
-        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords, Dictionary<string, Way<Point>> alreadySeenWays)
+        private static Dictionary<string, Way<Point>> getWayIDsToWays(XmlDocument d, Dictionary<string, List<string>> wayIDsToWayNodes, Dictionary<string, Point> nodeIDsToCoords)
         {
             Dictionary<string, Way<Point>> wayIDsToways = new Dictionary<string, Way<Point>>();
 
             foreach (KeyValuePair<string, List<string>> kv in wayIDsToWayNodes)
             {
                 string wayID = kv.Key;
-                if (true || alreadySeenWays == null || !alreadySeenWays.ContainsKey(wayID))
+                List<string> nodIDs = kv.Value;
+                Way<Point> way = new Way<Point>();
+                way.wayID = wayID;
+                foreach (string id in nodIDs)
                 {
-                    List<string> nodIDs = kv.Value;
-                    Way<Point> way = new Way<Point>();
-                    way.wayID = wayID;
-                    foreach (string id in nodIDs)
-                    {
-                        Point coords = nodeIDsToCoords[id];
-                        way.Add(coords);
-                    }
-                    wayIDsToways.Add(wayID, way);
+                    Point coords = nodeIDsToCoords[id];
+                    way.Add(coords);
                 }
+                wayIDsToways.Add(wayID, way);
             }
 
             return wayIDsToways;
         }
+
         private static List<string> getWaysInThisMultipolygonAndUpdateRelations(XmlElement rel, Dictionary<string, string> wayIDsToRelation, Dictionary<string, string> wayIDsToType)
         {
             List<string> waysInThisMultipolygon = new List<string>();
@@ -389,14 +209,6 @@ namespace FSEarthTilesDLL
             return waysInThisMultipolygon;
         }
 
-        // NOTE: this function modifies WayIDsToWays by removing all individual multipolygon segments that are able to be combined
-        // with another segment
-        // TODO: rename and refactor this
-        enum MergeType
-        {
-            PointToPoint,
-            EdgeToEdge
-        }
         private static void mergeMultipolygonWays(List<string> waysInThisMultipolygon, Dictionary<string, Way<Point>> wayIDsToWays)
         {
             for (int i = 0; i < waysInThisMultipolygon.Count; i++)
@@ -416,7 +228,6 @@ namespace FSEarthTilesDLL
                         Way<Point> way1 = wayIDsToWays[way1id];
                         Way<Point> way2 = wayIDsToWays[way2id];
 
-                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
                         bool ableToMerge = way1.mergePointToPoint(way2);
                         if (ableToMerge)
                         {
@@ -428,327 +239,14 @@ namespace FSEarthTilesDLL
             }
         }
 
-        // checks which ways intersect with another in at least 1 one point
-        private static HashSet<string> getWaysWhichIntersect(Dictionary<string, Way<Point>> wayIDsToWays)
-        {
-            HashSet<string> waysWhichIntersect = new HashSet<string>();
-            Dictionary<Point, string> allPoints = new Dictionary<Point, string>();
-
-            foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays)
-            {
-                string wayID = kv.Key;
-                Way<Point> w = kv.Value;
-
-                foreach (Point p in w)
-                {
-                    if (allPoints.ContainsKey(p))
-                    {
-                        string idThere = allPoints[p];
-                        if (allPoints[p] != wayID)
-                        {
-                            waysWhichIntersect.Add(wayID);
-
-                            // make sure the one that is already in allPoints set is also a candidate for intersecting with other ways
-                            if (!waysWhichIntersect.Contains(idThere))
-                            {
-                                waysWhichIntersect.Add(idThere);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        allPoints.Add(p, wayID);
-                    }
-                }
-            }
-
-            return waysWhichIntersect;
-        }
-
-        // checks which ways intersect with another in at least 1 one point
-        private static Tuple<HashSet<string>, HashSet<string>> getWaysWhichIntersect(Dictionary<string, Way<Point>> wayIDsToWays1, Dictionary<string, Way<Point>> wayIDsToWays2)
-        {
-            HashSet<string> waysWhichIntersect1 = new HashSet<string>();
-            HashSet<string> waysWhichIntersect2 = new HashSet<string>();
-            Dictionary<Point, List<string>> allPoints = new Dictionary<Point, List<string>>();
-
-            foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays1)
-            {
-                string wayID = kv.Key;
-                Way<Point> w = kv.Value;
-
-                foreach (Point p in w)
-                {
-                    if (!allPoints.ContainsKey(p))
-                    {
-                        List<string> temp = new List<string>();
-                        temp.Add(wayID);
-                        allPoints.Add(p, temp);
-                    }
-                    else
-                    {
-                        List<string> temp = allPoints[p];
-                        temp.Add(wayID);
-                    }
-                }
-            }
-
-            foreach (KeyValuePair<string, Way<Point>> kv in wayIDsToWays2)
-            {
-                string wayID = kv.Key;
-                Way<Point> w = kv.Value;
-
-                foreach (Point p in w)
-                {
-                    if (allPoints.ContainsKey(p))
-                    {
-                        List<string> idsToAdd = allPoints[p];
-                        foreach (string id in idsToAdd)
-                        {
-                            if (!waysWhichIntersect1.Contains(id))
-                            {
-                                waysWhichIntersect1.Add(id);
-                            }
-                        }
-                        if (!waysWhichIntersect2.Contains(wayID))
-                        {
-                            waysWhichIntersect2.Add(wayID);
-                        }
-                    }
-                }
-            }
-
-            return new Tuple<HashSet<string>, HashSet<string>>(waysWhichIntersect1, waysWhichIntersect2);
-        }
-
-        private static void mergeRivers(Dictionary<string, Way<Point>> wayIDsToWays)
-        {
-            bool mergeFound = false;
-            int numNew = 0;
-            HashSet<string> waysWhichInterSect = getWaysWhichIntersect(wayIDsToWays);
-
-            do
-            {
-                List<string> intersectingWays = waysWhichInterSect.ToList();
-                mergeFound = false;
-                for (int i = 0; i < intersectingWays.Count; i++)
-                {
-                    for (int j = 0; j < intersectingWays.Count; j++)
-                    {
-                        string way1id = intersectingWays[i];
-                        string way2id = intersectingWays[j];
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id) || way1id == way2id)
-                        {
-                            continue;
-                        }
-                        Way<Point> way1 = wayIDsToWays[way1id];
-                        Way<Point> way2 = wayIDsToWays[way2id];
-                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = way1.mergeWithWay(way2, newFormedWays);
-
-                        if (ableToMerge)
-                        {
-                            if (newFormedWays.Count > 0)
-                            {
-                                wayIDsToWays[way1id] = way1;
-                                newFormedWays.Add(way1);
-                                newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
-                                {
-                                    double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
-                                    double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
-
-                                    if (w2Area > w1Area)
-                                    {
-                                        return 1;
-                                    }
-                                    else if (w1Area > w2Area)
-                                    {
-                                        return -1;
-                                    }
-
-                                    // they are equal
-                                    return 0;
-                                });
-
-                                // biggest one becomes outer
-                                newFormedWays[0].relation = "outer";
-                                for (int k = 1; k < newFormedWays.Count; k++)
-                                {
-                                    // all other ones become inner
-                                    // Possible BUG: this is simplistic. come up with better logic
-                                    Way<Point> w = newFormedWays[k];
-                                    w.relation = "inner";
-                                }
-                                foreach (Way<Point> w in newFormedWays)
-                                {
-                                    if (w != way1)
-                                    {
-                                        w.wayID += numNew; // make sure this is a new id and hasn't been added previously
-                                        wayIDsToWays.Add(w.wayID, w);
-                                        waysWhichInterSect.Add(w.wayID);
-                                    }
-                                }
-                            }
-                            wayIDsToWays.Remove(way2id);
-                            waysWhichInterSect.Remove(way2id);
-                            // if even one merge happened, gotta restart so we make sure we merge all the river pieces
-                            mergeFound = true;
-                            numNew++;
-                            break;
-                        }
-                    }
-                }
-            } while (mergeFound);
-        }
-
-        // sometimes, OSM has two ways almost identical to each other describing the same inland waterway
-        // see here: https://www.openstreetmap.org/way/794851854#map=19/40.87524/-73.99375&layers=D
-        // this function fixes that by merging those using Clipper. We don't just use Clipper for everything
-        // because 1) I am not sure how it will deal with multiple cycles (although there is a way to deal with this
-        // using Clipper) and 2) Clipper sometimes leaves polygons with their common edge...
-        // see: https://documentation.help/The-Clipper-Library/FAQ.htm (Some solution polygons share a common edge. Is this a bug?)
-        private static void mergeNearlyDuplicateWays(Dictionary<string, Way<Point>> wayIDsToWays)
-        {
-            bool mergeFound = false;
-            int numNew = 0;
-            HashSet<string> waysWhichInterSect = getWaysWhichIntersect(wayIDsToWays);
-
-            do
-            {
-                List<string> intersectingWays = waysWhichInterSect.ToList();
-                mergeFound = false;
-                for (int i = 0; i < intersectingWays.Count; i++)
-                {
-                    for (int j = 0; j < intersectingWays.Count; j++)
-                    {
-                        string way1id = intersectingWays[i];
-                        string way2id = intersectingWays[j];
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!wayIDsToWays.ContainsKey(way1id) || !wayIDsToWays.ContainsKey(way2id) || way1id == way2id)
-                        {
-                            continue;
-                        }
-                        Way<Point> way1 = wayIDsToWays[way1id];
-                        Way<Point> way2 = wayIDsToWays[way2id];
-
-                        PolygonPartsBuilder<Point> pb = new PolygonPartsBuilder<Point>();
-                        List<Point> sharedPointsList = Way<Point>.getSharedPoints(way1, way2);
-                        pb.buildEdges(way1, way2, new HashSet<Point>(sharedPointsList));
-                        float percentEdge1 = (float)pb.edges.Count / (float)way1.Count;
-                        float percentEdge2 = (float)pb.edges.Count / (float)way2.Count;
-                        float PERCENT_CUTOFF = 0.5f;
-
-                        if (percentEdge1 > PERCENT_CUTOFF || percentEdge2 > PERCENT_CUTOFF)
-                        {
-                            bool ableToMerge = way1.mergeWithClipper(way2);
-
-                            if (ableToMerge)
-                            {
-                                wayIDsToWays.Remove(way2id);
-                                waysWhichInterSect.Remove(way2id);
-                                // if even one merge happened, gotta restart so we make sure we merge all the river pieces
-                                mergeFound = true;
-                                numNew++;
-                                break;
-                            }
-                        }
-
-                    }
-                }
-            } while (mergeFound);
-        }
-
-        private static void mergeCoastAndRivers(Dictionary<string, Way<Point>> coastWayIDsToWays, Dictionary<string, Way<Point>> waterWayIDsToWays)
-        {
-            bool mergeFound = false;
-            int numNew = 0;
-            Tuple<HashSet<string>, HashSet<string>> inters = getWaysWhichIntersect(waterWayIDsToWays, coastWayIDsToWays);
-            HashSet<string> waterIntersections = inters.Item1;
-            HashSet<string> coastIntersections = inters.Item2;
-
-            do
-            {
-                List<string> allCoastWays = coastIntersections.ToList();
-                List<string> allWaterWays = waterIntersections.ToList();
-                mergeFound = false;
-                for (int i = 0; i < allCoastWays.Count; i++)
-                {
-                    for (int j = 0; j < allWaterWays.Count; j++)
-                    {
-                        string way1id = allCoastWays[i];
-                        string way2id = allWaterWays[j];
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!coastWayIDsToWays.ContainsKey(way1id) || !waterWayIDsToWays.ContainsKey(way2id))
-                        {
-                            continue;
-                        }
-                        Way<Point> way1 = coastWayIDsToWays[way1id];
-                        Way<Point> way2 = waterWayIDsToWays[way2id];
-                        List<Way<Point>> newFormedWays = new List<Way<Point>>();
-                        bool ableToMerge = way1.mergeEdgeToEdge(way2, newFormedWays);
-
-                        if (ableToMerge)
-                        {
-                            if (newFormedWays.Count > 0)
-                            {
-                                coastWayIDsToWays[way1id] = way1;
-                                newFormedWays.Add(way1);
-                                newFormedWays.Sort(delegate (Way<Point> w1, Way<Point> w2)
-                                {
-                                    double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
-                                    double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
-
-                                    if (w2Area > w1Area)
-                                    {
-                                        return 1;
-                                    }
-                                    else if (w1Area > w2Area)
-                                    {
-                                        return -1;
-                                    }
-
-                                    // they are equal
-                                    return 0;
-                                });
-
-                                // biggest one becomes outer
-                                newFormedWays[0].relation = "outer";
-                                for (int k = 1; k < newFormedWays.Count; k++)
-                                {
-                                    // all other ones become inner
-                                    // Possible BUG: this is simplistic. come up with better logic
-                                    Way<Point> w = newFormedWays[k];
-                                    w.relation = "inner";
-                                }
-                                foreach (Way<Point> w in newFormedWays)
-                                {
-                                    if (w != way1)
-                                    {
-                                        w.wayID += numNew; // make sure this is a new id and hasn't been added previously
-                                        coastWayIDsToWays.Add(w.wayID, w);
-                                    }
-                                }
-                            }
-                            waterWayIDsToWays.Remove(way2id);
-                            // if even one merge happened, gotta restart so we make sure we merge all the river pieces
-                            mergeFound = true;
-                            numNew++;
-                            break;
-                        }
-                    }
-                }
-            } while (mergeFound);
-        }
-
-        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, Dictionary<string, Way<Point>> alreadySeenWays, bool mergeWays, WayType type)
+        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, Dictionary<string, Way<Point>> alreadySeenWays, bool mergeWays)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
 
             Dictionary<string, List<string>> wayIDsToWayNodes = getWayIDsToWayNodes(d);
             Dictionary<string, Point> nodeIDsToCoords = getNodeIDsToCoords(d);
-            Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords, alreadySeenWays);
+            Dictionary<string, Way<Point>> wayIDsToWays = getWayIDsToWays(d, wayIDsToWayNodes, nodeIDsToCoords);
             // POSSIBLE BUG: can a way every be both inner and outer in a relationship?
             Dictionary<string, string> wayIDsToRelation = new Dictionary<string, string>();
             Dictionary<string, string> wayIDsToType = new Dictionary<string, string>();
@@ -779,25 +277,6 @@ namespace FSEarthTilesDLL
                 if (mergeWays)
                 {
                     mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays);
-                }
-            }
-
-            if (type == WayType.WaterWay)
-            {
-                removePartitions(wayIDsToWays, alreadySeenWays);
-                // merge them all. inland water should be a bunch of closed polygons.
-                // except ones intersecting with coasts, which might be open, but still.
-                // in the process of removing duplicate inland's which are the same way as coast,
-                // sometimes multipolygons aren't formed properly above. because a way that is part
-                // of the multipolygon is also part of a coast. so it is removed, and the multipolygon doesn't
-                // form properly. because of this, we go one final round through all the inland ways. making
-                // sure all the ones that can be merged Point To Point are
-                List<string> waysWhichInterSect = getWaysWhichIntersect(wayIDsToWays).ToList();
-                mergeMultipolygonWays(waysWhichInterSect, wayIDsToWays);
-                if (mergeWays)
-                {
-                    //mergeNearlyDuplicateWays(wayIDsToWays);
-                    //mergeRivers(wayIDsToWays);
                 }
             }
 
@@ -1049,10 +528,6 @@ namespace FSEarthTilesDLL
 
             return shiftedWay;
         }
-        private static string getLineStringPlacemark(string name, string coordinates)
-        {
-            return null;
-        }
 
         private static void appendLineStringPlacemark(List<string> kml, string name, Way<Point> way)
         {
@@ -1071,53 +546,6 @@ namespace FSEarthTilesDLL
             kml.Add("</coordinates>");
             kml.Add("</LineString>");
             kml.Add("</Placemark>");
-        }
-
-        // fix coast partitioning inland or vice versa
-        private static void removePartitions(Dictionary<string, Way<Point>> waterWays, Dictionary<string, Way<Point>> coastWays)
-        {
-            Point w1p1;
-            Point w1p2;
-
-            Tuple<HashSet<string>, HashSet<string>> inters = getWaysWhichIntersect(waterWays, coastWays);
-            HashSet<string> waterIntersections = inters.Item1;
-            HashSet<string> coastIntersections = inters.Item2;
-            foreach (string wayID in waterIntersections)
-            {
-                Way<Point> waterWay = waterWays[wayID];
-                // possible BUG: 5 is an arbitrary number. could fail in some cases, but it is easiest way I could think of
-                // of handling this peculiarity with OSM
-                if (waterWay.Count > 5)
-                {
-                    continue;
-                }
-
-                // NOTE: we do this for speed's sake. But I think we might need to iterate through each point in the way
-                // if we really want to be safe
-                w1p1 = waterWay[0];
-                w1p2 = waterWay[waterWay.Count - 1];
-                bool firstEquals = false;
-                bool lastEquals = false;
-                foreach (string coastID in coastIntersections)
-                {
-                    Way<Point> coastWay = coastWays[coastID];
-                    foreach (Point p in coastWay)
-                    {
-                        if (w1p1.Equals(p))
-                        {
-                            firstEquals = true;
-                        }
-                        if (w1p2.Equals(p))
-                        {
-                            lastEquals = true;
-                        }
-                    }
-                }
-                if (firstEquals && lastEquals)
-                {
-                    waterWays.Remove(wayID);
-                }
-            }
         }
 
         // C# port of Android Maps Utils
@@ -1171,10 +599,8 @@ namespace FSEarthTilesDLL
 
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
-            Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
-            Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
-            //removePartitions(coastWays, waterWays);
-            //mergeCoastAndRivers(coastWays, waterWays);
+            Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false);
+            Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -1191,8 +617,7 @@ namespace FSEarthTilesDLL
             kml.Add("<Folder>");
             kml.Add("<name>Water Masking</name>");
             kml.Add("<open>1</open>");
-            Way<Point> coastWay = null;
-            Way<Point> deepWaterWay = null;
+
             foreach (KeyValuePair<string, Way<Point>> kv in coastWays)
             {
                 Way<Point> way = kv.Value;
