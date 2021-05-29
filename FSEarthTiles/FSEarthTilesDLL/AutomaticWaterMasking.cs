@@ -239,7 +239,7 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, Dictionary<string, Way<Point>> alreadySeenWays, bool mergeWays)
+        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, bool mergeWays)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
@@ -599,8 +599,8 @@ namespace FSEarthTilesDLL
 
         public static string createWaterKMLFromOSM(string waterOSM, string coastOSM, string selectedCompiler)
         {
-            Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false);
-            Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true);
+            Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, false);
+            Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, true);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
