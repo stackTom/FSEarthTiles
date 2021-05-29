@@ -327,7 +327,7 @@ namespace FSEarthTilesDLL
             foreach (KeyValuePair<string, List<string>> kv in wayIDsToWayNodes)
             {
                 string wayID = kv.Key;
-                if (alreadySeenWays == null || !alreadySeenWays.ContainsKey(wayID))
+                if (true || alreadySeenWays == null || !alreadySeenWays.ContainsKey(wayID))
                 {
                     List<string> nodIDs = kv.Value;
                     Way<Point> way = new Way<Point>();
@@ -796,8 +796,8 @@ namespace FSEarthTilesDLL
                 mergeMultipolygonWays(waysWhichInterSect, wayIDsToWays);
                 if (mergeWays)
                 {
-                    mergeNearlyDuplicateWays(wayIDsToWays);
-                    mergeRivers(wayIDsToWays);
+                    //mergeNearlyDuplicateWays(wayIDsToWays);
+                    //mergeRivers(wayIDsToWays);
                 }
             }
 
@@ -1173,8 +1173,8 @@ namespace FSEarthTilesDLL
         {
             Dictionary<string, Way<Point>> coastWays = GetWays(coastOSM, null, false, WayType.CoastWay);
             Dictionary<string, Way<Point>> waterWays = GetWays(waterOSM, coastWays, true, WayType.WaterWay);
-            removePartitions(coastWays, waterWays);
-            mergeCoastAndRivers(coastWays, waterWays);
+            //removePartitions(coastWays, waterWays);
+            //mergeCoastAndRivers(coastWays, waterWays);
             List<string> kml = new List<string>();
             kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
@@ -1202,45 +1202,46 @@ namespace FSEarthTilesDLL
                 Way<Point> shiftedWay = getShiftedWay(way);
                 // debugging
                 appendLineStringPlacemark(kml, "DeepWater " + way.wayID, way);
-                //appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
+                appendLineStringPlacemark(kml, "Coast " + way.wayID, shiftedWay);
                 //appendLineStringPlacemark(kml, "DeepWater", way);
                 //appendLineStringPlacemark(kml, "Coast", shiftedWay);
             }
-            foreach (KeyValuePair<string, Way<Point>> kv in waterWays)
+            List<Way<Point>> waterWaysList = waterWays.Values.ToList();
+
+            waterWaysList.Sort(delegate (Way<Point> w1, Way<Point> w2)
             {
-                Way<Point> way = kv.Value;
-                Way<Point> shiftedWay = getShiftedWay(way);
-                double origArea = SphericalUtil.ComputeUnsignedArea(way);
-                double shiftedArea = SphericalUtil.ComputeUnsignedArea(shiftedWay);
+                double w1Area = SphericalUtil.ComputeUnsignedArea(w1);
+                double w2Area = SphericalUtil.ComputeUnsignedArea(w2);
+
+                if (w2Area > w1Area)
+                {
+                    return -1;
+                }
+                else if (w1Area > w2Area)
+                {
+                    return 1;
+                }
+
+                // they are equal
+                return 0;
+            });
+            foreach (Way<Point> way in waterWaysList)
+            {
+                if (!way.isClosedWay())
+                {
+                    continue;
+                }
 
                 if (way.relation == "inner")
                 {
-                    if (origArea < shiftedArea)
-                    {
-                        coastWay = way;
-                        deepWaterWay = shiftedWay;
-                    }
-                    else
-                    {
-                        coastWay = shiftedWay;
-                        deepWaterWay = way;
-                    }
+                    appendLineStringPlacemark(kml, "LandPool " + way.wayID + " { " + way.relation + " } ", way);
                 }
                 else
                 {
-                    if (origArea < shiftedArea)
-                    {
-                        deepWaterWay = way;
-                        coastWay = shiftedWay;
-                    }
-                    else
-                    {
-                        deepWaterWay = shiftedWay;
-                        coastWay = way;
-                    }
+                    appendLineStringPlacemark(kml, "WaterPool " + way.wayID + " { " + way.relation + " } ", way);
                 }
                 // debugging
-                appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
+                //appendLineStringPlacemark(kml, "DeepWater " + way.wayID + " { " + way.relation + " } ", deepWaterWay);
                 //appendLineStringPlacemark(kml, "Coast " + way.wayID + " { " + way.relation + " } ", coastWay);
                 //appendLineStringPlacemark(kml, "DeepWater", deepWaterWay);
                 //appendLineStringPlacemark(kml, "Coast", coastWay);
