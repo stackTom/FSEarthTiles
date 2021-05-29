@@ -36,6 +36,12 @@ namespace FSEarthTilesDLL
     class Edge<T> : Way<T> where T : FSEarthTilesDLL.Point
     {
         const int MAX_DISSIMILAR_POINTS = 5;
+        public Way<T> parentWay = null;
+
+        public Edge(Way<T> parentWay)
+        {
+            this.parentWay = parentWay;
+        }
 
         public Tuple<T, T> getPointsOrdered()
         {
@@ -109,15 +115,16 @@ namespace FSEarthTilesDLL
     {
         public HashSet<Way<T>> parts = new HashSet<Way<T>>();
         // this is built lazily when needed
-        public HashSet<Edge<T>> edges = null;
+        public Dictionary<Edge<T>, Edge<T>> edges = null;
 
         private Dictionary<Edge<T>, List<Edge<T>>> buildEdgesForWay(Way<T> way, HashSet<T> excludedPoints)
         {
             int startIdx = 0;
+            Console.WriteLine("this is a closed way " + way.isClosedWay() + " with count of " + way.Count);
 
             bool inSharedEdge = false;
             Dictionary<Edge<T>, List<Edge<T>>> toReturn = new Dictionary<Edge<T>, List<Edge<T>>>();
-            Edge<T> curEdge = new Edge<T>();
+            Edge<T> curEdge = new Edge<T>(way);
             T firstEdgePoint = null;
             int lastIdx = way.isClosedWay() ? way.Count - 1 : way.Count;
             while (startIdx < lastIdx)
@@ -125,11 +132,11 @@ namespace FSEarthTilesDLL
                 // move along this edge
                 if (excludedPoints.Contains(way[startIdx]))
                 {
-                    Console.WriteLine(way[startIdx]);
                     curEdge.Add(way[startIdx]);
                     inSharedEdge = !inSharedEdge;
                     if (inSharedEdge)
                     {
+                        Console.WriteLine("starting with " + way[startIdx] + " at idx " + startIdx);
                         if (firstEdgePoint == null)
                         {
                             firstEdgePoint = way[startIdx];
@@ -137,7 +144,8 @@ namespace FSEarthTilesDLL
                     }
                     else
                     {
-                        Console.WriteLine(curEdge.ToString());
+                        Console.WriteLine("ending with " + way[startIdx] + " at idx " + startIdx);
+                        Console.WriteLine("wayID " + way.wayID + " " + curEdge.ToString());
                         if (!toReturn.ContainsKey(curEdge))
                         {
                             List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
@@ -149,34 +157,30 @@ namespace FSEarthTilesDLL
                             List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
                             potentiallySimilarEdges.Add(curEdge);
                         }
-                        curEdge = new Edge<T>();
+                        curEdge = new Edge<T>(way);
                         startIdx--; // make sure we get this point as the first point of the next possible edge
                     }
                 }
                 else if (inSharedEdge)
                 {
-                    curEdge.Add(firstEdgePoint);
-                    if (startIdx == lastIdx - 1)
-                    {
-                        Console.WriteLine(curEdge.ToString());
-                        if (!toReturn.ContainsKey(curEdge))
-                        {
-                            List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
-                            potentiallySimilarEdges.Add(curEdge);
-                            toReturn.Add(curEdge, potentiallySimilarEdges);
-                        }
-                        else
-                        {
-                            List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
-                            potentiallySimilarEdges.Add(curEdge);
-                        }
-                    }
+                    curEdge.Add(way[startIdx]);
                 }
                 startIdx++;
             }
             if (inSharedEdge)
             {
+                Console.WriteLine("we are still in a shared edge at " + (startIdx - 1));
+                // keep adding until we reach the firstEdgePoint we added
+                int tika = -1;
+                for (int i = 0; !way[i].Equals(firstEdgePoint); i++)
+                {
+                    //Console.WriteLine("so added " + way[i] + " at idx " + i);
+                    curEdge.Add(way[i]);
+                    tika = i;
+                }
+                tika++;
                 curEdge.Add(firstEdgePoint);
+                Console.WriteLine("and the final one - the firstEdgePoint " + firstEdgePoint + " which is found at idx " + tika);
                 if (!toReturn.ContainsKey(curEdge))
                 {
                     List<Edge<T>> potentiallySimilarEdges = new List<Edge<T>>();
@@ -188,14 +192,48 @@ namespace FSEarthTilesDLL
                     List<Edge<T>> potentiallySimilarEdges = toReturn[curEdge];
                     potentiallySimilarEdges.Add(curEdge);
                 }
+                Console.WriteLine("wayID " + way.wayID + " " + curEdge.ToString());
             }
 
             return toReturn;
         }
 
+        private double HaversineDistance(Point pos1, Point pos2)
+        {
+            const double R = 6371;
+            const double TO_RADS = Math.PI / 180.0;
+            double lat = (pos2.Y - pos1.Y) * TO_RADS;
+            double lng = (pos2.X - pos1.X) * TO_RADS;
+            double h1 = Math.Sin(lat / 2) * Math.Sin(lat / 2) +
+                          Math.Cos(pos1.Y * TO_RADS) * Math.Cos(pos2.Y * TO_RADS) *
+                          Math.Sin(lng / 2) * Math.Sin(lng / 2);
+            double h2 = 2 * Math.Asin(Math.Min(1, Math.Sqrt(h1)));
+
+            return R * h2;
+        }
+
+        private Point getMidPoint(Edge<T> way)
+        {
+            if (way.Count <= 2)
+            {
+                return new Point((way[0].X + way[way.Count - 1].X) / 2, (way[0].Y + way[way.Count - 1].Y) / 2);
+            }
+
+            // we assume the distance between each consecutive point is somewhat constant
+            return way[way.Count / 2];
+        }
+
+        private double distanceBetweenCenters(Edge<T> way1, Edge<T> way2)
+        {
+            Point p1 = getMidPoint(way1);
+            Point p2 = getMidPoint(way2);
+
+            return HaversineDistance(p1, p2);
+        }
+
         public void buildEdges(Way<T> way, Way<T> otherWay, HashSet<T> excludedPoints)
         {
-            this.edges = new HashSet<Edge<T>>();
+            this.edges = new Dictionary<Edge<T>, Edge<T>>();
             Dictionary<Edge<T>, List<Edge<T>>> wayEdges = this.buildEdgesForWay(way, excludedPoints);
             Dictionary<Edge<T>, List<Edge<T>>> otherWayEdges = this.buildEdgesForWay(otherWay, excludedPoints);
 
@@ -209,10 +247,30 @@ namespace FSEarthTilesDLL
                 {
                     foreach (Edge<T> otherWayEdge in otherWayEdgesList)
                     {
-                        Console.WriteLine(wayEdge + " " + otherWayEdge);
+                        const double MAX_DISTANCE = 0.4;
+                        double curDistance = distanceBetweenCenters(wayEdge, otherWayEdge);
+                        if (curDistance < MAX_DISTANCE)
+                        {
+                            if (!this.edges.ContainsKey(wayEdge))
+                            {
+                                this.edges.Add(wayEdge, otherWayEdge);
+                            }
+                            else
+                            {
+                                Edge<T> curEdgeThere = this.edges[wayEdge];
+                                double oldDistance = distanceBetweenCenters(wayEdge, curEdgeThere);
+                                if (oldDistance < curDistance)
+                                {
+                                    this.edges[wayEdge] = otherWayEdge;
+                                }
+                            }
+                        }
+                        Console.WriteLine(wayEdge + "       " + otherWayEdge);
+                        Console.WriteLine("------------------------------------------");
                     }
                 }
             }
+            Console.WriteLine("done");
         }
 
 
@@ -338,42 +396,40 @@ namespace FSEarthTilesDLL
         }
 
 
-        private bool pointOnSharedEdge(Way<T> wayToTraverse, int idx, T nextPoint, Way<T> otherWay, HashSet<T> excludedPoints)
+        private bool pointOnSharedEdge(Way<T> wayToTraverse, T point, Way<T> otherWay, HashSet<T> excludedPoints)
         {
-            T point = wayToTraverse[idx];
-
-            if (excludedPoints.Contains(point))
-            {
-                return true;
-            }
-
             // build edges lazily for performance reasons
             if (this.edges == null)
             {
+                Console.WriteLine("THIS IS NULLLLLLLLLL THISHKSDFSDFS I SNULLLLLL");
                 this.buildEdges(wayToTraverse, otherWay, excludedPoints);
             }
 
-            foreach (Edge<T> e in this.edges)
+            foreach (KeyValuePair<Edge<T>, Edge<T>> kv in this.edges)
             {
-                T p1 = e[0];
-                T p2 = e[e.Count - 1];
-
-                if (pointOnLine(point, p1, p2))
+                Edge<T> toTraverseEdge = null;
+                // throw exception instead of one liner to help in users finding bugs (they'll report crashes)
+                if (kv.Key.parentWay.Equals(wayToTraverse))
                 {
-                    return true;
+                    Console.WriteLine("KEYYYYYYYYYY");
+                    toTraverseEdge = kv.Key;
                 }
-                bool lines_intersect, segments_intersect;
-                Point poi, close1, close2;
-                AreaKMLFromOSMDataCreator.FindIntersection(p1, p2, point, nextPoint,
-                    out lines_intersect, out segments_intersect,
-                    out poi, out close1, out close2);
-
-                // make sure segments intersect before checking if pointinpolygon
-                // otherwise, we can have cases like in Torry Island where it has a body of water
-                // fully inside it. so all points in this body of water are in the Torry Island polygon...
-                if (segments_intersect && PointInPolygon(otherWay, point.X, point.Y))
+                else if (kv.Value.parentWay.Equals(wayToTraverse))
                 {
-                    return true;
+                    Console.WriteLine("VALUEEEEEEEEEE");
+                    toTraverseEdge = kv.Value;
+                }
+                else
+                {
+                    throw new Exception("None of those parent way's match wayToTraverse");
+                }
+
+                foreach (T p in toTraverseEdge)
+                {
+                    if (point.Equals(p))
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -401,8 +457,7 @@ namespace FSEarthTilesDLL
                     }
                     else
                     {
-                        T nextPoint = startIdx == wayToTraverse.Count - 1 ? wayToTraverse[0] : wayToTraverse[startIdx];
-                        if (pointOnSharedEdge(wayToTraverse, startIdx, nextPoint, otherWay, excludedPoints))
+                        if (pointOnSharedEdge(wayToTraverse, wayToTraverse[startIdx], otherWay, excludedPoints))
                         {
                             // handle case when we begin iterating in a shared edge, but not in excludedPoints (one of the screwed up points)
                             if (startIdx == 0)
