@@ -846,7 +846,7 @@ namespace FSEarthTilesDLL
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
             // TODO: don't think we need padding. If we don't, remove this padding code
-            double PADDING = 0.0;
+            double PADDING = 0.5;
             d.startLat += PADDING;
             d.endLat -= PADDING;
             d.startLon -= PADDING;
