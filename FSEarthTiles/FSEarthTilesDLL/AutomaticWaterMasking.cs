@@ -39,6 +39,7 @@ namespace FSEarthTilesDLL
             Point w2p1 = way[0];
             Point w2p2 = way[way.Count - 1];
             Way<T> newWay = new Way<T>(this);
+            bool merged = false;
 
             if (w1p1.Equals(w2p1))
             {
@@ -47,6 +48,7 @@ namespace FSEarthTilesDLL
                 {
                     newWay.Add(way[w2]);
                 }
+                merged = true;
             }
             else if (w1p2.Equals(w2p2))
             {
@@ -54,6 +56,7 @@ namespace FSEarthTilesDLL
                 {
                     newWay.Add(way[w2]);
                 }
+                merged = true;
             }
             else if (w1p2.Equals(w2p1))
             {
@@ -61,6 +64,7 @@ namespace FSEarthTilesDLL
                 {
                     newWay.Add(way[w2]);
                 }
+                merged = true;
             }
             else if (w1p1.Equals(w2p2))
             {
@@ -69,11 +73,17 @@ namespace FSEarthTilesDLL
                 {
                     newWay.Add(way[w2]);
                 }
+                merged = true;
             }
 
-            newWay.setRelationAfterMerge(way);
+            if (merged)
+            {
+                newWay.setRelationAfterMerge(way);
 
-            return newWay;
+                return newWay;
+            }
+
+            return null;
         }
 
         public void setRelationAfterMerge(Way<T> way)
@@ -272,7 +282,7 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, bool mergeWays)
+        private static Dictionary<string, Way<Point>> GetWays(string OSMKML, bool mergeMultipolygons)
         {
             XmlDocument d = new XmlDocument();
             d.LoadXml(OSMKML);
@@ -310,7 +320,7 @@ namespace FSEarthTilesDLL
                     }
                 }
 
-                if (mergeWays)
+                if (mergeMultipolygons)
                 {
                     mergeMultipolygonWays(waysInThisMultipolygon, wayIDsToWays, relationID, toDelete, toAdd);
                 }
