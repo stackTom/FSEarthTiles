@@ -71,8 +71,9 @@ namespace FSEarthTilesDLL
                 }
             }
 
-            return newWay;
+            newWay.setRelationAfterMerge(way);
 
+            return newWay;
         }
 
         public void setRelationAfterMerge(Way<T> way)
@@ -193,6 +194,7 @@ namespace FSEarthTilesDLL
                         {
                             continue;
                         }
+
                         if (curRole == null)
                         {
                             wayIDsToRelation.Add(wayID, role);
