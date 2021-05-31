@@ -867,7 +867,7 @@ namespace FSEarthTilesDLL
             }
             // add padding to downloaded area before downloading coast data. helps prevent "the great flood" due to not enough coast data
             // not needed for inland water since it uses pools. also, inland water can be a lot of data, and no need to download so much
-            d.addPadding(0.5);
+            d.addPadding(1.0);
             string coastOSM = null;
             string coastOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "coast.osm";
             if (File.Exists(coastOSMFileLoc))
