@@ -794,6 +794,14 @@ namespace FSEarthTilesDLL
                 this.startLat = startLat;
                 this.endLat = endLat;
             }
+
+            public void addPadding(double padding)
+            {
+                this.startLat += padding;
+                this.endLat -= padding;
+                this.startLon -= padding;
+                this.endLon += padding;
+            }
         }
 
         private static string downloadOsmWaterData(DownloadArea d, string saveLoc, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
@@ -845,24 +853,6 @@ namespace FSEarthTilesDLL
         public static void createAreaKMLFromOSMData(EarthArea iEarthArea, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface, string selectedCompiler)
         {
             DownloadArea d = new DownloadArea(iEarthArea.AreaSnapStartLongitude, iEarthArea.AreaSnapStopLongitude, iEarthArea.AreaSnapStartLatitude, iEarthArea.AreaSnapStopLatitude);
-            // TODO: don't think we need padding. If we don't, remove this padding code
-            double PADDING = 0.05;
-            d.startLat += PADDING;
-            d.endLat -= PADDING;
-            d.startLon -= PADDING;
-            d.endLon += PADDING;
-            string coastOSM = null;
-            string coastOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "coast.osm";
-            if (File.Exists(coastOSMFileLoc))
-            {
-                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM coast data");
-                coastOSM = File.ReadAllText(coastOSMFileLoc);
-            }
-            else
-            {
-                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM coast data for water masking...");
-                coastOSM = downloadOsmCoastData(d, coastOSMFileLoc, iFSEarthTilesInternalInterface);
-            }
             string waterOSM = null;
             string waterOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "water.osm";
             if (File.Exists(waterOSMFileLoc))
@@ -874,6 +864,21 @@ namespace FSEarthTilesDLL
             {
                 iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM water data for water masking...");
                 waterOSM = downloadOsmWaterData(d, waterOSMFileLoc, iFSEarthTilesInternalInterface);
+            }
+            // add padding to downloaded area before downloading coast data. helps prevent "the great flood" due to not enough coast data
+            // not needed for inland water since it uses pools. also, inland water can be a lot of data, and no need to download so much
+            d.addPadding(0.5);
+            string coastOSM = null;
+            string coastOSMFileLoc = EarthConfig.mWorkFolder + "\\" + getAreaHash(iEarthArea) + "coast.osm";
+            if (File.Exists(coastOSMFileLoc))
+            {
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Recycling already downloaded OSM coast data");
+                coastOSM = File.ReadAllText(coastOSMFileLoc);
+            }
+            else
+            {
+                iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Downloading OSM coast data for water masking...");
+                coastOSM = downloadOsmCoastData(d, coastOSMFileLoc, iFSEarthTilesInternalInterface);
             }
             iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Creating AreaKML.kml file from the OSM data. This might take a while, please wait...");
             string kml = AreaKMLFromOSMDataCreator.createWaterKMLFromOSM(waterOSM, coastOSM, selectedCompiler);
