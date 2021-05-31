@@ -1,0 +1,9 @@
+#--- Partial FS Earth Tiles ini datas ---
+
+[FSEarthTiles]
+
+AreaDefinitionMode       = 2Points
+NorthWestCornerLatitude  = 40deg 48min 21.88sec north
+NorthWestCornerLongitude = 74deg 3min 33.71sec west
+SouthEastLatitude        = 40deg 47min 28.3sec north
+SouthEastLongitude       = 74deg 2min 9.45sec west
