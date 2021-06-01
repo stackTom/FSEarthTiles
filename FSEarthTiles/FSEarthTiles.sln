@@ -48,8 +48,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FSEarthMasksDLL", "FSEarthM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FSETScriptsTempFilesCleanUp", "FSETScriptsTempFilesCleanUp\FSETScriptsTempFilesCleanUp.csproj", "{9E613137-3E68-4AAD-A172-DC6C89A49055}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "clipper_library", "clipper_library\clipper_library.csproj", "{9B062971-A88E-4A3D-B3C9-12B78D15FA66}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -88,10 +86,6 @@ Global
 		{9E613137-3E68-4AAD-A172-DC6C89A49055}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9E613137-3E68-4AAD-A172-DC6C89A49055}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9E613137-3E68-4AAD-A172-DC6C89A49055}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9B062971-A88E-4A3D-B3C9-12B78D15FA66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9B062971-A88E-4A3D-B3C9-12B78D15FA66}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9B062971-A88E-4A3D-B3C9-12B78D15FA66}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9B062971-A88E-4A3D-B3C9-12B78D15FA66}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
