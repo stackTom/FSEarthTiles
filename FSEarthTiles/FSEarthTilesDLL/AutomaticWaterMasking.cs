@@ -226,52 +226,59 @@ namespace FSEarthTilesDLL
         {
             Dictionary<string, Way<Point>> waysCopy = new Dictionary<string, Way<Point>>(wayIDsToWays);
             HashSet<Way<Point>> merged = new HashSet<Way<Point>>();
-            for (int i = 0; i < waysInThisMultipolygon.Count; i++)
+            bool mergeFound = false;
+            do
             {
-                for (int j = 0; j < waysInThisMultipolygon.Count; j++)
+                mergeFound = false;
+                for (int i = 0; i < waysInThisMultipolygon.Count; i++)
                 {
-                    // i != j makes sure not comparing to the same way
-                    if (i != j)
+                    for (int j = 0; j < waysInThisMultipolygon.Count; j++)
                     {
-                        string way1id = waysInThisMultipolygon[i];
-                        string way2id = waysInThisMultipolygon[j];
-                        // make sure the way hasn't been removed due to being combined previously...
-                        if (!waysCopy.ContainsKey(way1id) || !waysCopy.ContainsKey(way2id))
+                        // i != j makes sure not comparing to the same way
+                        if (i != j)
                         {
-                            continue;
-                        }
-                        Way<Point> way1 = waysCopy[way1id];
-                        Way<Point> way2 = waysCopy[way2id];
-
-                        Way<Point> mergedWay = way1.mergePointToPoint(way2);
-                        if (mergedWay != null)
-                        {
-                            mergedWay.wayID = way1id;
-                            waysCopy[way1id] = mergedWay;
-                            waysCopy.Remove(way2id);
-                            if (!merged.Contains(mergedWay))
+                            string way1id = waysInThisMultipolygon[i];
+                            string way2id = waysInThisMultipolygon[j];
+                            // make sure the way hasn't been removed due to being combined previously...
+                            if (!waysCopy.ContainsKey(way1id) || !waysCopy.ContainsKey(way2id))
                             {
-                                merged.Add(mergedWay);
+                                continue;
                             }
-                            else
-                            {
-                                merged.Remove(mergedWay);
-                                merged.Add(mergedWay);
-                            }
+                            Way<Point> way1 = waysCopy[way1id];
+                            Way<Point> way2 = waysCopy[way2id];
 
-                            if (!toDelete.Contains(way1))
+                            Way<Point> mergedWay = way1.mergePointToPoint(way2);
+                            if (mergedWay != null)
                             {
-                                toDelete.Add(way1);
-                            }
+                                mergedWay.wayID = way1id;
+                                waysCopy[way1id] = mergedWay;
+                                waysCopy.Remove(way2id);
+                                if (!merged.Contains(mergedWay))
+                                {
+                                    merged.Add(mergedWay);
+                                }
+                                else
+                                {
+                                    merged.Remove(mergedWay);
+                                    merged.Add(mergedWay);
+                                }
 
-                            if (!toDelete.Contains(way2))
-                            {
-                                toDelete.Add(way2);
+                                if (!toDelete.Contains(way1))
+                                {
+                                    toDelete.Add(way1);
+                                }
+
+                                if (!toDelete.Contains(way2))
+                                {
+                                    toDelete.Add(way2);
+                                }
+                                mergeFound = true;
+                                break;
                             }
                         }
                     }
                 }
-            }
+            } while (mergeFound);
 
             foreach (Way<Point> w in merged)
             {
