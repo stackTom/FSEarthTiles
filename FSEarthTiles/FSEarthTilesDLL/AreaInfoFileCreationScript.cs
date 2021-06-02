@@ -973,6 +973,7 @@ namespace FSEarthTilesDLL
                 vStream.WriteLine("AreaNWCornerLongitude     = " + iBGLDatasStringPackage.mBGLStartLongitudeString);
                 vStream.WriteLine("AreaSECornerLatitude      = " + iBGLDatasStringPackage.mBGLStopLatitudeString);
                 vStream.WriteLine("AreaSECornerLongitude     = " + iBGLDatasStringPackage.mBGLStopLongitudeString);
+                vStream.WriteLine("MeshTilesFolder     = " + EarthConfig.mWorkFolder + "\\Tiles\\");
                 vStream.Close();
             }
         }

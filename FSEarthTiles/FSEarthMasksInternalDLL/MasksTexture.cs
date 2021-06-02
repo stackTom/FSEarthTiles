@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.IO;
+using FSEarthTilesInternalDLL;
 
 
 
@@ -2841,9 +2842,11 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private List<PointF[]> readMeshFile()
+        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
+        // TODO: try to refactor this into a clearer format. Also, use camel case
+        private List<PointF[]> readMeshFile(string meshFilePath)
         {
-            System.IO.StreamReader f_mesh = new System.IO.StreamReader(@"F:\ortho4xpvm\fset-103\FSET\working\Data+19-082.mesh");
+            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
             string[] lineContents = f_mesh.ReadLine().Trim().Split();
             float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
             int has_water = mesh_version >= 1.3 ? 7 : 3;
@@ -2920,6 +2923,27 @@ namespace FSEarthMasksInternalDLL
             }
 
             return tris;
+        }
+
+        private List<PointF[]> readAllMeshFiles()
+        {
+            double startLong = MasksConfig.mAreaNWCornerLongitude;
+            double stopLong = MasksConfig.mAreaSECornerLongitude;
+            double stopLat = MasksConfig.mAreaSECornerLatitude;
+            double startLat = MasksConfig.mAreaNWCornerLatitude;
+            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+
+
+            List<PointF[]> allTris = new List<PointF[]>();
+            foreach (double[] tile in tilesToDownload)
+            {
+                string tileName = CommonFunctions.GetTileFolderName(tile);
+                string meshPath = MasksConfig.mMeshTilesFolder + tileName + @"\Data" + tileName + ".mesh";
+                List<PointF[]> tris = readMeshFile(meshPath);
+                allTris.AddRange(tris);
+            }
+
+            return allTris;
         }
 
         private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)
@@ -4427,7 +4451,7 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap createWaterMaskBitmap()
         {
-            var tris = readMeshFile();
+            var tris = readAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             Graphics g = Graphics.FromImage(bmp);
             SolidBrush b = new SolidBrush(Color.Black);

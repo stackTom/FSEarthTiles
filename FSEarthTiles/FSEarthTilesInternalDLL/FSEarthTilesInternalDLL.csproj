@@ -48,6 +48,7 @@
   <ItemGroup>
     <Compile Include="AreaInfo.cs" />
     <Compile Include="AreaInfoFIFOQueue.cs" />
+    <Compile Include="CommonFunctions.cs" />
     <Compile Include="EarthArea.cs" />
     <Compile Include="EarthAreaTexture.cs" />
     <Compile Include="EarthCommon.cs" />
