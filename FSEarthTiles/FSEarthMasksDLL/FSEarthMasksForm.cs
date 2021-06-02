@@ -346,6 +346,7 @@ namespace FSEarthMasksDLL
 
                 mMasksTexture.ClearCommandArray();
 
+                Bitmap waterMaskBitmap = mMasksTexture.createWaterMaskBitmap();
                 if (MasksConfig.mCreateWaterMaskBitmap)
                 {
                     //Water
@@ -419,7 +420,7 @@ namespace FSEarthMasksDLL
                     {
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... ");
-                        mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
+                        mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
                     }
                     SetStatusFromFriendThread(" Save Summer Bitmap   ... ");
                     mMasksTexture.SaveAreaMaskSummerBitmap();
@@ -431,7 +432,7 @@ namespace FSEarthMasksDLL
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... Load Source");
                         mMasksTexture.LoadSourceBitmapFileIntoWorkBitmap(this);
-                        mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
+                        mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
                         SetStatusFromFriendThread(" Save Source Bitmap with Alpha Channel  ... ");
                         mMasksTexture.SaveOriginalBitmap(); //But with an Alpha mask
                     }
@@ -441,22 +442,7 @@ namespace FSEarthMasksDLL
                 {
                     SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
 
-                    if (!MasksConfig.mCreateSummerBitmap)
-                    {
-                        SetStatusFromFriendThread(" Processing Water-Mask...  Load Source");
-                        mMasksTexture.LoadSourceBitmapFileIntoWorkBitmap(this);
-                    } //else the Summer-Texture is already loaded!
-                    else
-                    {
-                        //else the Summer-Texture is already loaded!
-                        SetStatusFromFriendThread(" Process Water-Mask  ... ");
-                    }
-                    mMasksTexture.GreeningWorkBitmap();
-                    mMasksTexture.CreateWaterInWorkMaskBitmap(this);   //Now Paint Water
-
-                    SetStatusFromFriendThread(" Save Invert Water-Mask  ... ");
-                    mMasksTexture.InverseWorkBitmap();
-
+                    mMasksTexture.mAreaBitmap = waterMaskBitmap;
                     SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
                     mMasksTexture.SaveAreaMaskBitmap();
                 }
