@@ -2375,13 +2375,60 @@ namespace FSEarthTilesDLL
 
         }
 
+        private List<double[]> getTilesToDownload()
+        {
+            List<double[]> tilesToDownload = new List<double[]>();
+            int minLong = (int)Math.Floor(mEarthArea.AreaFSResampledStartLongitude);
+            int maxLong = (int)Math.Floor(mEarthArea.AreaFSResampledStopLongitude);
+            int minLat = (int)Math.Floor(mEarthArea.AreaFSResampledStopLatitude);
+            int maxLat = (int)Math.Floor(mEarthArea.AreaFSResampledStartLatitude);
+
+            for (int i = minLat; i < maxLat + 1; i++)
+            {
+                for (int j = minLong; j < maxLong + 1; j++)
+                {
+                    double[] tile = new double[2];
+                    tile[0] = i;
+                    tile[1] = j;
+                    tilesToDownload.Add(tile);
+                }
+            }
+
+            return tilesToDownload;
+        }
+
+        private void createMeshFiles()
+        {
+            List<double[]> tilesToDownload = getTilesToDownload();
+
+            foreach (double[] tile in tilesToDownload)
+            {
+                string tileName = EarthConfig.GetTileFolderName(tile);
+                SetStatusFromFriendThread("Downloading OSM data for tile " + tileName);
+                System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
+                proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " " + EarthConfig.mWorkFolder + "\\ " + tileName;
+                proc.Start();
+                Thread.Sleep(500);
+                proc.WaitForExit();
+                if (!proc.HasExited)
+                {
+                    proc.Kill();
+                }
+            }
+        }
+
         //AfterMath-Thread start point
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
         {
             if (!mStopProcess)
             {
-                
+                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
+                {
+                    createMeshFiles();
+                }
+
                     EarthScriptsHandler.DoBeforeResampleing(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
                     ProcessDownloadedArea();
