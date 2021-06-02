@@ -118,7 +118,7 @@ namespace FSEarthMasksInternalDLL
         protected Boolean   mDestination32BitBitmapMode;                         //Bitmap Mode (true = 32Bit, false = 24Bit)
 
         //Work Bitmap in it the processing takes place
-        protected Bitmap    mAreaBitmap;                               //The Bitmap which become initialized and accessed with mAreaBitmapArray
+        public Bitmap    mAreaBitmap;                               //The Bitmap which become initialized and accessed with mAreaBitmapArray
         protected UInt32[,] mAreaBitmapArray;                          //RGB 24Bit / 32Bit Bitmap Data Array
         protected Graphics  mAreaGraphics;                             //The Graphis to Draw into the Bitmap
         protected GCHandle  mGCHandle;                                 //Required stuff to make that direct access Bitmap with Array working
@@ -2841,7 +2841,7 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private NetTopologySuite.Geometries.Polygon[] readMeshFile()
+        private List<PointF[]> readMeshFile()
         {
             System.IO.StreamReader f_mesh = new System.IO.StreamReader(@"F:\ortho4xpvm\fset-103\FSET\working\Data+19-082.mesh");
             string[] lineContents = f_mesh.ReadLine().Trim().Split();
@@ -2886,8 +2886,7 @@ namespace FSEarthMasksInternalDLL
             }
             int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
 
-            var gf = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(4326);
-            List<NetTopologySuite.Geometries.Polygon> tris = new List<NetTopologySuite.Geometries.Polygon>();
+            List<PointF[]> tris = new List<PointF[]>();
 
             for (int i = 0; i < nbr_tri_in; i++)
             {
@@ -2903,43 +2902,24 @@ namespace FSEarthMasksInternalDLL
                 {
                     continue;
                 }
-                double lon1 = pt_in[5 * n1];
-                double lat1 = pt_in[5 * n1 + 1];
-                double lon2 = pt_in[5 * n2];
-                double lat2 = pt_in[5 * n2 + 1];
-                double lon3 = pt_in[5 * n3];
-                double lat3 = pt_in[5 * n3 + 1];
+                float lon1 = (float) pt_in[5 * n1];
+                float lat1 = (float) pt_in[5 * n1 + 1];
+                float lon2 = (float) pt_in[5 * n2];
+                float lat2 = (float) pt_in[5 * n2 + 1];
+                float lon3 = (float) pt_in[5 * n3];
+                float lat3 = (float) pt_in[5 * n3 + 1];
 
-                var tri = gf.CreatePolygon(new[] {
-                    new NetTopologySuite.Geometries.Coordinate(lon1, lat1),
-                    new NetTopologySuite.Geometries.Coordinate(lon2, lat2),
-                    new NetTopologySuite.Geometries.Coordinate(lon3, lat3),
-                    new NetTopologySuite.Geometries.Coordinate(lon1, lat1),
-                });
+                var tri = new PointF[] {
+                    new PointF(lon1, lat1),
+                    new PointF(lon2, lat2),
+                    new PointF(lon3, lat3),
+                    new PointF(lon1, lat1),
+                };
 
                 tris.Add(tri);
             }
 
-            return tris.ToArray();
-        }
-
-        private static void appendLineStringPlacemark(List<string> kml, string name,NetTopologySuite.Geometries.Geometry way)
-        {
-            kml.Add("<Placemark>");
-            kml.Add("<name>" + name + "</name>");
-            kml.Add("<styleUrl>#yellowLineGreenPoly</styleUrl>");
-            kml.Add("<LineString>");
-            kml.Add("<coordinates>");
-            string coords = "";
-            foreach (var p in way.Coordinates)
-            {
-                coords += p.X + "," + p.Y + ",0 ";
-            }
-            coords = coords.Remove(coords.Length - 1, 1);
-            kml.Add(coords);
-            kml.Add("</coordinates>");
-            kml.Add("</LineString>");
-            kml.Add("</Placemark>");
+            return tris;
         }
 
         private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)
@@ -2979,77 +2959,6 @@ namespace FSEarthMasksInternalDLL
             vDeepWaterMinPoint = GetDeepWaterMinPoint(iTrippleSType, iXp, iYp);
 
             Int32 vCutsALine = 0;
-            NetTopologySuite.NtsGeometryServices.Instance = new NetTopologySuite.NtsGeometryServices(
-NetTopologySuite.Geometries.Implementation.CoordinateArraySequenceFactory.Instance,
-new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
-4326 /* ,
-    // Note the following arguments are only valid for NTS v2.2
-    // Geometry overlay operation function set to use (Legacy or NG)
-    NetTopologySuite.Geometries.GeometryOverlay.NG,
-    // Coordinate equality comparer to use (CoordinateEqualityComparer or PerOrdinateEqualityComparer)
-    new NetTopologySuite.Geometries.CoordinateEqualityComparer() */);
-            var gf = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(4326);
-            List<NetTopologySuite.Geometries.Polygon> lineStrings = new List<NetTopologySuite.Geometries.Polygon>();
-            var ply1 = gf.CreatePolygon(new[] {
-    new NetTopologySuite.Geometries.Coordinate(1, 0),
-    new NetTopologySuite.Geometries.Coordinate(1, 1),
-    new NetTopologySuite.Geometries.Coordinate(4, 1),
-    new NetTopologySuite.Geometries.Coordinate(4, 0),
-    new NetTopologySuite.Geometries.Coordinate(1, 0),
-});
-            var ply2 = gf.CreatePolygon(new[] {
-    new NetTopologySuite.Geometries.Coordinate(0, 0),
-    new NetTopologySuite.Geometries.Coordinate(0, 1),
-    new NetTopologySuite.Geometries.Coordinate(1, 1),
-    new NetTopologySuite.Geometries.Coordinate(1, 0),
-    new NetTopologySuite.Geometries.Coordinate(0, 0),
-});
-            var tris = readMeshFile();
-            List<string> kml = new List<string>();
-            kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-            kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
-            kml.Add("<Document>");
-            kml.Add("<Style id = \"yellowLineGreenPoly\" >");
-            kml.Add("<LineStyle>");
-            kml.Add("<color>7f00ffff</color>");
-            kml.Add("<width>4</width>");
-            kml.Add("</LineStyle>");
-            kml.Add("<PolyStyle>");
-            kml.Add("<color>7f00ff00</color>");
-            kml.Add("</PolyStyle>");
-            kml.Add("</Style>");
-            kml.Add("<Folder>");
-            kml.Add("<name>Water Masking</name>");
-            kml.Add("<open>1</open>");
-            foreach (var tri in tris)
-            {
-                appendLineStringPlacemark(kml, "t", tri);
-            }
-            kml.Add("</Folder>");
-            kml.Add("</Document>");
-            kml.Add("</kml>");
-
-            var plz = String.Join("\n", kml.ToArray());
-            File.WriteAllText(@"F:\ortho4xpvm\fset-103\FSET\working\THISISTEST.kml", plz);
-            var polys = gf.CreateMultiPolygon(tris);
-            var prepGeom = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(polys);
-            var rand = new Random();
-            bool inwater = false;
-            Console.WriteLine("gonna do it");
-            tXYCoord pixel;
-            pixel.mX = iXp + 0.5f;
-            pixel.mY = iYp + 0.5f;
-            tXYCoord coord = ConvertPixelToXYLatLong(pixel);
-            tXYCoord pixel2 = ConvertXYLatLongToPixel(coord);
-            var p = gf.CreatePoint(new NetTopologySuite.Geometries.Coordinate(coord.mX, coord.mY));
-            Console.WriteLine(inwater);
-            inwater = prepGeom.Contains(p);
-            if (inwater)
-            {
-                return tWaterRegionType.eWater;
-            }
-
-            return tWaterRegionType.eLand;
 
             vWaterRegionType = tWaterRegionType.eLand; //Default Land
 
@@ -4516,6 +4425,34 @@ new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
 
         }
 
+        public Bitmap createWaterMaskBitmap()
+        {
+            var tris = readMeshFile();
+            Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            Graphics g = Graphics.FromImage(bmp);
+            SolidBrush b = new SolidBrush(Color.Black);
+            g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+            foreach (var tri in tris)
+            {
+                PointF[] convertedTri = new PointF[3];
+                for (int i = 0; i < convertedTri.Length; i++)
+                {
+                    PointF toConvert = tri[i];
+                    tXYCoord temp;
+                    temp.mX = toConvert.X;
+                    temp.mY = toConvert.Y;
+                    tXYCoord pixel = ConvertXYLatLongToPixel(temp);
+                    pixel.mX -= 0.5f;
+                    pixel.mY -= 0.5f;
+                    convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                }
+
+                g.FillPolygon(b, convertedTri);
+            }
+
+            return bmp;
+        }
+
         public void FloodFillWaterLandTransition(Int32 iTransitionType, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
 
@@ -4564,22 +4501,6 @@ new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
                 vPixelInQuadIndex = 0;
                 vUInt32IndexModal96 = 0;
 
-                NetTopologySuite.NtsGeometryServices.Instance = new NetTopologySuite.NtsGeometryServices(
-    NetTopologySuite.Geometries.Implementation.CoordinateArraySequenceFactory.Instance,
-    new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
-    4326 /* ,
-        // Note the following arguments are only valid for NTS v2.2
-        // Geometry overlay operation function set to use (Legacy or NG)
-        NetTopologySuite.Geometries.GeometryOverlay.NG,
-        // Coordinate equality comparer to use (CoordinateEqualityComparer or PerOrdinateEqualityComparer)
-        new NetTopologySuite.Geometries.CoordinateEqualityComparer() */);
-                var gf = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(4326);
-                var tris = readMeshFile();
-                var union = new NetTopologySuite.Operation.Union.CascadedPolygonUnion(tris);
-                var comb = union.Union();
-                var polys = gf.CreateMultiPolygon(tris);
-                var prepGeom = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(polys);
-
                 for (vX = 0; vX < (mPixelCountInX); vX++)
                 {
 
@@ -4595,57 +4516,8 @@ new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
                     }
 
                     vValue = vValue & 0x0000FF00;
-                    if (true)
-                    {
-                        List<string> kml = new List<string>();
-                        kml.Add("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-                        kml.Add("<kml xmlns=\"http://earth.google.com/kml/2.2\">");
-                        kml.Add("<Document>");
-                        kml.Add("<Style id = \"yellowLineGreenPoly\" >");
-                        kml.Add("<LineStyle>");
-                        kml.Add("<color>7f00ffff</color>");
-                        kml.Add("<width>4</width>");
-                        kml.Add("</LineStyle>");
-                        kml.Add("<PolyStyle>");
-                        kml.Add("<color>7f00ff00</color>");
-                        kml.Add("</PolyStyle>");
-                        kml.Add("</Style>");
-                        kml.Add("<Folder>");
-                        kml.Add("<name>Water Masking</name>");
-                        kml.Add("<open>1</open>");
-                        //foreach (var tri in tris)
-                        //{
-                            appendLineStringPlacemark(kml, "t", comb);
-                        //}
-                        kml.Add("</Folder>");
-                        kml.Add("</Document>");
-                        kml.Add("</kml>");
 
-                        var plz = String.Join("\n", kml.ToArray());
-                        File.WriteAllText(@"F:\ortho4xpvm\fset-103\FSET\working\THISISTEST.kml", plz);
-
-                        var rand = new Random();
-                        bool tika = false;
-                        tXYCoord pixel;
-                        pixel.mX = vX + 0.5f;
-                        pixel.mY = vY + 0.5f;
-                        tXYCoord coord = ConvertPixelToXYLatLong(pixel);
-                        tXYCoord pixel2 = ConvertXYLatLongToPixel(coord);
-                        Console.WriteLine(coord.mY + ", " + coord.mX);
-                        var p = gf.CreatePoint(new NetTopologySuite.Geometries.Coordinate(coord.mX, coord.mY));
-                        tika = prepGeom.Contains(p);
-                        Console.WriteLine(tika);
-                        if (tika)
-                        {
-                            vWaterRegionType = tWaterRegionType.eWater;
-                        }
-                        else
-                        {
-                            vWaterRegionType = tWaterRegionType.eLand;
-                        }
-                    }
-
-                    else if (vValue == 0)
+                    if (vValue == 0)
                     {
                         //Yes it is free
                         //For Debug of a specific land water detection bug
@@ -5188,6 +5060,30 @@ new NetTopologySuite.Geometries.PrecisionModel(100000000000000000d),
             }
         }
 
+
+        public void CreateFS2004WaterInAreaBitmap(Bitmap mask)
+        {
+            Size s1 = mAreaBitmap.Size;
+            Size s2 = mask.Size;
+            if (s1 != s2)
+            {
+                return;
+            }
+
+            Bitmap bmpResult = new Bitmap(s1.Width, s1.Height);
+
+            for (int y = 0; y < s1.Height; y++)
+            {
+                for (int x = 0; x < s1.Width; x++)
+                {
+                    Color c1 = mAreaBitmap.GetPixel(x, y);
+                    Color c2 = mask.GetPixel(x, y);
+                    bmpResult.SetPixel(x, y, Color.FromArgb((int)(255 * c2.GetBrightness()), c1));
+                }
+            }
+
+            mAreaBitmap = bmpResult;
+        }
 
         public void CreateFS2004WaterInWorkMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
