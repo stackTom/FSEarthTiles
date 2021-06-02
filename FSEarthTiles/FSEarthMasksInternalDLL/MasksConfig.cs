@@ -121,6 +121,7 @@ namespace FSEarthMasksInternalDLL
         public static String mAreaHardWinterBitmapFile = "";
         public static String mAreaKMLFile = "";
         public static String mAreaVectorsFile = "";
+        public static String mMeshTilesFolder = "";
 
         public static String  mAreaSummerBitmapFile = "";
         public static Boolean mUseAreaKMLFile       = false;
@@ -3590,6 +3591,7 @@ namespace FSEarthMasksInternalDLL
                 Int32 vIndex28 = vFocus.IndexOf("BlendEastBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex29 = vFocus.IndexOf("BlendSouthBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex30 = vFocus.IndexOf("BlendWestBorder", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex31 = vFocus.IndexOf("MeshTilesFolder", StringComparison.CurrentCultureIgnoreCase);
                 
                 if (vIndex1 >= 0)
                 {
@@ -3782,6 +3784,11 @@ namespace FSEarthMasksInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     mBlendWestBorder  = GetBooleanFromString(vCutString);
+                }
+                if (vIndex31 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    mMeshTilesFolder = vCutString;
                 }
             }
         }

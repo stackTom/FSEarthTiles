@@ -2352,11 +2352,6 @@ namespace FSEarthTilesInternalDLL
             return vWithSeasons;
         }
 
-        public static string GetTileFolderName(double[] tile)
-        {
-            return tile[0] + "-" + tile[1];
-        }
-
     }
 
 
