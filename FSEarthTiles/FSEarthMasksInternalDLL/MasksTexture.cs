@@ -2937,8 +2937,7 @@ namespace FSEarthMasksInternalDLL
             List<PointF[]> allTris = new List<PointF[]>();
             foreach (double[] tile in tilesToDownload)
             {
-                string tileName = CommonFunctions.GetTileFolderName(tile);
-                string meshPath = MasksConfig.mMeshTilesFolder + tileName + @"\Data" + tileName + ".mesh";
+                string meshPath = CommonFunctions.GetMeshFileFullPath(MasksConfig.mWorkFolder, tile);
                 List<PointF[]> tris = readMeshFile(meshPath);
                 allTris.AddRange(tris);
             }

@@ -2386,17 +2386,21 @@ namespace FSEarthTilesDLL
 
             foreach (double[] tile in tilesToDownload)
             {
-                string tileName = CommonFunctions.GetTileFolderName(tile);
-                SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
-                System.Diagnostics.Process proc = new System.Diagnostics.Process();
-                proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
-                proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " " + EarthConfig.mWorkFolder + "\\ " + tileName;
-                proc.Start();
-                Thread.Sleep(500);
-                proc.WaitForExit();
-                if (!proc.HasExited)
+                string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
+                if (!File.Exists(meshFilePath))
                 {
-                    proc.Kill();
+                    string tileName = CommonFunctions.GetTileName(tile);
+                    SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
+                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
+                    proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " " + EarthConfig.mWorkFolder + "\\ " + tileName;
+                    proc.Start();
+                    Thread.Sleep(500);
+                    proc.WaitForExit();
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill();
+                    }
                 }
             }
         }
