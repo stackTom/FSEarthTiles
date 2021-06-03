@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
+using TGASharpLib;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -5765,6 +5766,42 @@ namespace FSEarthTilesDLL
             return true;
         }
 
+        private static bool BMPAllBlack(Bitmap b)
+        {
+            for (int x = 0; x < b.Width; x++)
+            {
+                for (int y = 0; y < b.Height; y++)
+                {
+                    // if even one alpha is not black, then bmp is not all black
+                    byte curAlphaVal = b.GetPixel(x, y).A;
+                    if (curAlphaVal != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+        public static void ensureTGAsNotAllBlack(string directoryToCheck)
+        {
+            string[] tgas = Directory.GetFiles(directoryToCheck, "*.tga");
+            foreach (string f in tgas)
+            {
+                TGA t = new TGA(f);
+                Bitmap b = t.ToBitmap(true);
+                if (BMPAllBlack(b))
+                {
+                    Color color = b.GetPixel(0, 0);
+                    Color newColor = Color.FromArgb(255, color);
+                    b.SetPixel(0, 0, newColor);
+                    TGA newAlphaTGA = new TGA(b);
+                    string newAlphaTGAPath = Path.GetDirectoryName(f) + @"\" + Path.GetFileNameWithoutExtension(f) + @".tga";
+                    newAlphaTGA.Save(newAlphaTGAPath);
+                }
+            }
+        }
+
         Boolean StartSceneryCompiler()
         {
             try
@@ -5836,6 +5873,16 @@ namespace FSEarthTilesDLL
                     {
                         if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
                         {
+
+                            SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
+
+                            // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
+                            // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
+                            // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
+                            // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
+                            // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
+                            // and I don't want to write my own when this simpler solution gets the job done
+                            ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
 
                             SetStatusFromFriendThread("Starting FS2004 Imagetool..");
                             Thread.Sleep(1000);
