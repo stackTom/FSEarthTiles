@@ -59,6 +59,16 @@ namespace FSEarthTilesDLL
 		        vResultCode=vServiceZ.ToString() + "//" + vServiceX.ToString() + "//" + vServiceY.ToString();
             }
 
+            else if (EarthCommon.StringCompare(iUseCode, "zyxARCGIS"))
+            {
+                Int64 vServiceZ = EarthMath.cLevel0CodeDeep - iAreaCodeLevel;
+                Int64 vServiceX = iAreaCodeX;
+                Int64 vServiceY = iAreaCodeY;
+                Int64 NumberTiles = (int)Math.Round(Math.Pow(2.0, (double)vServiceZ));
+                vResultCode = vServiceZ.ToString() + "/" + vServiceY % NumberTiles + "/" + vServiceX % NumberTiles;
+
+            }
+
             else if (EarthCommon.StringCompare(iUseCode, "lxy"))
             {
                 Int64 vServiceZ = EarthMath.cLevel0CodeDeep - iAreaCodeLevel;
