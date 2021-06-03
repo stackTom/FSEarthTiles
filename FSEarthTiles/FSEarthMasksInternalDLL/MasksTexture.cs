@@ -758,6 +758,21 @@ namespace FSEarthMasksInternalDLL
             MasksCommon.CollectGarbage();
         }
 
+        public void SaveAreaMaskBitmap(Bitmap bm)
+        {
+            try
+            {
+                bm.Save(MasksConfig.mAreaMaskBitmapFile, System.Drawing.Imaging.ImageFormat.Bmp);
+            }
+            catch (System.Exception e)
+            {
+                String vError = e.ToString();
+                MessageBox.Show(vError, "Could not save Bitmap! HardDiskFull?");
+                Thread.Sleep(2000); //give user time after ok to react
+            }
+            MasksCommon.CollectGarbage();
+        }
+
         public void SaveAreaMaskAutumnBitmap()
         {
             try

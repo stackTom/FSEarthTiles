@@ -346,7 +346,7 @@ namespace FSEarthMasksDLL
 
                 mMasksTexture.ClearCommandArray();
 
-                Bitmap waterMaskBitmap = mMasksTexture.createWaterMaskBitmap();
+                Bitmap waterMaskBitmap = null;
                 if (MasksConfig.mCreateWaterMaskBitmap)
                 {
                     //Water
@@ -394,6 +394,8 @@ namespace FSEarthMasksDLL
                         SetStatusFromFriendThread(" Copy to Command Array  ... ");
                         mMasksTexture.CopyPoolPolygonsResultToWorkCommandArray(this);
                     }
+
+                    waterMaskBitmap = mMasksTexture.createWaterMaskBitmap();
                 }
 
 
@@ -442,9 +444,8 @@ namespace FSEarthMasksDLL
                 {
                     SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
 
-                    mMasksTexture.mAreaBitmap = waterMaskBitmap;
                     SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
-                    mMasksTexture.SaveAreaMaskBitmap();
+                    mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);
                 }
 
 
