@@ -5108,19 +5108,15 @@ namespace FSEarthMasksInternalDLL
                 return;
             }
 
-            Bitmap bmpResult = new Bitmap(s1.Width, s1.Height);
-
             for (int y = 0; y < s1.Height; y++)
             {
                 for (int x = 0; x < s1.Width; x++)
                 {
                     Color c1 = mAreaBitmap.GetPixel(x, y);
                     Color c2 = mask.GetPixel(x, y);
-                    bmpResult.SetPixel(x, y, Color.FromArgb((int)(255 * c2.GetBrightness()), c1));
+                    mAreaBitmap.SetPixel(x, y, Color.FromArgb((int)(255 * c2.GetBrightness()), c1));
                 }
             }
-
-            mAreaBitmap = bmpResult;
         }
 
         public void CreateFS2004WaterInWorkMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
