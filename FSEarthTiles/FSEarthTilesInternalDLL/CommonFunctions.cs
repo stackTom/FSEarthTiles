@@ -21,12 +21,19 @@ namespace FSEarthTilesInternalDLL
             return sign + num.ToString("").PadLeft(padding, toPadWith);
         }
 
-        public static string GetTileFolderName(double[] tile)
+        public static string GetTileName(double[] tile)
         {
             string lat = GetStringFromDoublWithSignAndPadding(tile[0], 2, '0');
             string lon = GetStringFromDoublWithSignAndPadding(tile[1], 3, '0');
 
             return lat + lon;
+        }
+
+        public static string GetMeshFileFullPath(string workFolder, double[] tile)
+        {
+            string tileName = CommonFunctions.GetTileName(tile);
+
+            return workFolder + @"\Tiles\" + tileName + @"\Data" + tileName + ".mesh";
         }
 
         public static List<double[]> GetTilesToDownload(double startLong, double stopLong, double startLat, double stopLat)

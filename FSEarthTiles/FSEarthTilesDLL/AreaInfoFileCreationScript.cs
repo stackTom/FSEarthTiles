@@ -824,6 +824,8 @@ namespace FSEarthTilesDLL
                 vStream.WriteLine("#       and is used as an input file for FSEarthMasks");
                 vStream.WriteLine("#--------------------------------------------------------------------");
                 vStream.WriteLine();
+                vStream.WriteLine("WorkFolder     = " + EarthConfig.mWorkFolder);
+                vStream.WriteLine();
 
                 if (EarthConfig.mBlendNorthBorder)
                 {
@@ -973,7 +975,6 @@ namespace FSEarthTilesDLL
                 vStream.WriteLine("AreaNWCornerLongitude     = " + iBGLDatasStringPackage.mBGLStartLongitudeString);
                 vStream.WriteLine("AreaSECornerLatitude      = " + iBGLDatasStringPackage.mBGLStopLatitudeString);
                 vStream.WriteLine("AreaSECornerLongitude     = " + iBGLDatasStringPackage.mBGLStopLongitudeString);
-                vStream.WriteLine("MeshTilesFolder     = " + EarthConfig.mWorkFolder + "\\Tiles\\");
                 vStream.Close();
             }
         }
