@@ -7,7 +7,10 @@ sys.path.append(os.path.join(Ortho4XP_dir, "src"))
 
 # set up working folders
 import O4_File_Names as FNAMES
+import O4_UI_Utils as UI
+
 FNAMES.Ortho4XP_dir = Ortho4XP_dir
+UI.Ortho4XP_dir = Ortho4XP_dir # put log in Ortho4XP_dir, as UI uses a different value for Ortho4XP_dir
 FNAMES.Utils_dir = os.path.join(FNAMES.Ortho4XP_dir, "Utils")
 FNAMES.OSM_dir = os.path.join(sys.argv[3], "OSM_data")
 FNAMES.Elevation_dir = os.path.join(sys.argv[3], "Elevation_data")
