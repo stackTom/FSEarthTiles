@@ -2394,7 +2394,7 @@ namespace FSEarthTilesDLL
                     SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
                     System.Diagnostics.Process proc = new System.Diagnostics.Process();
                     proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
-                    proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " " + EarthConfig.mWorkFolder + "\\ " + tileName;
+                    proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
                     proc.Start();
                     Thread.Sleep(500);
                     proc.WaitForExit();
