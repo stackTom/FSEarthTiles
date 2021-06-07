@@ -29,11 +29,23 @@ namespace FSEarthTilesInternalDLL
             return lat + lon;
         }
 
+        public static string GetTilesPath(string workFolder)
+        {
+            return workFolder + @"\Tiles";
+        }
+
+        public static string GetTilePath(string workFolder, double[] tile)
+        {
+            string tileName = CommonFunctions.GetTileName(tile);
+
+            return GetTilesPath(workFolder) + @"\" + tileName;
+        }
+
         public static string GetMeshFileFullPath(string workFolder, double[] tile)
         {
             string tileName = CommonFunctions.GetTileName(tile);
 
-            return workFolder + @"\Tiles\" + tileName + @"\Data" + tileName + ".mesh";
+            return GetTilePath(workFolder, tile) + @"\Data" + tileName + ".mesh";
         }
 
         public static List<double[]> GetTilesToDownload(double startLong, double stopLong, double startLat, double stopLat)
