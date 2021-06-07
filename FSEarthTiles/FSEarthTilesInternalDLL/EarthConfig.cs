@@ -228,6 +228,12 @@ namespace FSEarthTilesInternalDLL
         public static int mBlankTileColorGreen;
         public static int mBlankTileColorBlue;
 
+
+        // scenproc
+        public static String mScenprocLoc;
+        public static String mScenprocFS9Script;
+        public static String mScenprocFSXP3DScript;
+
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
 
@@ -777,6 +783,9 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex79 = vFocus.IndexOf("BlankTileColorGreen", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex80 = vFocus.IndexOf("BlankTileColorBlue", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex81 = vFocus.IndexOf("CacheDeletePrompt", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex82 = vFocus.IndexOf("scenproc_loc", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex83 = vFocus.IndexOf("FS9_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex84 = vFocus.IndexOf("FSX_P3D_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1514,6 +1523,24 @@ namespace FSEarthTilesInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     EarthConfig.mDeleteCachePrompt = GetBooleanFromString(vCutString);
+                }
+
+                if (vIndex82 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    EarthConfig.mScenprocLoc = vCutString;
+                }
+
+                if (vIndex83 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    EarthConfig.mScenprocFS9Script = vCutString;
+                }
+
+                if (vIndex84 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    EarthConfig.mScenprocFSXP3DScript = vCutString;
                 }
             }
         }

@@ -2378,10 +2378,10 @@ namespace FSEarthTilesDLL
 
         private void createMeshFiles()
         {
-            double startLong = mEarthArea.AreaFSResampledStartLongitude;
-            double stopLong = mEarthArea.AreaFSResampledStopLongitude;
-            double stopLat = mEarthArea.AreaFSResampledStopLatitude;
-            double startLat = mEarthArea.AreaFSResampledStartLatitude;
+            double startLong = mEarthArea.AreaSnapStartLongitude;
+            double stopLong = mEarthArea.AreaSnapStopLongitude;
+            double stopLat = mEarthArea.AreaSnapStopLatitude;
+            double startLat = mEarthArea.AreaSnapStopLatitude;
 
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
@@ -5465,6 +5465,22 @@ namespace FSEarthTilesDLL
                                 {
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFS2004SceneryCompiler;
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
+                                }
+
+                                // TODO: add scenproc building dropdown
+                                if (true)
+                                {
+                                    if (File.Exists(EarthConfig.mScenprocLoc))
+                                    {
+                                        if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
+                                        {
+                                            ScenprocUtils.runScenproc( mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
+                                        }
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
+                                        {
+                                            ScenprocUtils.runScenproc(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
+                                        }
+                                    }
                                 }
                                 if (SceneryCompilerReady())
                                 {
