@@ -8757,6 +8757,11 @@ namespace FSEarthTilesDLL
             }
         }
 
+        private void CreateScenprocBox_TextChanged(object sender, EventArgs e)
+        {
+           HandleInputChange();
+        }
+
 
 
         private void tabTileSelections_SelectedIndexChanged(object sender, EventArgs e)
