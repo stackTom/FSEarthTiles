@@ -328,6 +328,8 @@ namespace FSEarthTilesDLL
         //And our Main Thread Timer
         System.Windows.Forms.Timer mMainThreadTimer;  //Main Thread Timer
 
+        private bool scenProcWasRunning = false;
+
 
         public FSEarthTilesForm(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
         {
@@ -2712,7 +2714,10 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    SetExitStatusFromFriendThread("Done.");
+                    if (!ScenprocUtils.ScenProcRunning)
+                    {
+                        SetExitStatusFromFriendThread("Done.");
+                    }
                 }
                 else
                 {
@@ -5467,6 +5472,11 @@ namespace FSEarthTilesDLL
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                                 }
 
+                                // clear zombie queries before attempting to access OSM
+                                // TODO: I should only do this if planning to water mask or planning to create scenproc data...
+                                SetStatus("Clearing any actively running but abandoned running OSM queries");
+                                ScenprocUtils.clearZombieQueries();
+
                                 // TODO: add scenproc building dropdown
                                 if (true)
                                 {
@@ -5474,11 +5484,11 @@ namespace FSEarthTilesDLL
                                     {
                                         if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
                                         {
-                                            ScenprocUtils.runScenproc( mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
+                                            ScenprocUtils.runScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder, this);
                                         }
                                         else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
                                         {
-                                            ScenprocUtils.runScenproc(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
+                                            ScenprocUtils.runScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder, this);
                                         }
                                     }
                                 }
@@ -7191,6 +7201,13 @@ namespace FSEarthTilesDLL
             FeedThreadEnginesWithNewWork();
 
 
+            // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
+            if (scenProcWasRunning && !ScenprocUtils.ScenProcRunning && !mAreaProcessRunning)
+            {
+                SetStatus("Done.");
+                scenProcWasRunning = false;
+            }
+
             //Get Status from Area Processing Friend Thread
             if (mAreaProcessRunning)
             {
@@ -7266,6 +7283,11 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
+                            if (true && ScenprocUtils.ScenProcRunning)
+                            {
+                                SetStatus("Waiting on Scenproc to finish");
+                                scenProcWasRunning = true;
+                            }
                             EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
                         }
