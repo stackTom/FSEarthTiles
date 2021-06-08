@@ -761,6 +761,7 @@ namespace FSEarthTilesDLL
                CreateMasksBox.Text = EarthConfig.GetCreateMask();
                CompileSceneryBox.Text = EarthConfig.GetCompileScenery();
                AutoRefSelectorBox.Text = EarthConfig.GetAutoReferenceModeString();
+               CreateScenprocBox.Text = EarthConfig.GetCreateScenproc();
                //one timer This EarthConfig values are only used and handled once ..exactly here..no updates of this values during runtime in EarthConfig
                AreaDefModeBox.Text = EarthConfig.mAreaDefModeStart;
                mEarthInputArea.Copy(EarthConfig.mAreaInputStart);
@@ -3933,6 +3934,7 @@ namespace FSEarthTilesDLL
                                         EarthConfig.SetCompileScenery(CompileSceneryBox.Text);
                                         EarthConfig.SetCreateMask(CreateMasksBox.Text);
                                         EarthConfig.SetAutoReferenceMode(AutoRefSelectorBox.Text);
+                                        EarthConfig.SetCreateScenproc(CreateScenprocBox.Text);
 
                                         if (CacheSceneryBox.Text=="Yes") 
                                         {
@@ -7905,6 +7907,7 @@ namespace FSEarthTilesDLL
             xList.Add("CreateAreaMaskBmp        = " + CreateMasksBox.Text);
             xList.Add("CompileScenery           = " + CompileSceneryBox.Text);
             xList.Add("AutoReferenceMode        = " + AutoRefSelectorBox.Text);
+            xList.Add("CreateScenproc           = " + CreateScenprocBox.Text);
         }
 
         private List<String> CreateExportData()
