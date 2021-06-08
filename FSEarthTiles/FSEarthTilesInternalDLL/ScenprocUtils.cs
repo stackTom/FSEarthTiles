@@ -4,11 +4,15 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Net;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace FSEarthTilesInternalDLL
 {
     public class ScenprocUtils
     {
+        public static bool ScenProcRunning = false;
+
         private static Dictionary<string, string> overPassServers = new Dictionary<string, string>
         {
             { "DE","http://overpass-api.de/api/interpreter" },
@@ -17,6 +21,22 @@ namespace FSEarthTilesInternalDLL
             { "RU","http://overpass.osm.rambler.ru/cgi/interpreter" },
             { "MAP", "https://overpass-api.de/api/map?bbox=" }
         };
+
+        public static void clearZombieQueries()
+        {
+
+            using (var wc = new System.Net.WebClient())
+            {
+                try
+                {
+                    // make sure to kill any zombie queries...
+                    wc.DownloadString("http://overpass-api.de/api/kill_my_queries");
+                }
+                catch (System.Net.WebException)
+                {
+                }
+            }
+        }
 
         private static string getOverpassData(string[] query, string bbox, string serverCode)
         {
@@ -54,22 +74,17 @@ namespace FSEarthTilesInternalDLL
                         url += queryParams;
                     }
 
-                    // http://overpass-api.de/api/interpreter?data=(node["aeroway"](20, -77, 21, -76);way["aeroway"](20, -77, 21, -76);rel["aeroway"](20, -77, 21, -76););(._;>>;);out meta;
-                    // https://overpass-api.de/api/map?bbox=-77,20,-76.75,20.25
                     using (var wc = new System.Net.WebClient())
                     {
                         try
                         {
-                            // make sure to kill any zombie queries...
-                            wc.DownloadString("http://overpass-api.de/api/kill_my_queries");
-
                             contents = wc.DownloadString(url);
                             keepTrying = false;
                             break;
                         }
-                        catch (System.Net.WebException e)
+                        catch (System.Net.WebException)
                         {
-                            Console.WriteLine(e.ToString());
+                            Console.WriteLine("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
                             keepTrying = true;
                             System.Threading.Thread.Sleep(sleepTime);
                         }
@@ -118,20 +133,45 @@ namespace FSEarthTilesInternalDLL
                     }
 
                     double maxLat = tile[0] + ((j + 1) / NUM_STEPS);
-                    Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
-                    string bbox = getBbox(maxLat, minLon, minLat, maxLon, "MAP");
-                    string osm = getOverpassData(null, bbox, "MAP");
-                    string osmFilePath = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data\scenproc_osm_data" + i.ToString() + j.ToString() + ".osm";
+                    string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
+                    string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + j.ToString() + ".osm";
+                    if (!File.Exists(osmFilePath))
+                    {
+                        Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
+                        string bbox = getBbox(maxLat, minLon, minLat, maxLon, "MAP");
+                        string osm = getOverpassData(null, bbox, "MAP");
 
-                    File.WriteAllText(osmFilePath, osm);
+                        Directory.CreateDirectory(scenprocDataDir);
+                        File.WriteAllText(osmFilePath, osm);
+                    }
                 }
             }
 
             Console.WriteLine("Download successful");
         }
 
-        public static void runScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int AllocConsole();
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int FreeConsole();
+
+        private static void startScenProcAndWaitUntilFinished(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
+            Thread t = new Thread(() => runScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            t.Start();
+            ScenProcRunning = true;
+            t.Join();
+            ScenProcRunning = false;
+        }
+        public static void runScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        {
+            Thread t = new Thread(() => startScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            t.Start();
+        }
+
+        public static void runScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        {
+            AllocConsole();
             double startLong = iEarthArea.AreaSnapStartLongitude;
             double stopLong = iEarthArea.AreaSnapStopLongitude;
             double stopLat = iEarthArea.AreaSnapStopLatitude;
@@ -143,7 +183,24 @@ namespace FSEarthTilesInternalDLL
             foreach (double[] tile in tilesToDownload)
             {
                 downloadTileChunked(workFolder, tile);
+                string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
+                string[] osmFiles = Directory.GetFiles(scenprocDataDir, "*.osm");
+                foreach (string osmFile in osmFiles)
+                {
+                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc.StartInfo.FileName = scenprocLoc;
+                    proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
+                    proc.Start();
+                    Thread.Sleep(500);
+                    proc.WaitForExit();
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill();
+                    }
+                }
             }
+            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Done.");
+            FreeConsole();
         }
     }
 }
