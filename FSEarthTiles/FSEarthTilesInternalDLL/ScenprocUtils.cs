@@ -163,6 +163,7 @@ namespace FSEarthTilesInternalDLL
             t.Join();
             ScenProcRunning = false;
         }
+
         public static void runScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             Thread t = new Thread(() => startScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));

@@ -119,6 +119,7 @@ namespace FSEarthTilesInternalDLL
         public static Boolean mSuppressPitchBlackPixels;
         public static Boolean mUseCookies;
         public static Boolean mUseCSharpScripts;
+        public static Boolean mCreateScenproc;
         
         public static Boolean mUseCache;                        // Either use or dont use the cache directory
         public static Boolean mDeleteCachePrompt;
@@ -289,6 +290,7 @@ namespace FSEarthTilesInternalDLL
             // undecided
             mCreateAreaMask = false;
             mUseCSharpScripts = true;
+            mCreateScenproc = false;
 
             // ----------
 
@@ -786,6 +788,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex82 = vFocus.IndexOf("scenproc_loc", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex83 = vFocus.IndexOf("FS9_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex84 = vFocus.IndexOf("FSX_P3D_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex85 = vFocus.IndexOf("CreateScenproc", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1542,6 +1545,12 @@ namespace FSEarthTilesInternalDLL
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     EarthConfig.mScenprocFSXP3DScript = vCutString;
                 }
+
+                if (vIndex85 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    mCreateScenproc = GetBooleanFromString(vCutString);
+                }
             }
         }
 
@@ -2043,6 +2052,17 @@ namespace FSEarthTilesInternalDLL
                 // do nothing
             }
             return vString;
+        }
+
+        public static void SetCreateScenproc(String iString)
+        {
+            mCreateScenproc = GetBooleanFromString(iString);
+        }
+
+        public static string GetCreateScenproc()
+        {
+            String vStringValue = GetBooleanString(mCreateScenproc);
+            return vStringValue;
         }
 
         public static Double GetIniFileLatitude(String iString)
