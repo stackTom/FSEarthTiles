@@ -2864,7 +2864,7 @@ namespace FSEarthMasksInternalDLL
             System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
             string[] lineContents = f_mesh.ReadLine().Trim().Split();
             float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
-            int has_water = mesh_version >= 1.3 ? 7 : 3;
+            int has_water = mesh_version >= 1.3f ? 7 : 3;
             // skip ahead 3
             for (int i = 0; i < 3; i++)
             {
