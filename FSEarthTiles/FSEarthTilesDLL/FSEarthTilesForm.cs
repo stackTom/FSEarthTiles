@@ -5477,7 +5477,7 @@ namespace FSEarthTilesDLL
                                 // clear zombie queries before attempting to access OSM
                                 // TODO: I should only do this if planning to water mask or planning to create scenproc data...
                                 SetStatus("Clearing any actively running but abandoned running OSM queries");
-                                ScenprocUtils.clearZombieQueries();
+                                ScenprocUtils.ClearZombieQueries();
 
                                 if (EarthConfig.mCreateScenproc)
                                 {
@@ -5485,11 +5485,11 @@ namespace FSEarthTilesDLL
                                     {
                                         if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
                                         {
-                                            ScenprocUtils.runScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder, this);
+                                            ScenprocUtils.RunScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder, this);
                                         }
                                         else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
                                         {
-                                            ScenprocUtils.runScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder, this);
+                                            ScenprocUtils.RunScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder, this);
                                         }
                                     }
                                 }
@@ -5607,6 +5607,10 @@ namespace FSEarthTilesDLL
                 EarthScriptsHandler.DoOnAbortButtonEvent(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
                 mStopProcess = true;
                 
+            }
+            if (ScenprocUtils.ScenProcRunning)
+            {
+                ScenprocUtils.TellScenprocToTerminate();
             }
         }
 
