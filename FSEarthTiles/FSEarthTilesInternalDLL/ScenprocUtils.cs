@@ -189,6 +189,7 @@ namespace FSEarthTilesInternalDLL
         {
             shouldStop = true;
             FreeConsole();
+            ScenProcRunning = false;
         }
 
         public static void RunScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
