@@ -5453,7 +5453,7 @@ namespace FSEarthTilesDLL
 
         private void StartDownload()
         {
-            if (!mAreaProcessRunning)
+            if (!mAreaProcessRunning && !ScenprocUtils.ScenProcRunning)
             {
                 if (mInputCoordsValidity)
                 {
@@ -5479,8 +5479,7 @@ namespace FSEarthTilesDLL
                                 SetStatus("Clearing any actively running but abandoned running OSM queries");
                                 ScenprocUtils.clearZombieQueries();
 
-                                // TODO: add scenproc building dropdown
-                                if (true)
+                                if (EarthConfig.mCreateScenproc)
                                 {
                                     if (File.Exists(EarthConfig.mScenprocLoc))
                                     {
@@ -7285,7 +7284,7 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (true && ScenprocUtils.ScenProcRunning)
+                            if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
                             {
                                 SetStatus("Waiting on Scenproc to finish");
                                 scenProcWasRunning = true;
