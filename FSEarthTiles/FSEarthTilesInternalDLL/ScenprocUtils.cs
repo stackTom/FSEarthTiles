@@ -195,6 +195,7 @@ namespace FSEarthTilesInternalDLL
         public static void RunScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             AllocConsole();
+            Console.WriteLine("Running Scenproc. Note: Scenproc windows will be minimized to the taskbar.");
             double startLong = iEarthArea.AreaSnapStartLongitude;
             double stopLong = iEarthArea.AreaSnapStopLongitude;
             double stopLat = iEarthArea.AreaSnapStopLatitude;
@@ -221,6 +222,7 @@ namespace FSEarthTilesInternalDLL
                     System.Diagnostics.Process proc = new System.Diagnostics.Process();
                     proc.StartInfo.FileName = scenprocLoc;
                     proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
+                    proc.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Minimized;
                     proc.Start();
                     Thread.Sleep(500);
                     proc.WaitForExit();
