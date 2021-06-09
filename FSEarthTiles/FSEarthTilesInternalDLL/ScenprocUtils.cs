@@ -12,6 +12,7 @@ namespace FSEarthTilesInternalDLL
     public class ScenprocUtils
     {
         public static bool ScenProcRunning = false;
+        private static bool shouldStop = false;
 
         private static Dictionary<string, string> overPassServers = new Dictionary<string, string>
         {
@@ -22,7 +23,7 @@ namespace FSEarthTilesInternalDLL
             { "MAP", "https://overpass-api.de/api/map?bbox=" }
         };
 
-        public static void clearZombieQueries()
+        public static void ClearZombieQueries()
         {
 
             using (var wc = new System.Net.WebClient())
@@ -38,7 +39,7 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        private static string getOverpassData(string[] query, string bbox, string serverCode)
+        private static string GetOverpassData(string[] query, string bbox, string serverCode)
         {
             bool keepTrying = false;
             string contents = null;
@@ -74,6 +75,11 @@ namespace FSEarthTilesInternalDLL
                         url += queryParams;
                     }
 
+                    if (shouldStop)
+                    {
+                        return null;
+                    }
+
                     using (var wc = new System.Net.WebClient())
                     {
                         try
@@ -84,6 +90,10 @@ namespace FSEarthTilesInternalDLL
                         }
                         catch (System.Net.WebException)
                         {
+                            if (shouldStop)
+                            {
+                                return null;
+                            }
                             Console.WriteLine("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
                             keepTrying = true;
                             System.Threading.Thread.Sleep(sleepTime);
@@ -99,7 +109,7 @@ namespace FSEarthTilesInternalDLL
             return contents;
         }
 
-        private static string getBbox(double endLat, double startLon, double startLat, double endLon, string serverCode)
+        private static string GetBbox(double endLat, double startLon, double startLat, double endLon, string serverCode)
         {
             string bbox = "(" + startLat + ", " + startLon + ", " + endLat + ", " + endLon + ")";
             if (serverCode == "MAP")
@@ -110,7 +120,7 @@ namespace FSEarthTilesInternalDLL
             return bbox;
         }
 
-        private static void downloadTileChunked(string workFolder, double[] tile)
+        private static void DownloadTileChunked(string workFolder, double[] tile)
         {
             const int NUM_SCENPROC_CHUNKS = 16;
             double NUM_STEPS = Math.Sqrt(NUM_SCENPROC_CHUNKS);
@@ -138,8 +148,12 @@ namespace FSEarthTilesInternalDLL
                     if (!File.Exists(osmFilePath))
                     {
                         Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
-                        string bbox = getBbox(maxLat, minLon, minLat, maxLon, "MAP");
-                        string osm = getOverpassData(null, bbox, "MAP");
+                        string bbox = GetBbox(maxLat, minLon, minLat, maxLon, "MAP");
+                        if (shouldStop)
+                        {
+                            return;
+                        }
+                        string osm = GetOverpassData(null, bbox, "MAP");
 
                         Directory.CreateDirectory(scenprocDataDir);
                         File.WriteAllText(osmFilePath, osm);
@@ -155,22 +169,29 @@ namespace FSEarthTilesInternalDLL
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern int FreeConsole();
 
-        private static void startScenProcAndWaitUntilFinished(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static void StartScenProcAndWaitUntilFinished(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
-            Thread t = new Thread(() => runScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            Thread t = new Thread(() => RunScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
             t.Start();
             ScenProcRunning = true;
             t.Join();
             ScenProcRunning = false;
         }
 
-        public static void runScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        public static void RunScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
-            Thread t = new Thread(() => startScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            shouldStop = false;
+            Thread t = new Thread(() => StartScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
             t.Start();
         }
 
-        public static void runScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        public static void TellScenprocToTerminate()
+        {
+            shouldStop = true;
+            FreeConsole();
+        }
+
+        public static void RunScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             AllocConsole();
             double startLong = iEarthArea.AreaSnapStartLongitude;
@@ -183,11 +204,19 @@ namespace FSEarthTilesInternalDLL
             // TODO: speedup - for tiles at the edge, don't download data for the whole tile?
             foreach (double[] tile in tilesToDownload)
             {
-                downloadTileChunked(workFolder, tile);
+                if (shouldStop)
+                {
+                    return;
+                }
+                DownloadTileChunked(workFolder, tile);
                 string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
                 string[] osmFiles = Directory.GetFiles(scenprocDataDir, "*.osm");
                 foreach (string osmFile in osmFiles)
                 {
+                    if (shouldStop)
+                    {
+                        return;
+                    }
                     System.Diagnostics.Process proc = new System.Diagnostics.Process();
                     proc.StartInfo.FileName = scenprocLoc;
                     proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
