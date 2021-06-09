@@ -13,6 +13,8 @@ namespace FSEarthTilesInternalDLL
     {
         public static bool ScenProcRunning = false;
         private static bool shouldStop = false;
+        private static HashSet<Thread> runningThreads = new HashSet<Thread>();
+        private static HashSet<string> runningTiles  = new HashSet<string>();
 
         private static Dictionary<string, string> overPassServers = new Dictionary<string, string>
         {
@@ -172,10 +174,15 @@ namespace FSEarthTilesInternalDLL
         private static void StartScenProcAndWaitUntilFinished(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             Thread t = new Thread(() => RunScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            runningThreads.Add(t);
             t.Start();
             ScenProcRunning = true;
             t.Join();
-            ScenProcRunning = false;
+            runningThreads.Remove(t);
+            if (runningThreads.Count == 0)
+            {
+                ScenProcRunning = false;
+            }
         }
 
         public static void RunScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
@@ -195,7 +202,6 @@ namespace FSEarthTilesInternalDLL
         public static void RunScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
         {
             AllocConsole();
-            Console.WriteLine("Running Scenproc. Note: Scenproc windows will be minimized to the taskbar.");
             double startLong = iEarthArea.AreaSnapStartLongitude;
             double stopLong = iEarthArea.AreaSnapStopLongitude;
             double stopLat = iEarthArea.AreaSnapStopLatitude;
@@ -210,6 +216,23 @@ namespace FSEarthTilesInternalDLL
                 {
                     return;
                 }
+                bool tileAlreadyRunning = false;
+                string tileStr = tile[0] + " " + tile[1];
+                lock (runningTiles)
+                {
+                    if (runningTiles.Contains(tileStr))
+                    {
+                        tileAlreadyRunning = true;
+                    }
+                    else
+                    {
+                        runningTiles.Add(tileStr);
+                    }
+                }
+                if (tileAlreadyRunning)
+                {
+                    continue;
+                }
                 DownloadTileChunked(workFolder, tile);
                 string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
                 string[] osmFiles = Directory.GetFiles(scenprocDataDir, "*.osm");
@@ -219,6 +242,7 @@ namespace FSEarthTilesInternalDLL
                     {
                         return;
                     }
+                    Console.WriteLine("Running Scenproc for " + tile[0] + ", " + tile[1] + " using file " + osmFile + ". Note: Scenproc windows will be minimized to the taskbar.");
                     System.Diagnostics.Process proc = new System.Diagnostics.Process();
                     proc.StartInfo.FileName = scenprocLoc;
                     proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
@@ -230,6 +254,11 @@ namespace FSEarthTilesInternalDLL
                     {
                         proc.Kill();
                     }
+                }
+
+                lock (runningTiles)
+                {
+                    runningTiles.Remove(tileStr);
                 }
             }
             iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Done.");
