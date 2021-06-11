@@ -128,6 +128,8 @@ namespace FSEarthTilesInternalDLL
             double maxLon = startLong;
             double minLat = startLat;
             double maxLat = startLat;
+            string[] buildingsAndTreesTags = { "way[\"natural\"]", "way[\"landuse\"]", "way[\"leisure\"]", "way[\"building\"]",
+                                               "rel[\"natural\"]", "rel[\"landuse\"]", "rel[\"leisure\"]", "rel[\"building\"]" };
 
             const double OFFSET = 0.5;
             int i = 0;
@@ -151,12 +153,12 @@ namespace FSEarthTilesInternalDLL
                     if (!File.Exists(osmFilePath))
                     {
                         Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
-                        string bbox = GetBbox(maxLat, minLon, minLat, maxLon, "MAP");
+                        string bbox = GetBbox(maxLat, minLon, minLat, maxLon, null);
                         if (shouldStop)
                         {
                             return;
                         }
-                        string osm = GetOverpassData(null, bbox, "MAP");
+                        string osm = GetOverpassData(buildingsAndTreesTags, bbox, null);
 
                         Directory.CreateDirectory(scenprocDataDir);
                         File.WriteAllText(osmFilePath, osm);
