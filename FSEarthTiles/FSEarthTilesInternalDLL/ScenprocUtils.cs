@@ -14,7 +14,7 @@ namespace FSEarthTilesInternalDLL
         public static bool ScenProcRunning = false;
         private static bool shouldStop = false;
         private static HashSet<Thread> runningThreads = new HashSet<Thread>();
-        private static HashSet<string> runningTiles  = new HashSet<string>();
+        private static HashSet<string> runningTiles = new HashSet<string>();
 
         private static Dictionary<string, string> overPassServers = new Dictionary<string, string>
         {
@@ -122,30 +122,31 @@ namespace FSEarthTilesInternalDLL
             return bbox;
         }
 
-        private static void DownloadTileChunked(string workFolder, double[] tile)
+        private static void DownloadTileChunked(string workFolder, double startLong, double stopLong, double startLat, double stopLat)
         {
-            const int NUM_SCENPROC_CHUNKS = 16;
-            double NUM_STEPS = Math.Sqrt(NUM_SCENPROC_CHUNKS);
-            for (int i = 0; i < NUM_STEPS; i++)
+            double minLon = startLong;
+            double maxLon = startLong;
+            double minLat = startLat;
+            double maxLat = startLat;
+
+            const double OFFSET = 0.5;
+            int i = 0;
+            int j = 0;
+            while (maxLon < stopLong)
             {
-                double minLon = tile[1];
-                if (i > 0)
+                maxLon += OFFSET;
+                if (maxLon > stopLong)
                 {
-                    minLon = tile[1] + (i / NUM_STEPS);
+                    maxLon = stopLong;
                 }
-
-                double maxLon = tile[1] + ((i + 1) / NUM_STEPS);
-
-                for (int j = 0; j < NUM_STEPS; j++)
+                while (maxLat < stopLat)
                 {
-                    double minLat = tile[0];
-                    if (j > 0)
+                    maxLat += OFFSET;
+                    if (maxLat > stopLat)
                     {
-                        minLat = tile[0] + (j / NUM_STEPS);
+                        maxLat = stopLat;
                     }
-
-                    double maxLat = tile[0] + ((j + 1) / NUM_STEPS);
-                    string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
+                    string scenprocDataDir = getOSMDataPath(workFolder, startLong, stopLong, startLat, stopLat);
                     string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + j.ToString() + ".osm";
                     if (!File.Exists(osmFilePath))
                     {
@@ -160,7 +161,14 @@ namespace FSEarthTilesInternalDLL
                         Directory.CreateDirectory(scenprocDataDir);
                         File.WriteAllText(osmFilePath, osm);
                     }
+                    minLat = maxLat;
+                    j++;
                 }
+                minLon = maxLon;
+                minLat = startLat;
+                maxLat = startLat;
+                j = 0;
+                i++;
             }
 
             Console.WriteLine("Download successful");
@@ -171,9 +179,13 @@ namespace FSEarthTilesInternalDLL
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern int FreeConsole();
 
-        private static void StartScenProcAndWaitUntilFinished(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        // for all these scenproc functions, we pass an EarthMultiArea because this is always the full area. FSEarthTilesForm mEarthArea
+        // initially has the same coordinates as the mEarthMuliArea, but then it gets overwritten to the individual reference areas it is building
+        // we now call these functions before mEarthArea has been overwritten, but I want to make this API change in case we want to call these
+        // functions in the future AFTER it has been overwritten
+        private static void StartScenProcAndWaitUntilFinished(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
-            Thread t = new Thread(() => RunScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            Thread t = new Thread(() => RunScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder));
             runningThreads.Add(t);
             t.Start();
             ScenProcRunning = true;
@@ -185,10 +197,10 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        public static void RunScenprocThreaded(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        public static void RunScenprocThreaded(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
             shouldStop = false;
-            Thread t = new Thread(() => StartScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder, iFSEarthTilesInternalInterface));
+            Thread t = new Thread(() => StartScenProcAndWaitUntilFinished(iEarthArea, scenprocLoc, scenprocScript, workFolder));
             t.Start();
         }
 
@@ -199,69 +211,67 @@ namespace FSEarthTilesInternalDLL
             ScenProcRunning = false;
         }
 
-        public static void RunScenproc(EarthArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder, FSEarthTilesInternalInterface iFSEarthTilesInternalInterface)
+        private static string getOSMDataPath(string workFolder, double startLong, double stopLong, double startLat, double stopLat)
+        {
+            return workFolder + @"\OSM_data\Scenproc\" + startLong + stopLong + startLat + stopLat;
+        }
+
+        public static void RunScenproc(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
             AllocConsole();
-            double startLong = iEarthArea.AreaSnapStartLongitude;
-            double stopLong = iEarthArea.AreaSnapStopLongitude;
-            double stopLat = iEarthArea.AreaSnapStopLatitude;
-            double startLat = iEarthArea.AreaSnapStopLatitude;
+            double startLong = iEarthArea.AreaSnapStartLongitude < iEarthArea.AreaSnapStopLongitude ? iEarthArea.AreaSnapStartLongitude : iEarthArea.AreaSnapStopLongitude;
+            double stopLong = startLong == iEarthArea.AreaSnapStartLongitude ? iEarthArea.AreaSnapStopLongitude : iEarthArea.AreaSnapStartLongitude;
+            double startLat = iEarthArea.AreaSnapStartLatitude < iEarthArea.AreaSnapStopLatitude ? iEarthArea.AreaSnapStartLatitude : iEarthArea.AreaSnapStopLatitude;
+            double stopLat = startLat == iEarthArea.AreaSnapStartLatitude ? iEarthArea.AreaSnapStopLatitude : iEarthArea.AreaSnapStartLatitude;
 
-            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-
-            // TODO: speedup - for tiles at the edge, don't download data for the whole tile?
-            foreach (double[] tile in tilesToDownload)
+            if (shouldStop)
+            {
+                return;
+            }
+            bool tileAlreadyRunning = false;
+            string tileStr = startLong.ToString() + stopLong.ToString() + startLat.ToString() + stopLat.ToString();
+            lock (runningTiles)
+            {
+                if (runningTiles.Contains(tileStr))
+                {
+                    tileAlreadyRunning = true;
+                }
+                else
+                {
+                    runningTiles.Add(tileStr);
+                }
+            }
+            if (tileAlreadyRunning)
+            {
+                return;
+            }
+            DownloadTileChunked(workFolder, startLong, stopLong, startLat, stopLat);
+            string scenprocDataDir = getOSMDataPath(workFolder, startLong, stopLong, startLat, stopLat);
+            string[] osmFiles = Directory.GetFiles(scenprocDataDir, "*.osm");
+            foreach (string osmFile in osmFiles)
             {
                 if (shouldStop)
                 {
                     return;
                 }
-                bool tileAlreadyRunning = false;
-                string tileStr = tile[0] + " " + tile[1];
-                lock (runningTiles)
+                Console.WriteLine("Running Scenproc for " + startLong + ", " + startLat + " to " + stopLong + ", " + stopLat + " using file " + osmFile + ". Note: Scenproc windows will be minimized to the taskbar.");
+                System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                proc.StartInfo.FileName = scenprocLoc;
+                proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
+                proc.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Minimized;
+                proc.Start();
+                Thread.Sleep(500);
+                proc.WaitForExit();
+                if (!proc.HasExited)
                 {
-                    if (runningTiles.Contains(tileStr))
-                    {
-                        tileAlreadyRunning = true;
-                    }
-                    else
-                    {
-                        runningTiles.Add(tileStr);
-                    }
-                }
-                if (tileAlreadyRunning)
-                {
-                    continue;
-                }
-                DownloadTileChunked(workFolder, tile);
-                string scenprocDataDir = CommonFunctions.GetTilePath(workFolder, tile) + @"\Scenproc_data";
-                string[] osmFiles = Directory.GetFiles(scenprocDataDir, "*.osm");
-                foreach (string osmFile in osmFiles)
-                {
-                    if (shouldStop)
-                    {
-                        return;
-                    }
-                    Console.WriteLine("Running Scenproc for " + tile[0] + ", " + tile[1] + " using file " + osmFile + ". Note: Scenproc windows will be minimized to the taskbar.");
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
-                    proc.StartInfo.FileName = scenprocLoc;
-                    proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
-                    proc.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Minimized;
-                    proc.Start();
-                    Thread.Sleep(500);
-                    proc.WaitForExit();
-                    if (!proc.HasExited)
-                    {
-                        proc.Kill();
-                    }
-                }
-
-                lock (runningTiles)
-                {
-                    runningTiles.Remove(tileStr);
+                    proc.Kill();
                 }
             }
-            iFSEarthTilesInternalInterface.SetStatusFromFriendThread("Done.");
+
+            lock (runningTiles)
+            {
+                runningTiles.Remove(tileStr);
+            }
             FreeConsole();
         }
     }
