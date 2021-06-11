@@ -2294,25 +2294,6 @@ namespace FSEarthTilesDLL
 
                 if (vAllocationOk)
                 {
-                    // clear zombie queries before attempting to access OSM
-                    // TODO: I should only do this if planning to water mask or planning to create scenproc data...
-                    SetStatus("Clearing any actively running but abandoned running OSM queries");
-                    ScenprocUtils.ClearZombieQueries();
-
-                    if (EarthConfig.mCreateScenproc)
-                    {
-                        if (File.Exists(EarthConfig.mScenprocLoc))
-                        {
-                            if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
-                            {
-                                ScenprocUtils.RunScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder, this);
-                            }
-                            else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
-                            {
-                                ScenprocUtils.RunScenprocThreaded(mEarthArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder, this);
-                            }
-                        }
-                    }
 
                     EarthScriptsHandler.DoBeforeDownload(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
@@ -5493,6 +5474,27 @@ namespace FSEarthTilesDLL
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                                 }
 
+                                // clear zombie queries before attempting to access OSM
+                                // TODO: I should only do this if planning to water mask or planning to create scenproc data...
+                                SetStatus("Clearing any actively running but abandoned running OSM queries");
+                                ScenprocUtils.ClearZombieQueries();
+
+                                Console.WriteLine(mEarthArea);
+                                Console.WriteLine(mEarthMultiArea);
+                                if (EarthConfig.mCreateScenproc)
+                                {
+                                    if (File.Exists(EarthConfig.mScenprocLoc))
+                                    {
+                                        if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
+                                        {
+                                            ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
+                                        }
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
+                                        {
+                                            ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
+                                        }
+                                    }
+                                }
                                 if (SceneryCompilerReady())
                                 {
                                     
