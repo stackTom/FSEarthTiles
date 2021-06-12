@@ -28,6 +28,10 @@ namespace FSEarthTilesDLL
             public String mBGLFS2004SeasonsDesitnationStopLongitudeString;
             public String mBGLFS2004SeasonsDesitnationStartLatitudeString;
             public String mBGLFS2004SeasonsDesitnationStopLatitudeString;
+            public String mAreaSnapStartLatitudeString;
+            public String mAreaSnapStopLatitudeString;
+            public String mAreaSnapStartLongitudeString;
+            public String mAreaSnapStopLongitudeString;
         }
 
 
@@ -105,6 +109,11 @@ namespace FSEarthTilesDLL
                 vBGLPixelsInX      = iEarthArea.AreaPixelsInX;
                 vBGLPixelsInY      = iEarthArea.AreaPixelsInY;
             }
+
+            vBGLDatasStringPackage.mAreaSnapStartLatitudeString = Convert.ToString(iEarthArea.AreaSnapStartLatitude, NumberFormatInfo.InvariantInfo);
+            vBGLDatasStringPackage.mAreaSnapStopLatitudeString = Convert.ToString(iEarthArea.AreaSnapStopLatitude, NumberFormatInfo.InvariantInfo);
+            vBGLDatasStringPackage.mAreaSnapStartLongitudeString = Convert.ToString(iEarthArea.AreaSnapStartLongitude, NumberFormatInfo.InvariantInfo);
+            vBGLDatasStringPackage.mAreaSnapStopLongitudeString = Convert.ToString(iEarthArea.AreaSnapStopLongitude, NumberFormatInfo.InvariantInfo);
 
             Double vBGLXPixelAngle;
             Double vBGLYPixelAngle;
@@ -865,6 +874,11 @@ namespace FSEarthTilesDLL
                 if (EarthConfig.mCreateWaterMaskBitmap)
                 {
                     vStream.WriteLine("CreateWaterMaskBitmap      = Yes    # yes = create Water/Blend Mask. (An AreaVectors file is required for this!)");
+
+                    vStream.WriteLine("AreaSnapStartLatitude      = " + iBGLDatasStringPackage.mAreaSnapStartLatitudeString);
+                    vStream.WriteLine("AreaSnapStopLatitude      = " + iBGLDatasStringPackage.mAreaSnapStopLatitudeString);
+                    vStream.WriteLine("AreaSnapStartLongitude      = " + iBGLDatasStringPackage.mAreaSnapStartLongitudeString);
+                    vStream.WriteLine("AreaSnapStopLongitude      = " + iBGLDatasStringPackage.mAreaSnapStopLongitudeString);
                 }
                 else
                 {

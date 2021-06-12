@@ -137,6 +137,11 @@ namespace FSEarthMasksInternalDLL
         public static Double mAreaSECornerLatitude  = 0.0;
         public static Double mAreaSECornerLongitude = 0.0;
 
+        public static Double mAreaSnapStartLatitude = 0.0;
+        public static Double mAreaSnapStopLatitude = 0.0;
+        public static Double mAreaSnapStartLongitude = 0.0;
+        public static Double mAreaSnapStopLongitude = 0.0;
+
         //General
         public static Int32 mWaterResolutionBitsCount = 1; //not sure here it is strange it seems to kick in full on value 64 and seems to stays full then..so is it 1 or 2 bit? confuesing (set it to 8bit to have no dithering) 
         public static Int32 mBlendResolutionBitsCount = 4; //still see rings with 6 Bit..so let's try 4 Bits
@@ -3592,6 +3597,10 @@ namespace FSEarthMasksInternalDLL
                 Int32 vIndex29 = vFocus.IndexOf("BlendSouthBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex30 = vFocus.IndexOf("BlendWestBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex31 = vFocus.IndexOf("WorkFolder", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex32 = vFocus.IndexOf("AreaSnapStartLatitude", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex33 = vFocus.IndexOf("AreaSnapStopLatitude", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex34 = vFocus.IndexOf("AreaSnapStartLongitude", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex35 = vFocus.IndexOf("AreaSnapStopLongitude", StringComparison.CurrentCultureIgnoreCase);
                 
                 if (vIndex1 >= 0)
                 {
@@ -3789,6 +3798,54 @@ namespace FSEarthMasksInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     mWorkFolder = vCutString;
+                }
+                if (vIndex32 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        mAreaSnapStartLatitude = Convert.ToDouble(vCutString, NumberFormatInfo.InvariantInfo);
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
+                if (vIndex33 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        mAreaSnapStopLatitude = Convert.ToDouble(vCutString, NumberFormatInfo.InvariantInfo);
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
+                if (vIndex34 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        mAreaSnapStartLongitude = Convert.ToDouble(vCutString, NumberFormatInfo.InvariantInfo);
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
+                if (vIndex35 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        mAreaSnapStopLongitude = Convert.ToDouble(vCutString, NumberFormatInfo.InvariantInfo);
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
                 }
             }
         }
