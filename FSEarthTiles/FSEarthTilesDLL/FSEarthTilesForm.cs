@@ -595,6 +595,8 @@ namespace FSEarthTilesDLL
                             }
                         }
                     }
+
+                    ScenprocUtils.scriptsDir = Path.GetFullPath(@".\Scenproc_scripts");
                 }
                 catch
                 {
@@ -2381,10 +2383,10 @@ namespace FSEarthTilesDLL
 
         private void createMeshFiles()
         {
-            double startLong = mEarthArea.AreaSnapStartLongitude;
-            double stopLong = mEarthArea.AreaSnapStopLongitude;
-            double stopLat = mEarthArea.AreaSnapStopLatitude;
-            double startLat = mEarthArea.AreaSnapStopLatitude;
+            double startLong = mEarthArea.AreaSnapStartLongitude < mEarthArea.AreaSnapStopLongitude ? mEarthArea.AreaSnapStartLongitude : mEarthArea.AreaSnapStopLongitude;
+            double stopLong = startLong == mEarthArea.AreaSnapStartLongitude ? mEarthArea.AreaSnapStopLongitude : mEarthArea.AreaSnapStartLongitude;
+            double startLat = mEarthArea.AreaSnapStartLatitude < mEarthArea.AreaSnapStopLatitude ? mEarthArea.AreaSnapStartLatitude : mEarthArea.AreaSnapStopLatitude;
+            double stopLat = startLat == mEarthArea.AreaSnapStartLatitude ? mEarthArea.AreaSnapStopLatitude : mEarthArea.AreaSnapStartLatitude;
 
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
@@ -5476,20 +5478,20 @@ namespace FSEarthTilesDLL
 
                                 // clear zombie queries before attempting to access OSM
                                 // TODO: I should only do this if planning to water mask or planning to create scenproc data...
-                                SetStatus("Clearing any actively running but abandoned running OSM queries");
+                                SetStatus("Clearing any actively running but abandoned OSM queries");
                                 ScenprocUtils.ClearZombieQueries();
 
-                                Console.WriteLine(mEarthArea);
-                                Console.WriteLine(mEarthMultiArea);
                                 if (EarthConfig.mCreateScenproc)
                                 {
                                     if (File.Exists(EarthConfig.mScenprocLoc))
                                     {
-                                        if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(EarthConfig.mScenprocFS9Script))
+                                        string fs9ScriptLoc = ScenprocUtils.scriptsDir + @"\" + EarthConfig.mScenprocFS9Script;
+                                        string fsxp3dScriptLoc = ScenprocUtils.scriptsDir + @"\" + EarthConfig.mScenprocFSXP3DScript;
+                                        if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(fs9ScriptLoc))
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
                                         }
-                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(EarthConfig.mScenprocFSXP3DScript))
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(fsxp3dScriptLoc))
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
                                         }
