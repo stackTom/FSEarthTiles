@@ -15,6 +15,7 @@ namespace FSEarthTilesInternalDLL
         private static bool shouldStop = false;
         private static HashSet<Thread> runningThreads = new HashSet<Thread>();
         private static HashSet<string> runningTiles = new HashSet<string>();
+        public static string scriptsDir = null;
 
         private static Dictionary<string, string> overPassServers = new Dictionary<string, string>
         {
@@ -149,7 +150,7 @@ namespace FSEarthTilesInternalDLL
                         maxLat = stopLat;
                     }
                     string scenprocDataDir = getOSMDataPath(workFolder, startLong, stopLong, startLat, stopLat);
-                    string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + j.ToString() + ".osm";
+                    string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + "_" + j.ToString() + ".osm";
                     if (!File.Exists(osmFilePath))
                     {
                         Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
@@ -162,6 +163,7 @@ namespace FSEarthTilesInternalDLL
 
                         Directory.CreateDirectory(scenprocDataDir);
                         File.WriteAllText(osmFilePath, osm);
+                        Console.WriteLine("Download successful");
                     }
                     minLat = maxLat;
                     j++;
@@ -172,8 +174,6 @@ namespace FSEarthTilesInternalDLL
                 j = 0;
                 i++;
             }
-
-            Console.WriteLine("Download successful");
         }
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -259,7 +259,7 @@ namespace FSEarthTilesInternalDLL
                 Console.WriteLine("Running Scenproc for " + startLong + ", " + startLat + " to " + stopLong + ", " + stopLat + " using file " + osmFile + ". Note: Scenproc windows will be minimized to the taskbar.");
                 System.Diagnostics.Process proc = new System.Diagnostics.Process();
                 proc.StartInfo.FileName = scenprocLoc;
-                proc.StartInfo.Arguments = "\"" + Path.GetFullPath(scenprocScript) + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
+                proc.StartInfo.Arguments = "\"" + scriptsDir + @"\" + scenprocScript + "\" /run \"" + osmFile + "\" \"" + EarthConfig.mSceneryFolderTexture + "\"";
                 proc.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Minimized;
                 proc.Start();
                 Thread.Sleep(500);
