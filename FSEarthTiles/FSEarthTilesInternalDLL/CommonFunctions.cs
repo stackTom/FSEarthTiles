@@ -51,14 +51,21 @@ namespace FSEarthTilesInternalDLL
         public static List<double[]> GetTilesToDownload(double startLong, double stopLong, double startLat, double stopLat)
         {
             List<double[]> tilesToDownload = new List<double[]>();
-            int minLong = (int)Math.Floor(startLong);
-            int maxLong = (int)Math.Floor(stopLong);
-            int minLat = (int)Math.Floor(stopLat);
-            int maxLat = (int)Math.Floor(startLat);
+            int startLongInt = (int)Math.Floor(startLong);
+            int startLatInt = (int)Math.Floor(startLat);
 
-            for (int i = minLat; i < maxLat + 1; i++)
+            double _stopLong = Math.Floor(stopLong);
+            double _stopLat = Math.Floor(stopLat);
+
+            int stopLongInt = (int)_stopLong;
+            int stopLatInt = (int)_stopLat;
+
+            int latOffset = _stopLat == stopLat ? 0 : 1;
+            int longOffset = _stopLong == stopLong ? 0 : 1;
+
+            for (int i = startLatInt; i < stopLatInt + latOffset; i++)
             {
-                for (int j = minLong; j < maxLong + 1; j++)
+                for (int j = startLongInt; j < stopLongInt + longOffset; j++)
                 {
                     double[] tile = new double[2];
                     tile[0] = i;
