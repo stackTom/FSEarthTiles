@@ -221,6 +221,14 @@ namespace FSEarthTilesInternalDLL
         public static void RunScenproc(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
             AllocConsole();
+            // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
+            // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
+            // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception
+            // see: https://stackoverflow.com/questions/42612872/exception-when-using-console-window-in-a-form-application
+            TextWriter writer = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
+            Console.SetOut(writer);
+            Console.SetIn(new StreamReader(Console.OpenStandardInput()));
+
             double startLong = iEarthArea.AreaSnapStartLongitude < iEarthArea.AreaSnapStopLongitude ? iEarthArea.AreaSnapStartLongitude : iEarthArea.AreaSnapStopLongitude;
             double stopLong = startLong == iEarthArea.AreaSnapStartLongitude ? iEarthArea.AreaSnapStopLongitude : iEarthArea.AreaSnapStartLongitude;
             double startLat = iEarthArea.AreaSnapStartLatitude < iEarthArea.AreaSnapStopLatitude ? iEarthArea.AreaSnapStartLatitude : iEarthArea.AreaSnapStopLatitude;
