@@ -5476,11 +5476,6 @@ namespace FSEarthTilesDLL
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                                 }
 
-                                // clear zombie queries before attempting to access OSM
-                                // TODO: I should only do this if planning to water mask or planning to create scenproc data...
-                                SetStatus("Clearing any actively running but abandoned OSM queries");
-                                ScenprocUtils.ClearZombieQueries();
-
                                 if (EarthConfig.mCreateScenproc)
                                 {
                                     if (File.Exists(EarthConfig.mScenprocLoc))
