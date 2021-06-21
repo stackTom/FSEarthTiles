@@ -154,12 +154,12 @@ namespace FSEarthTilesInternalDLL
                     if (!File.Exists(osmFilePath))
                     {
                         Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
-                        string bbox = GetBbox(maxLat, minLon, minLat, maxLon, null);
+                        string bbox = GetBbox(maxLat, minLon, minLat, maxLon, "MAP");
                         if (shouldStop)
                         {
                             return;
                         }
-                        string osm = GetOverpassData(buildingsAndTreesTags, bbox, null);
+                        string osm = GetOverpassData(buildingsAndTreesTags, bbox, "MAP");
 
                         Directory.CreateDirectory(scenprocDataDir);
                         File.WriteAllText(osmFilePath, osm);
