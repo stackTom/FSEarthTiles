@@ -48,4 +48,7 @@ copy /Y .\FSEarthTilesDLL\TileCodeingScript.cs .\FSET
 :: create zip file
 powershell Compress-Archive .\FSET\* FSET.zip
 
+:: remove .\FSET temp folder, since we only care about the .zip for release
+rmdir /s /q .\FSET
+
 :: Now, user needs to manually copy over fs9, fsx, p3d resample.exe and imagetool.exe for fs9
