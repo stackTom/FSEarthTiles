@@ -143,6 +143,7 @@
             this.label52 = new System.Windows.Forms.Label();
             this.label53 = new System.Windows.Forms.Label();
             this.SwitchGroupBox = new System.Windows.Forms.GroupBox();
+            this.CreateScenprocLabel = new System.Windows.Forms.Label();
             this.CreateScenprocBox = new System.Windows.Forms.ComboBox();
             this.CacheSceneryBox = new System.Windows.Forms.ComboBox();
             this.lblCacheScenery = new System.Windows.Forms.Label();
@@ -189,7 +190,6 @@
             this.lsbExcludeAreas = new System.Windows.Forms.ListBox();
             this.DeleteButton = new System.Windows.Forms.Button();
             this.DrawExcludeButton = new System.Windows.Forms.Button();
-            this.CreateScenprocLabel = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.NormalPictureBox)).BeginInit();
             this.InputGroupBox.SuspendLayout();
             this.NWCornerGroup.SuspendLayout();
@@ -1424,9 +1424,9 @@
             this.VersionsLabel.Location = new System.Drawing.Point(501, 573);
             this.VersionsLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.VersionsLabel.Name = "VersionsLabel";
-            this.VersionsLabel.Size = new System.Drawing.Size(146, 12);
+            this.VersionsLabel.Size = new System.Drawing.Size(146, 24);
             this.VersionsLabel.TabIndex = 51;
-            this.VersionsLabel.Text = "HB-100 and MJS, November 2012";
+            this.VersionsLabel.Text = "HB-100 and MJS, November 2012\r\nstackTom, June 2021";
             // 
             // label1
             // 
@@ -1760,6 +1760,17 @@
             this.SwitchGroupBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.SwitchGroupBox_MouseDown);
             this.SwitchGroupBox.DragDrop += new System.Windows.Forms.DragEventHandler(this.SwitchGroupBox_DragDrop);
             this.SwitchGroupBox.DragEnter += new System.Windows.Forms.DragEventHandler(this.SwitchGroupBox_DragEnter);
+            // 
+            // CreateScenprocLabel
+            // 
+            this.CreateScenprocLabel.AutoSize = true;
+            this.CreateScenprocLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.CreateScenprocLabel.Location = new System.Drawing.Point(0, 243);
+            this.CreateScenprocLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.CreateScenprocLabel.Name = "CreateScenprocLabel";
+            this.CreateScenprocLabel.Size = new System.Drawing.Size(78, 13);
+            this.CreateScenprocLabel.TabIndex = 76;
+            this.CreateScenprocLabel.Text = "Use Scenproc:";
             // 
             // CreateScenprocBox
             // 
@@ -2353,17 +2364,6 @@
             this.DrawExcludeButton.UseVisualStyleBackColor = false;
             this.DrawExcludeButton.Click += new System.EventHandler(this.DrawExcludeButton_Click);
             // 
-            // CreateScenprocLabel
-            // 
-            this.CreateScenprocLabel.AutoSize = true;
-            this.CreateScenprocLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.CreateScenprocLabel.Location = new System.Drawing.Point(0, 243);
-            this.CreateScenprocLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
-            this.CreateScenprocLabel.Name = "CreateScenprocLabel";
-            this.CreateScenprocLabel.Size = new System.Drawing.Size(78, 13);
-            this.CreateScenprocLabel.TabIndex = 76;
-            this.CreateScenprocLabel.Text = "Use Scenproc:";
-            // 
             // FSEarthTilesForm
             // 
             this.AllowDrop = true;
@@ -2411,7 +2411,7 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.MinimumSize = new System.Drawing.Size(656, 543);
             this.Name = "FSEarthTilesForm";
-            this.Text = "FS Earth Tiles   v1.03b";
+            this.Text = "FS Earth Tiles   v1.10";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FSEarthTilesForm_FormClosing);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragEnter);
