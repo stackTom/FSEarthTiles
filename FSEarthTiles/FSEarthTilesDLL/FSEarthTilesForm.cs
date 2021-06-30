@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
+using TGASharpLib;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -327,6 +328,8 @@ namespace FSEarthTilesDLL
         //And our Main Thread Timer
         System.Windows.Forms.Timer mMainThreadTimer;  //Main Thread Timer
 
+        private bool scenProcWasRunning = false;
+
 
         public FSEarthTilesForm(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
         {
@@ -592,6 +595,8 @@ namespace FSEarthTilesDLL
                             }
                         }
                     }
+
+                    ScenprocUtils.scriptsDir = Path.GetFullPath(@".\Scenproc_scripts");
                 }
                 catch
                 {
@@ -758,6 +763,7 @@ namespace FSEarthTilesDLL
                CreateMasksBox.Text = EarthConfig.GetCreateMask();
                CompileSceneryBox.Text = EarthConfig.GetCompileScenery();
                AutoRefSelectorBox.Text = EarthConfig.GetAutoReferenceModeString();
+               CreateScenprocBox.Text = EarthConfig.GetCreateScenproc();
                //one timer This EarthConfig values are only used and handled once ..exactly here..no updates of this values during runtime in EarthConfig
                AreaDefModeBox.Text = EarthConfig.mAreaDefModeStart;
                mEarthInputArea.Copy(EarthConfig.mAreaInputStart);
@@ -2375,6 +2381,36 @@ namespace FSEarthTilesDLL
 
         }
 
+        private void createMeshFiles()
+        {
+            double startLong = mEarthArea.AreaSnapStartLongitude < mEarthArea.AreaSnapStopLongitude ? mEarthArea.AreaSnapStartLongitude : mEarthArea.AreaSnapStopLongitude;
+            double stopLong = startLong == mEarthArea.AreaSnapStartLongitude ? mEarthArea.AreaSnapStopLongitude : mEarthArea.AreaSnapStartLongitude;
+            double startLat = mEarthArea.AreaSnapStartLatitude < mEarthArea.AreaSnapStopLatitude ? mEarthArea.AreaSnapStartLatitude : mEarthArea.AreaSnapStopLatitude;
+            double stopLat = startLat == mEarthArea.AreaSnapStartLatitude ? mEarthArea.AreaSnapStopLatitude : mEarthArea.AreaSnapStartLatitude;
+
+            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+
+            foreach (double[] tile in tilesToDownload)
+            {
+                string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
+                if (!File.Exists(meshFilePath))
+                {
+                    string tileName = CommonFunctions.GetTileName(tile);
+                    SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
+                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
+                    proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
+                    proc.Start();
+                    Thread.Sleep(500);
+                    proc.WaitForExit();
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill();
+                    }
+                }
+            }
+        }
+
         //AfterMath-Thread start point
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
@@ -2383,9 +2419,9 @@ namespace FSEarthTilesDLL
             {
                 if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
                 {
-                    AutomaticWaterMasking.createAreaKMLFromOSMData(mEarthArea, this, EarthConfig.mSelectedSceneryCompiler);
+                    createMeshFiles();
                 }
-                
+
                     EarthScriptsHandler.DoBeforeResampleing(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
                     ProcessDownloadedArea();
@@ -2681,7 +2717,10 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    SetExitStatusFromFriendThread("Done.");
+                    if (!ScenprocUtils.ScenProcRunning)
+                    {
+                        SetExitStatusFromFriendThread("Done.");
+                    }
                 }
                 else
                 {
@@ -3897,6 +3936,7 @@ namespace FSEarthTilesDLL
                                         EarthConfig.SetCompileScenery(CompileSceneryBox.Text);
                                         EarthConfig.SetCreateMask(CreateMasksBox.Text);
                                         EarthConfig.SetAutoReferenceMode(AutoRefSelectorBox.Text);
+                                        EarthConfig.SetCreateScenproc(CreateScenprocBox.Text);
 
                                         if (CacheSceneryBox.Text=="Yes") 
                                         {
@@ -5415,7 +5455,7 @@ namespace FSEarthTilesDLL
 
         private void StartDownload()
         {
-            if (!mAreaProcessRunning)
+            if (!mAreaProcessRunning && !ScenprocUtils.ScenProcRunning)
             {
                 if (mInputCoordsValidity)
                 {
@@ -5434,6 +5474,23 @@ namespace FSEarthTilesDLL
                                 {
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFS2004SceneryCompiler;
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
+                                }
+
+                                if (EarthConfig.mCreateScenproc)
+                                {
+                                    if (File.Exists(EarthConfig.mScenprocLoc))
+                                    {
+                                        string fs9ScriptLoc = ScenprocUtils.scriptsDir + @"\" + EarthConfig.mScenprocFS9Script;
+                                        string fsxp3dScriptLoc = ScenprocUtils.scriptsDir + @"\" + EarthConfig.mScenprocFSXP3DScript;
+                                        if (EarthConfig.mSelectedSceneryCompiler == "FS2004" && File.Exists(fs9ScriptLoc))
+                                        {
+                                            ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
+                                        }
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(fsxp3dScriptLoc))
+                                        {
+                                            ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
+                                        }
+                                    }
                                 }
                                 if (SceneryCompilerReady())
                                 {
@@ -5549,6 +5606,10 @@ namespace FSEarthTilesDLL
                 EarthScriptsHandler.DoOnAbortButtonEvent(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
                 mStopProcess = true;
                 
+            }
+            if (ScenprocUtils.ScenProcRunning)
+            {
+                ScenprocUtils.TellScenprocToTerminate();
             }
         }
 
@@ -5735,6 +5796,42 @@ namespace FSEarthTilesDLL
             return true;
         }
 
+        private static bool BMPAllBlack(Bitmap b)
+        {
+            for (int x = 0; x < b.Width; x++)
+            {
+                for (int y = 0; y < b.Height; y++)
+                {
+                    // if even one alpha is not black, then bmp is not all black
+                    byte curAlphaVal = b.GetPixel(x, y).A;
+                    if (curAlphaVal != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+        public static void ensureTGAsNotAllBlack(string directoryToCheck)
+        {
+            string[] tgas = Directory.GetFiles(directoryToCheck, "*.tga");
+            foreach (string f in tgas)
+            {
+                TGA t = new TGA(f);
+                Bitmap b = t.ToBitmap(true);
+                if (BMPAllBlack(b))
+                {
+                    Color color = b.GetPixel(0, 0);
+                    Color newColor = Color.FromArgb(255, color);
+                    b.SetPixel(0, 0, newColor);
+                    TGA newAlphaTGA = new TGA(b);
+                    string newAlphaTGAPath = Path.GetDirectoryName(f) + @"\" + Path.GetFileNameWithoutExtension(f) + @".tga";
+                    newAlphaTGA.Save(newAlphaTGAPath);
+                }
+            }
+        }
+
         Boolean StartSceneryCompiler()
         {
             try
@@ -5815,7 +5912,7 @@ namespace FSEarthTilesDLL
                             // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
                             // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
                             // and I don't want to write my own when this simpler solution gets the job done
-                            AutomaticWaterMasking.ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
+                            ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
 
                             SetStatusFromFriendThread("Starting FS2004 Imagetool..");
                             Thread.Sleep(1000);
@@ -7108,6 +7205,13 @@ namespace FSEarthTilesDLL
             FeedThreadEnginesWithNewWork();
 
 
+            // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
+            if (scenProcWasRunning && !ScenprocUtils.ScenProcRunning && !mAreaProcessRunning)
+            {
+                SetStatus("Done.");
+                scenProcWasRunning = false;
+            }
+
             //Get Status from Area Processing Friend Thread
             if (mAreaProcessRunning)
             {
@@ -7183,6 +7287,11 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
+                            if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
+                            {
+                                SetStatus("Waiting on Scenproc to finish");
+                                scenProcWasRunning = true;
+                            }
                             EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
 
                         }
@@ -7800,6 +7909,7 @@ namespace FSEarthTilesDLL
             xList.Add("CreateAreaMaskBmp        = " + CreateMasksBox.Text);
             xList.Add("CompileScenery           = " + CompileSceneryBox.Text);
             xList.Add("AutoReferenceMode        = " + AutoRefSelectorBox.Text);
+            xList.Add("CreateScenproc           = " + CreateScenprocBox.Text);
         }
 
         private List<String> CreateExportData()
@@ -8647,6 +8757,11 @@ namespace FSEarthTilesDLL
                 DisplayWhereYouJustAreAgain();
                 EmptyAllJobQueues();
             }
+        }
+
+        private void CreateScenprocBox_TextChanged(object sender, EventArgs e)
+        {
+           HandleInputChange();
         }
 
 

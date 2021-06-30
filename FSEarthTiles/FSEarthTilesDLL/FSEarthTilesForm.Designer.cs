@@ -143,6 +143,8 @@
             this.label52 = new System.Windows.Forms.Label();
             this.label53 = new System.Windows.Forms.Label();
             this.SwitchGroupBox = new System.Windows.Forms.GroupBox();
+            this.CreateScenprocLabel = new System.Windows.Forms.Label();
+            this.CreateScenprocBox = new System.Windows.Forms.ComboBox();
             this.CacheSceneryBox = new System.Windows.Forms.ComboBox();
             this.lblCacheScenery = new System.Windows.Forms.Label();
             this.AreaCountBox = new System.Windows.Forms.MaskedTextBox();
@@ -455,7 +457,7 @@
             // 
             this.StartButton.BackColor = System.Drawing.Color.ForestGreen;
             this.StartButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.StartButton.Location = new System.Drawing.Point(31, 287);
+            this.StartButton.Location = new System.Drawing.Point(31, 277);
             this.StartButton.Margin = new System.Windows.Forms.Padding(2);
             this.StartButton.Name = "StartButton";
             this.StartButton.Size = new System.Drawing.Size(48, 23);
@@ -468,7 +470,7 @@
             // 
             this.StopButton.BackColor = System.Drawing.Color.OrangeRed;
             this.StopButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.StopButton.Location = new System.Drawing.Point(84, 287);
+            this.StopButton.Location = new System.Drawing.Point(84, 277);
             this.StopButton.Margin = new System.Windows.Forms.Padding(2);
             this.StopButton.Name = "StopButton";
             this.StopButton.Size = new System.Drawing.Size(46, 23);
@@ -482,7 +484,7 @@
             this.StatusBox.AccessibleRole = System.Windows.Forms.AccessibleRole.ScrollBar;
             this.StatusBox.BackColor = System.Drawing.Color.LavenderBlush;
             this.StatusBox.Cursor = System.Windows.Forms.Cursors.Default;
-            this.StatusBox.Location = new System.Drawing.Point(7, 599);
+            this.StatusBox.Location = new System.Drawing.Point(11, 618);
             this.StatusBox.Margin = new System.Windows.Forms.Padding(2);
             this.StatusBox.Name = "StatusBox";
             this.StatusBox.ReadOnly = true;
@@ -535,12 +537,12 @@
             this.NormalPictureBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
             this.NormalPictureBox.TabIndex = 37;
             this.NormalPictureBox.TabStop = false;
-            this.NormalPictureBox.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseWheel);
-            this.NormalPictureBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseMove);
             this.NormalPictureBox.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseDoubleClick);
             this.NormalPictureBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseDown);
-            this.NormalPictureBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseUp);
             this.NormalPictureBox.MouseEnter += new System.EventHandler(this.NormalPictureBox_MouseEnter);
+            this.NormalPictureBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseMove);
+            this.NormalPictureBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseUp);
+            this.NormalPictureBox.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.NormalPictureBox_MouseWheel);
             // 
             // CoordsValidityBox
             // 
@@ -1400,7 +1402,6 @@
             this.CompilerSelectorBox.Size = new System.Drawing.Size(74, 21);
             this.CompilerSelectorBox.TabIndex = 56;
             this.CompilerSelectorBox.Text = "FSX";
-            //this.CompilerSelectorBox.SelectedIndexChanged += new System.EventHandler(this.CompilerSelectorBox_SelectedIndexChanged);
             this.CompilerSelectorBox.TextChanged += new System.EventHandler(this.CompilerSelectorBox_TextChanged);
             // 
             // label19
@@ -1423,9 +1424,9 @@
             this.VersionsLabel.Location = new System.Drawing.Point(501, 573);
             this.VersionsLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.VersionsLabel.Name = "VersionsLabel";
-            this.VersionsLabel.Size = new System.Drawing.Size(146, 12);
+            this.VersionsLabel.Size = new System.Drawing.Size(146, 24);
             this.VersionsLabel.TabIndex = 51;
-            this.VersionsLabel.Text = "HB-100 and MJS, November 2012";
+            this.VersionsLabel.Text = "HB-100 and MJS, November 2012\r\nstackTom, June 2021";
             // 
             // label1
             // 
@@ -1540,8 +1541,8 @@
             this.ResolutionTableLabel.Size = new System.Drawing.Size(70, 99);
             this.ResolutionTableLabel.TabIndex = 46;
             this.ResolutionTableLabel.Text = "0 -> 0.5m/Pix\r\n-------------\r\n1 ->  1 m/Pix\r\n2 ->  2 m/Pix\r\n3 ->  4 m/Pix\r\n4 ->  " +
-                "8 m/Pix\r\n-------------\r\n5 -> 16 m/Pix\r\n6 -> 32 m/Pix\r\n7 -> 64 m/Pix\r\n8 ->128 m/P" +
-                "ix";
+    "8 m/Pix\r\n-------------\r\n5 -> 16 m/Pix\r\n6 -> 32 m/Pix\r\n7 -> 64 m/Pix\r\n8 ->128 m/P" +
+    "ix";
             // 
             // SmallPicturePox
             // 
@@ -1729,6 +1730,8 @@
             // 
             this.SwitchGroupBox.AllowDrop = true;
             this.SwitchGroupBox.BackColor = System.Drawing.Color.PowderBlue;
+            this.SwitchGroupBox.Controls.Add(this.CreateScenprocLabel);
+            this.SwitchGroupBox.Controls.Add(this.CreateScenprocBox);
             this.SwitchGroupBox.Controls.Add(this.CacheSceneryBox);
             this.SwitchGroupBox.Controls.Add(this.lblCacheScenery);
             this.SwitchGroupBox.Controls.Add(this.AreaCountBox);
@@ -1747,16 +1750,45 @@
             this.SwitchGroupBox.Controls.Add(this.label18);
             this.SwitchGroupBox.Controls.Add(this.label1);
             this.SwitchGroupBox.Controls.Add(this.ServiceBox);
-            this.SwitchGroupBox.Location = new System.Drawing.Point(8, 319);
+            this.SwitchGroupBox.Location = new System.Drawing.Point(8, 307);
             this.SwitchGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.SwitchGroupBox.Name = "SwitchGroupBox";
             this.SwitchGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.SwitchGroupBox.Size = new System.Drawing.Size(170, 240);
+            this.SwitchGroupBox.Size = new System.Drawing.Size(170, 262);
             this.SwitchGroupBox.TabIndex = 85;
             this.SwitchGroupBox.TabStop = false;
+            this.SwitchGroupBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.SwitchGroupBox_MouseDown);
             this.SwitchGroupBox.DragDrop += new System.Windows.Forms.DragEventHandler(this.SwitchGroupBox_DragDrop);
             this.SwitchGroupBox.DragEnter += new System.Windows.Forms.DragEventHandler(this.SwitchGroupBox_DragEnter);
-            this.SwitchGroupBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.SwitchGroupBox_MouseDown);
+            // 
+            // CreateScenprocLabel
+            // 
+            this.CreateScenprocLabel.AutoSize = true;
+            this.CreateScenprocLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.CreateScenprocLabel.Location = new System.Drawing.Point(0, 243);
+            this.CreateScenprocLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.CreateScenprocLabel.Name = "CreateScenprocLabel";
+            this.CreateScenprocLabel.Size = new System.Drawing.Size(78, 13);
+            this.CreateScenprocLabel.TabIndex = 76;
+            this.CreateScenprocLabel.Text = "Use Scenproc:";
+            // 
+            // CreateScenprocBox
+            // 
+            this.CreateScenprocBox.BackColor = System.Drawing.Color.LightGreen;
+            this.CreateScenprocBox.DropDownWidth = 74;
+            this.CreateScenprocBox.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.CreateScenprocBox.ForeColor = System.Drawing.Color.DarkGreen;
+            this.CreateScenprocBox.FormattingEnabled = true;
+            this.CreateScenprocBox.Items.AddRange(new object[] {
+            "Yes",
+            "No"});
+            this.CreateScenprocBox.Location = new System.Drawing.Point(84, 240);
+            this.CreateScenprocBox.Margin = new System.Windows.Forms.Padding(2);
+            this.CreateScenprocBox.Name = "CreateScenprocBox";
+            this.CreateScenprocBox.Size = new System.Drawing.Size(74, 21);
+            this.CreateScenprocBox.TabIndex = 73;
+            this.CreateScenprocBox.Text = "No";
+            this.CreateScenprocBox.TextChanged += new System.EventHandler(this.CreateScenprocBox_TextChanged);
             // 
             // CacheSceneryBox
             // 
@@ -1974,7 +2006,7 @@
             this.DisplayModeBox.Items.AddRange(new object[] {
             "Tile",
             "Free"});
-            this.DisplayModeBox.Location = new System.Drawing.Point(33, 563);
+            this.DisplayModeBox.Location = new System.Drawing.Point(33, 592);
             this.DisplayModeBox.Margin = new System.Windows.Forms.Padding(2);
             this.DisplayModeBox.Name = "DisplayModeBox";
             this.DisplayModeBox.Size = new System.Drawing.Size(50, 21);
@@ -1987,7 +2019,7 @@
             // 
             this.DispModeLabel.AutoSize = true;
             this.DispModeLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.DispModeLabel.Location = new System.Drawing.Point(10, 565);
+            this.DispModeLabel.Location = new System.Drawing.Point(10, 594);
             this.DispModeLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.DispModeLabel.Name = "DispModeLabel";
             this.DispModeLabel.Size = new System.Drawing.Size(24, 12);
@@ -2039,7 +2071,7 @@
             this.MissingTilesBox.BackColor = System.Drawing.Color.LightSteelBlue;
             this.MissingTilesBox.Cursor = System.Windows.Forms.Cursors.Default;
             this.MissingTilesBox.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.MissingTilesBox.Location = new System.Drawing.Point(115, 563);
+            this.MissingTilesBox.Location = new System.Drawing.Point(115, 569);
             this.MissingTilesBox.Margin = new System.Windows.Forms.Padding(2);
             this.MissingTilesBox.Name = "MissingTilesBox";
             this.MissingTilesBox.ReadOnly = true;
@@ -2051,7 +2083,7 @@
             // 
             this.MissingTilesLabel.AutoSize = true;
             this.MissingTilesLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.MissingTilesLabel.Location = new System.Drawing.Point(10, 565);
+            this.MissingTilesLabel.Location = new System.Drawing.Point(10, 571);
             this.MissingTilesLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.MissingTilesLabel.Name = "MissingTilesLabel";
             this.MissingTilesLabel.Size = new System.Drawing.Size(98, 13);
@@ -2166,7 +2198,7 @@
             // 
             this.WWWButton.BackColor = System.Drawing.Color.LightBlue;
             this.WWWButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.WWWButton.Location = new System.Drawing.Point(561, 599);
+            this.WWWButton.Location = new System.Drawing.Point(565, 618);
             this.WWWButton.Margin = new System.Windows.Forms.Padding(2);
             this.WWWButton.Name = "WWWButton";
             this.WWWButton.Size = new System.Drawing.Size(48, 20);
@@ -2210,7 +2242,7 @@
             "2",
             "3",
             "4"});
-            this.AutoRefSelectorBox.Location = new System.Drawing.Point(133, 563);
+            this.AutoRefSelectorBox.Location = new System.Drawing.Point(133, 592);
             this.AutoRefSelectorBox.Margin = new System.Windows.Forms.Padding(2);
             this.AutoRefSelectorBox.Name = "AutoRefSelectorBox";
             this.AutoRefSelectorBox.Size = new System.Drawing.Size(36, 21);
@@ -2222,7 +2254,7 @@
             // 
             this.AutoModeLabel.AutoSize = true;
             this.AutoModeLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.AutoModeLabel.Location = new System.Drawing.Point(59, 566);
+            this.AutoModeLabel.Location = new System.Drawing.Point(59, 595);
             this.AutoModeLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.AutoModeLabel.Name = "AutoModeLabel";
             this.AutoModeLabel.Size = new System.Drawing.Size(71, 12);
@@ -2233,7 +2265,7 @@
             // 
             this.WebBrowserPanicButton.BackColor = System.Drawing.Color.OrangeRed;
             this.WebBrowserPanicButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 6.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.WebBrowserPanicButton.Location = new System.Drawing.Point(615, 599);
+            this.WebBrowserPanicButton.Location = new System.Drawing.Point(619, 618);
             this.WebBrowserPanicButton.Margin = new System.Windows.Forms.Padding(2);
             this.WebBrowserPanicButton.Name = "WebBrowserPanicButton";
             this.WebBrowserPanicButton.Size = new System.Drawing.Size(26, 20);
@@ -2339,7 +2371,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.AutoSize = true;
             this.BackColor = System.Drawing.Color.Cornsilk;
-            this.ClientSize = new System.Drawing.Size(660, 633);
+            this.ClientSize = new System.Drawing.Size(660, 658);
             this.Controls.Add(this.tabTileSelections);
             this.Controls.Add(this.WebBrowserPanicButton);
             this.Controls.Add(this.DisplayModeBox);
@@ -2379,12 +2411,12 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.MinimumSize = new System.Drawing.Size(656, 543);
             this.Name = "FSEarthTilesForm";
-            this.Text = "FS Earth Tiles   v1.03b";
-            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.FSEarthTilesForm_MouseClick);
-            this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragDrop);
-            this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.FSEarthTilesForm_MouseDown);
-            this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragEnter);
+            this.Text = "FS Earth Tiles   v1.10";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FSEarthTilesForm_FormClosing);
+            this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragDrop);
+            this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragEnter);
+            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.FSEarthTilesForm_MouseClick);
+            this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.FSEarthTilesForm_MouseDown);
             this.Resize += new System.EventHandler(this.FSEarthTilesForm_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.NormalPictureBox)).EndInit();
             this.InputGroupBox.ResumeLayout(false);
@@ -2574,6 +2606,8 @@
         private System.Windows.Forms.Button DeleteButton;
         private System.Windows.Forms.Label lblExcludedAreas;
         private System.Windows.Forms.ListBox lsbExcludeAreas;
+        private System.Windows.Forms.ComboBox CreateScenprocBox;
+        private System.Windows.Forms.Label CreateScenprocLabel;
     }
 }
 

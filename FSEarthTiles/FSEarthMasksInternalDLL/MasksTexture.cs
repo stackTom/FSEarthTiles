@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.IO;
+using FSEarthTilesInternalDLL;
 
 
 
@@ -118,7 +119,7 @@ namespace FSEarthMasksInternalDLL
         protected Boolean   mDestination32BitBitmapMode;                         //Bitmap Mode (true = 32Bit, false = 24Bit)
 
         //Work Bitmap in it the processing takes place
-        protected Bitmap    mAreaBitmap;                               //The Bitmap which become initialized and accessed with mAreaBitmapArray
+        public Bitmap    mAreaBitmap;                               //The Bitmap which become initialized and accessed with mAreaBitmapArray
         protected UInt32[,] mAreaBitmapArray;                          //RGB 24Bit / 32Bit Bitmap Data Array
         protected Graphics  mAreaGraphics;                             //The Graphis to Draw into the Bitmap
         protected GCHandle  mGCHandle;                                 //Required stuff to make that direct access Bitmap with Array working
@@ -747,6 +748,21 @@ namespace FSEarthMasksInternalDLL
             try
             {
                 mAreaBitmap.Save(MasksConfig.mAreaMaskBitmapFile, System.Drawing.Imaging.ImageFormat.Bmp);
+            }
+            catch (System.Exception e)
+            {
+                String vError = e.ToString();
+                MessageBox.Show(vError, "Could not save Bitmap! HardDiskFull?");
+                Thread.Sleep(2000); //give user time after ok to react
+            }
+            MasksCommon.CollectGarbage();
+        }
+
+        public void SaveAreaMaskBitmap(Bitmap bm)
+        {
+            try
+            {
+                bm.Save(MasksConfig.mAreaMaskBitmapFile, System.Drawing.Imaging.ImageFormat.Bmp);
             }
             catch (System.Exception e)
             {
@@ -2841,6 +2857,136 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
+        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
+        // TODO: try to refactor this into a clearer format. Also, use camel case
+        private List<PointF[]> readMeshFile(string meshFilePath)
+        {
+            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
+            string[] lineContents = f_mesh.ReadLine().Trim().Split();
+            float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
+            int has_water = mesh_version >= 1.3f ? 7 : 3;
+            // skip ahead 3
+            for (int i = 0; i < 3; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            int nbr_pt_in = Convert.ToInt32(f_mesh.ReadLine());
+            double[] pt_in = new double[5 * nbr_pt_in];
+            for (int i = 0; i < nbr_pt_in; i++)
+            {
+                int lc = 0;
+                lineContents = f_mesh.ReadLine().Split();
+                for (int j = 5 * i; j < 5 * i + 3; j++)
+                {
+                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
+                    lc++;
+                }
+            }
+            // skip ahead 3
+            for (int i = 0; i < 3; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            for (int i = 0; i < nbr_pt_in; i++)
+            {
+                int lc = 0;
+                lineContents = f_mesh.ReadLine().Split();
+                for (int j = 5 * i + 3; j < 5 * i + 5; j++)
+                {
+                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
+                    lc++;
+                }
+            }
+            // skip ahead 2
+            for (int i = 0; i < 2; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
+
+            List<PointF[]> tris = new List<PointF[]>();
+
+            for (int i = 0; i < nbr_tri_in; i++)
+            {
+                lineContents = f_mesh.ReadLine().Split();
+                int n1 = Convert.ToInt32(lineContents[0]) - 1;
+                int n2 = Convert.ToInt32(lineContents[1]) - 1;
+                int n3 = Convert.ToInt32(lineContents[2]) - 1;
+                int tri_type = Convert.ToInt32(lineContents[3]) - 1;
+                tri_type += 1;
+
+                bool use_masks_for_inland = true; // possibly allow for changing in the future?
+                if (tri_type == 0 || (tri_type & has_water) == 0 || ((tri_type & has_water) < 2 && !use_masks_for_inland))
+                {
+                    continue;
+                }
+                float lon1 = (float) pt_in[5 * n1];
+                float lat1 = (float) pt_in[5 * n1 + 1];
+                float lon2 = (float) pt_in[5 * n2];
+                float lat2 = (float) pt_in[5 * n2 + 1];
+                float lon3 = (float) pt_in[5 * n3];
+                float lat3 = (float) pt_in[5 * n3 + 1];
+
+                var tri = new PointF[] {
+                    new PointF(lon1, lat1),
+                    new PointF(lon2, lat2),
+                    new PointF(lon3, lat3),
+                    new PointF(lon1, lat1),
+                };
+
+                tris.Add(tri);
+            }
+
+            return tris;
+        }
+
+        private List<PointF[]> readAllMeshFiles()
+        {
+            double startLong = MasksConfig.mAreaSnapStartLongitude < MasksConfig.mAreaSnapStopLongitude ? MasksConfig.mAreaSnapStartLongitude : MasksConfig.mAreaSnapStopLongitude;
+            double stopLong = startLong == MasksConfig.mAreaSnapStartLongitude ? MasksConfig.mAreaSnapStopLongitude : MasksConfig.mAreaSnapStartLongitude;
+            double startLat = MasksConfig.mAreaSnapStartLatitude < MasksConfig.mAreaSnapStopLatitude ? MasksConfig.mAreaSnapStartLatitude : MasksConfig.mAreaSnapStopLatitude;
+            double stopLat = startLat == MasksConfig.mAreaSnapStartLatitude ? MasksConfig.mAreaSnapStopLatitude : MasksConfig.mAreaSnapStartLatitude;
+
+            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+
+
+            List<PointF[]> allTris = new List<PointF[]>();
+            foreach (double[] tile in tilesToDownload)
+            {
+                string meshPath = CommonFunctions.GetMeshFileFullPath(MasksConfig.mWorkFolder, tile);
+                List<PointF[]> tris = readMeshFile(meshPath);
+                allTris.AddRange(tris);
+            }
+
+            return allTris;
+        }
+
+        private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)
+        {
+            tXYCoord vLatLongCoord;
+
+            Double vPixelPerLongitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude);
+            Double vPixelPerLatitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude);
+
+            vLatLongCoord.mX = (iXYPixel.mX / vPixelPerLongitude) + MasksConfig.mAreaNWCornerLongitude;
+            vLatLongCoord.mY = MasksConfig.mAreaNWCornerLatitude - (iXYPixel.mY / vPixelPerLatitude);
+
+            return vLatLongCoord;
+        }
+
+        private tXYCoord ConvertXYLatLongToPixel(tXYCoord iXYCoord)
+        {
+            tXYCoord vPixelXYCoord;
+
+            Double vPixelPerLongitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude);
+            Double vPixelPerLatitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude);
+
+            vPixelXYCoord.mX = vPixelPerLongitude * (iXYCoord.mX - MasksConfig.mAreaNWCornerLongitude);
+            vPixelXYCoord.mY = vPixelPerLatitude * (MasksConfig.mAreaNWCornerLatitude - iXYCoord.mY);
+
+            return vPixelXYCoord;
+        }
+
         public tWaterRegionType CalculateWaterTransitionRegionType(Int32 iTrippleSType, Single iXp, Single iYp)
         {
             tWaterRegionType vWaterRegionType;
@@ -2914,7 +3060,7 @@ namespace FSEarthMasksInternalDLL
                     }
                     else
                     {
-                        vWaterRegionType = tWaterRegionType.eLand;
+                        vWaterRegionType = tWaterRegionType.eTransition;
                     }
                 }
 
@@ -4318,6 +4464,34 @@ namespace FSEarthMasksInternalDLL
 
         }
 
+        public Bitmap createWaterMaskBitmap()
+        {
+            var tris = readAllMeshFiles();
+            Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            Graphics g = Graphics.FromImage(bmp);
+            SolidBrush b = new SolidBrush(Color.Black);
+            g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+            foreach (var tri in tris)
+            {
+                PointF[] convertedTri = new PointF[3];
+                for (int i = 0; i < convertedTri.Length; i++)
+                {
+                    PointF toConvert = tri[i];
+                    tXYCoord temp;
+                    temp.mX = toConvert.X;
+                    temp.mY = toConvert.Y;
+                    tXYCoord pixel = ConvertXYLatLongToPixel(temp);
+                    pixel.mX -= 0.5f;
+                    pixel.mY -= 0.5f;
+                    convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                }
+
+                g.FillPolygon(b, convertedTri);
+            }
+
+            return bmp;
+        }
+
         public void FloodFillWaterLandTransition(Int32 iTransitionType, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
 
@@ -4925,6 +5099,26 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
+
+        public void CreateFS2004WaterInAreaBitmap(Bitmap mask)
+        {
+            Size s1 = mAreaBitmap.Size;
+            Size s2 = mask.Size;
+            if (s1 != s2)
+            {
+                return;
+            }
+
+            for (int y = 0; y < s1.Height; y++)
+            {
+                for (int x = 0; x < s1.Width; x++)
+                {
+                    Color c1 = mAreaBitmap.GetPixel(x, y);
+                    Color c2 = mask.GetPixel(x, y);
+                    mAreaBitmap.SetPixel(x, y, Color.FromArgb((int)(255 * c2.GetBrightness()), c1));
+                }
+            }
+        }
 
         public void CreateFS2004WaterInWorkMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {

@@ -1,6 +1,0 @@
-G:\FSEarthTiles\FSEarthTiles\clipper_library\bin\Debug\clipper_library.dll
-G:\FSEarthTiles\FSEarthTiles\clipper_library\bin\Debug\clipper_library.pdb
-G:\FSEarthTiles\FSEarthTiles\clipper_library\obj\Debug\clipper_library.csprojAssemblyReference.cache
-G:\FSEarthTiles\FSEarthTiles\clipper_library\obj\Debug\clipper_library.csproj.CoreCompileInputs.cache
-G:\FSEarthTiles\FSEarthTiles\clipper_library\obj\Debug\clipper_library.dll
-G:\FSEarthTiles\FSEarthTiles\clipper_library\obj\Debug\clipper_library.pdb
