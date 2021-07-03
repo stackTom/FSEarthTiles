@@ -6,6 +6,9 @@ MSBuild.exe FSEarthTiles.sln /p:Configuration=Release /p:Platform="Any CPU" /t:r
 :: copy base files
 xcopy /I .\FSEarthTiles\bin\Release\FSET .\FSET
 
+:: copy over documentation
+xcopy /I .\Docs\ .\FSET\Docs
+
 :: copy over new FSET binaries
 copy /Y .\FSEarthTiles\bin\Release\CSScriptLibrary.dll .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTiles.exe .\FSET
