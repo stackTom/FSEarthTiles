@@ -2,7 +2,7 @@
 
 # Use at your own risk
 
-This repository contains the source code. The program can be downloaded here: https://github.com/stackTom/FSEarthTiles/releases/tag/release
+This repository contains the source code. The program can be downloaded here: https://github.com/stackTom/FSEarthTiles/releases
 
 FSEarthtiles was originally created by HB-100. This repository contains to the code to FSET 1.03B. The program has been updated to version 1.1, and support for automatic water masking has been added. The ability to automatically create autogen data using ScenProc has also been added. Please see the tutorial https://github.com/stackTom/FSEarthTiles/blob/main/FSEarthTiles/Docs/Quick%20start%20-%20README%20first.docx for instructions. This video shows an example of creating scenery with the program: https://www.youtube.com/watch?v=snd4Bp5cUR0
 
