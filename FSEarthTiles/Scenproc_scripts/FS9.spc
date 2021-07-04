@@ -1,5 +1,5 @@
-# ScenProc script by Harry Otter Apr. 2020
-IMPORTOGR|@0@|*|landuse;building;natural;leisure|NOREPROJ
+# ScenProc script by Harry Otter June 2021
+IMPORTOGR|C:\Users\Skywalker\Desktop\scenproc\map.osm|*|landuse;building;natural;leisure|NOREPROJ
 #
 SplitGrid|AGN|*|building="*"
 #
@@ -9,9 +9,9 @@ CREATEAGNGENBUILD|building="*"|{00000000-0000-0000-0000-000000000000}
 #
 SetAGNVegetationSettings|*|1|2|0.7|1.0|2;20|2;20
 #
-REPLACEPOLYGONBYVEGETATIONRECTANGLES|landuse="*"|0.00025|-0.1|0.25
-REPLACEPOLYGONBYVEGETATIONRECTANGLES|natural="*"|0.00025|-0.1|0.25
-REPLACEPOLYGONBYVEGETATIONRECTANGLES|leisure="*"|0.00025|-0.1|0.25
+REPLACEPOLYGONBYVEGETATIONRECTANGLES|landuse="*"|0.00025|-1.0|0.25
+REPLACEPOLYGONBYVEGETATIONRECTANGLES|natural="*"|0.00025|-1.0|0.25
+REPLACEPOLYGONBYVEGETATIONRECTANGLES|leisure="*"|0.00025|-1.0|0.25
 #
 CREATEAGNRECTVEG|landuse="forest"
 CREATEAGNRECTVEG|natural="scrub"
@@ -27,4 +27,4 @@ CREATEAGNRECTVEG|natural="wetland"
 CREATEAGNRECTVEG|leisure="park"
 CREATEAGNRECTVEG|leisure="golf_course"
 #
-EXPORTAGN|FS2004|@1@
+EXPORTAGN|FS2004|C:\Users\Skywalker\Desktop\Autogen
