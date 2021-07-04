@@ -11,3 +11,10 @@ I would like to thank my beta testers, Harry Otter, Walter Almaraz Roca, Sean Ga
 Also, credit to Harry Otter for the Default Scenproc Scripts!
 
 Also, check out my Ortho4XP for FSX/P3D port to create sceneries for FSX and P3D as well: https://github.com/stackTom/Ortho4XP_FSX_P3D
+
+# Wishlist (TODOs)
+* Add more providers
+  * Need to increase provider limit number
+  * Either add them directly to the default ini, or add direct support for reading Ortho4XP .lay files
+  * Add ability to edit water masks width (port over blurring algorithms from Ortho4XP that Oscar Pilote came up with)
+
