@@ -1,3 +1,5 @@
+# Find the latest version here: https://github.com/stackTom/FSEarthTiles/releases
+
 # FSEarthTiles
 
 # Use at your own risk
