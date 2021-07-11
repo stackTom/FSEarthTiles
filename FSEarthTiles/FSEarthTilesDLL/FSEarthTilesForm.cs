@@ -13,6 +13,7 @@ using System.Security.AccessControl;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
 using TGASharpLib;
+using System.Collections.Concurrent;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -873,9 +874,6 @@ namespace FSEarthTilesDLL
             mEngine2Thread.Start();
             mEngine3Thread.Start();
             mEngine4Thread.Start();
-
-            mMultiThreadedQueue = new MultiThreadedQueue(8);
-            mMultiThreadedQueue.jobHandler = StartSceneryCompilerAndCleanup;
 
             mThreadsStarted = true;
         }
@@ -5462,6 +5460,9 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
                                     
+                                    mMultiThreadedQueue = new MultiThreadedQueue(8);
+                                    mMultiThreadedQueue.jobHandler = StartSceneryCompilerAndCleanup;
+
                                     mCurrentAreaInfo = new AreaInfo(0, 0);
                                     mCurrentActiveAreaNr = 1;
                                     mCurrentDownloadedTilesTotal = 0;
@@ -5578,6 +5579,7 @@ namespace FSEarthTilesDLL
             {
                 ScenprocUtils.TellScenprocToTerminate();
             }
+            mMultiThreadedQueue.Stop();
         }
 
         private void LatGradBox_TextChanged(object sender, EventArgs e)
@@ -5814,6 +5816,8 @@ namespace FSEarthTilesDLL
 
         Boolean StartSceneryCompiler(String areaFileString)
         {
+            System.Diagnostics.Process proc = null;
+            System.Diagnostics.Process procImgTool = null;
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryCompiler))
@@ -5850,7 +5854,7 @@ namespace FSEarthTilesDLL
                         }
                     }
 
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc = new System.Diagnostics.Process();
                     //proc.EnableRaisingEvents = false;
                     //proc.StartInfo.UseShellExecute = false;
                     //proc.StartInfo.RedirectStandardOutput = true;
@@ -5897,7 +5901,7 @@ namespace FSEarthTilesDLL
                             SetStatusFromFriendThread("Starting FS2004 Imagetool..");
                             Thread.Sleep(1000);
 
-                            System.Diagnostics.Process procImgTool = new System.Diagnostics.Process();
+                            procImgTool = new System.Diagnostics.Process();
                             //procImgTool.EnableRaisingEvents = false;
                             //procImgTool.StartInfo.UseShellExecute = false;
                             //procImgTool.StartInfo.RedirectStandardOutput = true;
@@ -5977,6 +5981,18 @@ namespace FSEarthTilesDLL
                     SetStatusFromFriendThread("SceneryCompiler in FSEarthTiles is missing!");
                     return false;
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                if (proc != null)
+                {
+                    proc.Kill();
+                }
+                if (procImgTool != null)
+                {
+                    procImgTool.Kill();
+                }
+                return false;
             }
             catch
             {
@@ -7584,6 +7600,10 @@ namespace FSEarthTilesDLL
                 mEarthWeb.Close();
                 mEarthWeb.Dispose();
                 mEarthWeb = null;
+            }
+            if (mMultiThreadedQueue != null)
+            {
+                mMultiThreadedQueue.Stop();
             }
             EarthScriptsHandler.CleanUp();
         }
