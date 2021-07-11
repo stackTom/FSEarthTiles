@@ -309,6 +309,9 @@ namespace FSEarthTilesDLL
         String      mStatusFriendThread;
         String      mExitStatusFriendThread;
 
+        // Producer/consumer to run resample processes
+        MultiThreadedQueue mMultiThreadedQueue;
+
         //The WorldWideWeb Browser
         EarthWebForm mEarthWeb;
 
@@ -870,6 +873,9 @@ namespace FSEarthTilesDLL
             mEngine2Thread.Start();
             mEngine3Thread.Start();
             mEngine4Thread.Start();
+
+            mMultiThreadedQueue = new MultiThreadedQueue(8);
+            mMultiThreadedQueue.jobHandler = StartSceneryCompilerAndCleanup;
 
             mThreadsStarted = true;
         }
@@ -2592,14 +2598,82 @@ namespace FSEarthTilesDLL
         }
 
 
+        void cleanupAfterResample(string areaFileString)
+        {
+            try
+            {
+
+                if (!EarthConfig.mKeepAreaInfFile)
+                {
+                    String vAreaInfoFileName = "AreaFSInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaMaskInfFile)
+                {
+                    String vAreaFS2004MasksInfoFileName = "AreaFS2004MasksInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksInfoFileName);
+                    String vAreaFSXMasksInfoFileName = "AreaFSXMasksInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaMaskSeasonInfFile)
+                {
+                    String vAreaFS2004MasksSeasonsInfoFileName = "AreaFS2004MasksSeasonsInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksSeasonsInfoFileName);
+                    String vAreaFSXMasksSeasonsInfoFileName = "AreaFSXMasksSeasonsInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksSeasonsInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaEarthInfoFile)
+                {
+                    String vAreaEarthInfoFileName = "AreaEarthInfo" + areaFileString + ".txt";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaEarthInfoFileName);
+                }
+                if (!EarthConfig.mKeepSourceBitmap)
+                {
+                    String vAreaBmpFileName = "Area" + areaFileString + ".bmp";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName);
+                }
+
+                //MaskStuff
+                if (EarthConfig.mCreateAreaMask)
+                {
+                    String vAreaMaskFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + areaFileString + ".bmp";
+                    String vAreaSummerFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSummer" + areaFileString + ".bmp";
+                    String vAreaNightFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaNight" + areaFileString + ".bmp";
+                    String vAreaSpringFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSpring" + areaFileString + ".bmp";
+                    String vAreaAutumnFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaAutumn" + areaFileString + ".bmp";
+                    String vAreaWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaWinter" + areaFileString + ".bmp";
+                    String vAreaHardWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaHardWinter" + areaFileString + ".bmp";
+
+                    if (!EarthConfig.mKeepSummerBitmap)
+                    {
+                        File.Delete(vAreaSummerFullFilePath);
+                    }
+                    if (!EarthConfig.mKeepMaskBitmap)
+                    {
+                        File.Delete(vAreaMaskFullFilePath);
+                    }
+                    if (!EarthConfig.mKeepSeasonsBitmaps)
+                    {
+                        File.Delete(vAreaNightFullFilePath);
+                        File.Delete(vAreaSpringFullFilePath);
+                        File.Delete(vAreaAutumnFullFilePath);
+                        File.Delete(vAreaWinterFullFilePath);
+                        File.Delete(vAreaHardWinterFullFilePath);
+                    }
+                }
+            }
+            catch
+            {
+                //ignore
+            }
+        }
+
+
         //--- AreaAftermathThread territory
         void ProcessSceneryCompilation()
         {
             try
             {
-                Boolean vSceneryCompilerReturnOk = true;
-                Boolean vContinue = true;
-
                 if ((!EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "")) && (!EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "None")) && (EarthConfig.mCompileScenery) && (!mStopProcess))
                 {
                     EarthConfig.mSceneryCompiler = "";
@@ -2615,116 +2689,9 @@ namespace FSEarthTilesDLL
                         EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                     }
 
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mWorkFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Error Could not change to specified working directory! Check your working directory.");
-                        Thread.Sleep(2000);
-                        vSceneryCompilerReturnOk = false;
-                        vContinue = false;
-                    }
 
-                    if (vContinue)
-                    {
-                        SetStatusFromFriendThread("Starting FS Scenery Compiler...");
-                        vSceneryCompilerReturnOk = StartSceneryCompiler();
-                    }
-
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mStartExeFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Warning! Could not change back to start directory!");
-                        Thread.Sleep(2000);
-                        vContinue = false;
-                    }
-                }
-
-                //clean up rest of work
-                try
-                {
-
-                    if (!EarthConfig.mKeepAreaInfFile)
-                    {
-                        String vAreaInfoFileName = "AreaFSInfo" + GetAreaFileString() + ".inf";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName);
-                    }
-                    if (!EarthConfig.mKeepAreaMaskInfFile)
-                    {
-                        String vAreaFS2004MasksInfoFileName = "AreaFS2004MasksInfo" + GetAreaFileString() + ".inf";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksInfoFileName);
-                        String vAreaFSXMasksInfoFileName = "AreaFSXMasksInfo" + GetAreaFileString() + ".inf";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksInfoFileName);
-                    }
-                    if (!EarthConfig.mKeepAreaMaskSeasonInfFile)
-                    {
-                        String vAreaFS2004MasksSeasonsInfoFileName = "AreaFS2004MasksSeasonsInfo" + GetAreaFileString() + ".inf";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksSeasonsInfoFileName);
-                        String vAreaFSXMasksSeasonsInfoFileName = "AreaFSXMasksSeasonsInfo" + GetAreaFileString() + ".inf";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksSeasonsInfoFileName);
-                    }
-                    if (!EarthConfig.mKeepAreaEarthInfoFile)
-                    {
-                        String vAreaEarthInfoFileName = "AreaEarthInfo" + GetAreaFileString() + ".txt";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaEarthInfoFileName);
-                    }
-                    if (!EarthConfig.mKeepSourceBitmap)
-                    {
-                        String vAreaBmpFileName = "Area" + GetAreaFileString() + ".bmp";
-                        File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName);
-                    }
-
-                    //MaskStuff
-                    if (EarthConfig.mCreateAreaMask)
-                    {
-                        String vAreaMaskFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + GetAreaFileString() + ".bmp";
-                        String vAreaSummerFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSummer" + GetAreaFileString() + ".bmp";
-                        String vAreaNightFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaNight" + GetAreaFileString() + ".bmp";
-                        String vAreaSpringFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSpring" + GetAreaFileString() + ".bmp";
-                        String vAreaAutumnFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaAutumn" + GetAreaFileString() + ".bmp";
-                        String vAreaWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaWinter" + GetAreaFileString() + ".bmp";
-                        String vAreaHardWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaHardWinter" + GetAreaFileString() + ".bmp";
-
-                        if (!EarthConfig.mKeepSummerBitmap)
-                        {
-                            File.Delete(vAreaSummerFullFilePath);
-                        }
-                        if (!EarthConfig.mKeepMaskBitmap)
-                        {
-                            File.Delete(vAreaMaskFullFilePath);
-                        }
-                        if (!EarthConfig.mKeepSeasonsBitmaps)
-                        {
-                            File.Delete(vAreaNightFullFilePath);
-                            File.Delete(vAreaSpringFullFilePath);
-                            File.Delete(vAreaAutumnFullFilePath);
-                            File.Delete(vAreaWinterFullFilePath);
-                            File.Delete(vAreaHardWinterFullFilePath);
-                        }
-                    }
-                }
-                catch
-                {
-                    //ignore
-                }
-
-                if (vSceneryCompilerReturnOk)
-                {
-                    //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
-                    //It's always zero fault because 0 fault politic so just say Done.
-                    if (!ScenprocUtils.ScenProcRunning)
-                    {
-                        SetExitStatusFromFriendThread("Done.");
-                    }
-                }
-                else
-                {
-                    SetExitStatusFromFriendThread("A Failure happend in trying to compile the scenery or processing it's created files.");
+                    SetStatusFromFriendThread("Queueing current area for resampling...");
+                    mMultiThreadedQueue.Enqueue(GetAreaFileString());
                 }
             }
             catch (System.Exception e)
@@ -5832,14 +5799,27 @@ namespace FSEarthTilesDLL
             }
         }
 
+        Boolean StartSceneryCompilerAndCleanup(String areaFileString)
+        {
+            Boolean ret = StartSceneryCompiler(areaFileString);
+            cleanupAfterResample(areaFileString);
+
+            return ret;
+        }
+
         Boolean StartSceneryCompiler()
+        {
+            return StartSceneryCompiler(GetAreaFileString());
+        }
+
+        Boolean StartSceneryCompiler(String areaFileString)
         {
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryCompiler))
                 {
 
-                    String vAreaInfoFileName = "AreaFSInfo" + GetAreaFileString() + ".inf";
+                    String vAreaInfoFileName = "AreaFSInfo" + areaFileString + ".inf";
 
                     if (EarthConfig.mCreateAreaMask)
                     {
@@ -5849,22 +5829,22 @@ namespace FSEarthTilesDLL
                             {
                                 if ((EarthConfig.IsWithSeasons()))
                                 {
-                                    vAreaInfoFileName = "AreaFS2004MasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFS2004MasksSeasonsInfo" + areaFileString + ".inf";
                                 }
                                 else
                                 {
-                                    vAreaInfoFileName = "AreaFS2004MasksInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFS2004MasksInfo" + areaFileString + ".inf";
                                 }
                             }
                             else
                             {
                                 if ((EarthConfig.IsWithSeasons()))
                                 {
-                                    vAreaInfoFileName = "AreaFSXMasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFSXMasksSeasonsInfo" + areaFileString + ".inf";
                                 }
                                 else
                                 {
-                                    vAreaInfoFileName = "AreaFSXMasksInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFSXMasksInfo" + areaFileString + ".inf";
                                 }
                             }
                         }
@@ -5887,7 +5867,7 @@ namespace FSEarthTilesDLL
                         proc.Kill();
                     };
 
-                    String vAreaThumbnailFileName = "AreaThumbnail" + GetAreaFileString() + ".bmp";
+                    String vAreaThumbnailFileName = "AreaThumbnail" + areaFileString + ".bmp";
 
                     if (File.Exists(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName))
                     {
