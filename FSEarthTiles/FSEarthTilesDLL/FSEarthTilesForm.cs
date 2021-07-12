@@ -7283,7 +7283,11 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
+                            if (mMultiThreadedQueue._jobs.Count > 0)
+                            {
+                                SetStatus("Waiting on FS Scenery Compiler threads to finish.");
+                            }
+                            else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
                             {
                                 SetStatus("Waiting on Scenproc to finish");
                                 scenProcWasRunning = true;
