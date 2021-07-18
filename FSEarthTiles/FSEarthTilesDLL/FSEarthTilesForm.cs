@@ -14,6 +14,7 @@ using System.Globalization;
 using FSEarthTilesInternalDLL;
 using TGASharpLib;
 using System.Collections.Concurrent;
+using System.Linq;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -299,10 +300,7 @@ namespace FSEarthTilesDLL
         Mutex mSetFriendThreadStatusMutex;  //for Status transfer from Area Processing aftermath thread 
 
         //And the Threads Themself
-        Thread      mEngine1Thread;
-        Thread      mEngine2Thread;
-        Thread      mEngine3Thread;
-        Thread      mEngine4Thread;
+        List<Thread>      mEngineThreads;
         Boolean     mThreadsStarted;
 
         //Area After Download Processing Friend Thread (Texture undistortion / Scenery compilation etc)
@@ -843,16 +841,13 @@ namespace FSEarthTilesDLL
         {
             //Set up the  Threading
             EarthEngines.PrepareMultiThreading();
+            mEngineThreads = new List<Thread>(4);
+            for (int i = 0; i < 4; i++)
+            {
+                int kingdomIdx = i; // needed so we don't call kingdom with the last i
+                mEngineThreads.Add(new Thread(() => EarthEngines.EngineKingdom(kingdomIdx)));
+            }
 
-            ThreadStart vEngine1Delegate = new ThreadStart(EarthEngines.Engine1Kingdom);
-            ThreadStart vEngine2Delegate = new ThreadStart(EarthEngines.Engine2Kingdom);
-            ThreadStart vEngine3Delegate = new ThreadStart(EarthEngines.Engine3Kingdom);
-            ThreadStart vEngine4Delegate = new ThreadStart(EarthEngines.Engine4Kingdom);
-
-            mEngine1Thread   = new Thread(vEngine1Delegate);
-            mEngine2Thread   = new Thread(vEngine2Delegate);
-            mEngine3Thread   = new Thread(vEngine3Delegate);
-            mEngine4Thread   = new Thread(vEngine4Delegate);
 
             ThreadStart vAreaAftermathDelegate = new ThreadStart(AreaAfterDownloadProcessing);
             mAreaAftermathThread               = new Thread(vAreaAftermathDelegate);
@@ -864,16 +859,13 @@ namespace FSEarthTilesDLL
         {
             
             //do the last preparation. -> Only now we have the NoTileFound in the memory
-            EarthEngines.SetNoTileFoundBitmapEngine1(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine2(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine3(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine4(mNoTileFound);
+            EarthEngines.SetNoTileFoundBitmapEngines(mNoTileFound);
 
             //And start the threading
-            mEngine1Thread.Start();
-            mEngine2Thread.Start();
-            mEngine3Thread.Start();
-            mEngine4Thread.Start();
+            foreach (Thread mEngineThread in mEngineThreads)
+            {
+                mEngineThread.Start();
+            }
 
             mThreadsStarted = true;
         }
@@ -889,20 +881,14 @@ namespace FSEarthTilesDLL
                 }
                 String vProxy = EarthConfig.mProxyList[EarthConfig.mProxyListIndex];
                 mProxy = vProxy;
-                EarthEngines.SetProxyEngine1(vProxy);
-                EarthEngines.SetProxyEngine2(vProxy);
-                EarthEngines.SetProxyEngine3(vProxy);
-                EarthEngines.SetProxyEngine4(vProxy);
+                EarthEngines.SetProxyEngines(vProxy);
                 ProxyLabel.Text = vProxy;
                 ProxyLabel.Refresh();
             }
             else
             {
                 mProxy = "direct";
-                EarthEngines.SetProxyEngine1("direct");
-                EarthEngines.SetProxyEngine2("direct");
-                EarthEngines.SetProxyEngine3("direct");
-                EarthEngines.SetProxyEngine4("direct");
+                EarthEngines.SetProxyEngines("direct");
                 ProxyLabel.Text = "direct";
                 ProxyLabel.Refresh();
             }
@@ -1075,20 +1061,14 @@ namespace FSEarthTilesDLL
 
                 // To DO read in Cookies
                 mHandleCookies = true;
-                EarthEngines.SetCookiesEngine1(mCookies, true);
-                EarthEngines.SetCookiesEngine2(mCookies, true);
-                EarthEngines.SetCookiesEngine3(mCookies, true);
-                EarthEngines.SetCookiesEngine4(mCookies, true);
+                EarthEngines.SetCookiesEngines(mCookies, true);
                 CookieLabel.Text = "Cookies On";
                 CookieLabel.Refresh();
             }
             else
             {
                 mHandleCookies = false;
-                EarthEngines.SetCookiesEngine1(mCookies, false);
-                EarthEngines.SetCookiesEngine2(mCookies, false);
-                EarthEngines.SetCookiesEngine3(mCookies, false);
-                EarthEngines.SetCookiesEngine4(mCookies, false);
+                EarthEngines.SetCookiesEngines(mCookies, false);
                 CookieLabel.Text = "Cookies Off";
                 CookieLabel.Refresh();
             }
@@ -1348,126 +1328,49 @@ namespace FSEarthTilesDLL
             mWorkFeedEnginesMutex.WaitOne();
 
             String vEngineStatusFeedback = "";
-            Tile vTileOfEngine1 = new Tile();
-            Tile vTileOfEngine2 = new Tile();
-            Tile vTileOfEngine3 = new Tile();
-            Tile vTileOfEngine4 = new Tile();
+            Tile vTileOfEngine = new Tile();
             Tile vTileOfWWWEngine = new Tile();
 
-            Boolean vThereIsATileFromEngine1   = false;
-            Boolean vThereIsATileFromEngine2   = false;
-            Boolean vThereIsATileFromEngine3   = false;
-            Boolean vThereIsATileFromEngine4   = false;
+            Boolean vThereIsATileFromEngine   = false;
+            List<Boolean> vThereIsATileFromEngineNumber = Enumerable.Repeat(false, mEngineThreads.Count).ToList();
+            List<Tile> vTilesOfEngines = new List<Tile>(mEngineThreads.Count);
             Boolean vThereIsATileFromWWWEngine = false;
 
-            vThereIsATileFromEngine1 = EarthEngines.CheckForTileOfEngine1();
-
-            if (vThereIsATileFromEngine1)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                vTileOfEngine1 = EarthEngines.GetTileOfEngine1();
-                
-                mLastTileInfo = vTileOfEngine1.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
+                bool tileFromEngine = EarthEngines.CheckForTileOfEngine(i);
+                // make sure at least 1 tile from engine
+                if (tileFromEngine && !vThereIsATileFromEngine)
                 {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine1);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine1);
+                    vThereIsATileFromEngine = tileFromEngine;
                 }
-                else
+
+                if (tileFromEngine)
                 {
-                    if (vTileOfEngine1.IsGoodBitmap())
+                    vTileOfEngine = EarthEngines.GetTileOfEngine(i);
+                    vTilesOfEngines.Add(vTileOfEngine);
+                    mLastTileInfo = vTileOfEngine.mTileInfo.Clone();
+
+                    if (mAreaProcessRunning)
                     {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine1.mTileInfo))
+
+                            CheckAndHandleSuspiciousTile(vTileOfEngine);
+
+                        HandleHarvestedAreaTile(vTileOfEngine);
+                    }
+                    else
+                    {
+                        if (vTileOfEngine.IsGoodBitmap())
                         {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine1);
+                            if (!mDisplayTileCache.IsTileInCache(vTileOfEngine.mTileInfo))
+                            {
+                                mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine);
+                            }
                         }
                     }
                 }
             }
 
-
-            vThereIsATileFromEngine2 = EarthEngines.CheckForTileOfEngine2();
-
-            if (vThereIsATileFromEngine2)
-            {
-                vTileOfEngine2 = EarthEngines.GetTileOfEngine2();
-                
-                mLastTileInfo = vTileOfEngine2.mTileInfo.Clone();
-                
-                if (mAreaProcessRunning)
-                {
-  
-                        CheckAndHandleSuspiciousTile(vTileOfEngine2);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine2);
-                }
-                else
-                {
-                    if (vTileOfEngine2.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine2.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine2);
-                        }
-                    }
-                }
-            }
-
-            vThereIsATileFromEngine3 = EarthEngines.CheckForTileOfEngine3();
-
-            if (vThereIsATileFromEngine3)
-            {
-                vTileOfEngine3 = EarthEngines.GetTileOfEngine3();
-
-                mLastTileInfo = vTileOfEngine3.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
-                {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine3);
-                
-                    HandleHarvestedAreaTile(vTileOfEngine3);
-                }
-                else
-                {
-                    if (vTileOfEngine3.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine3.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine3);
-                        }
-                    }
-                }
-            }
-
-            vThereIsATileFromEngine4 = EarthEngines.CheckForTileOfEngine4();
-
-            if (vThereIsATileFromEngine4)
-            {
-                vTileOfEngine4 = EarthEngines.GetTileOfEngine4();
-
-                mLastTileInfo = vTileOfEngine4.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
-                {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine4);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine4);
-                }
-                else
-                {
-                    if (vTileOfEngine4.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine4.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine4);
-                        }
-                    }
-                }
-            }
 
             if (mEarthWeb != null)
             {
@@ -1513,13 +1416,17 @@ namespace FSEarthTilesDLL
                     }
                     if (!vAtLeastOneTileInAnyQueueOrEngine)
                     {
-                        vAtLeastOneTileInAnyQueueOrEngine = true;
-                        if (EarthEngines.IsEngine1TileFree() && EarthEngines.IsEngine2TileFree() && EarthEngines.IsEngine3TileFree() && EarthEngines.IsEngine4TileFree())
+                        vAtLeastOneTileInAnyQueueOrEngine = false;
+                        for (int i = 0; i < mEngineThreads.Count; i++)
                         {
-                            vAtLeastOneTileInAnyQueueOrEngine = false;
+                            if (!EarthEngines.IsEngineTileFree(i))
+                            {
+                                vAtLeastOneTileInAnyQueueOrEngine = true;
+                                break;
+                            }
                         }
                     }
-                    if (!vAtLeastOneTileInAnyQueueOrEngine)
+                    if (false && !vAtLeastOneTileInAnyQueueOrEngine)
                     {
                         //Text = mTitle + "  <!> Blocking catched: " + Convert.ToString(mAreaTilesInfoDownloadCheckList.Count) + " lost Tiles";
                         //Refresh();
@@ -1547,58 +1454,24 @@ namespace FSEarthTilesDLL
             else
             {
                 //Display
-                if ((vThereIsATileFromEngine1) || (vThereIsATileFromEngine2) || (vThereIsATileFromEngine3) || (vThereIsATileFromEngine4) || (vThereIsATileFromWWWEngine))
+                if ((vThereIsATileFromEngine) || (vThereIsATileFromWWWEngine))
                 {
-                    if (vThereIsATileFromEngine1)
+                    for (int i = 0; i < mEngineThreads.Count; i++)
                     {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine1.mTileInfo.Equals))
+                        Boolean vThereIsATileFromThisEngine = vThereIsATileFromEngineNumber[i];
+                        if (vThereIsATileFromThisEngine)
                         {
-                            TileInfo vTileInfoToRemove1 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine1.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove1);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine1.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove1 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine1.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove1);
-                        }
-                    }
-                    if (vThereIsATileFromEngine2)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine2.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove2 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine2.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove2);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine2.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove2 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine2.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove2);
-                        }
-                    }
-                    if (vThereIsATileFromEngine3)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine3.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove3 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine3.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove3);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine3.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove3 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine3.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove3);
-                        }
-                    }
-                    if (vThereIsATileFromEngine4)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine4.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove4 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine4.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove4);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine4.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove4 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine4.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove4);
+                            Tile vTileOfCurEngine = vTilesOfEngines[i];
+                            if (mToEngineDelegatedTilesControllList1.Exists(vTileOfCurEngine.mTileInfo.Equals))
+                            {
+                                TileInfo vTileInfoToRemove = mToEngineDelegatedTilesControllList1.Find(vTileOfCurEngine.mTileInfo.Equals);
+                                mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove);
+                            }
+                            if (mToEngineDelegatedTilesControllList2.Exists(vTileOfCurEngine.mTileInfo.Equals))
+                            {
+                                TileInfo vTileInfoToRemove = mToEngineDelegatedTilesControllList2.Find(vTileOfCurEngine.mTileInfo.Equals);
+                                mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove);
+                            }
                         }
                     }
                     if (vThereIsATileFromWWWEngine)
@@ -1635,56 +1508,20 @@ namespace FSEarthTilesDLL
             }
 
             //TimeOutHandling and free bitmap
-            if (vThereIsATileFromEngine1)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                if (vTileOfEngine1.IsGoodBitmap())
+                if (vThereIsATileFromEngineNumber[i])
                 {
-                    ResetTimeOutCounter();
+                    if (vTilesOfEngines[i].IsGoodBitmap())
+                    {
+                        ResetTimeOutCounter();
+                    }
+                    else
+                    {
+                        SetTimeOutCounterIfNotAlreadySet();
+                    }
+                    vTilesOfEngines[i].FreeBitmap();
                 }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine1.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine2)
-            {
-                if (vTileOfEngine2.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine2.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine3)
-            {
-                if (vTileOfEngine3.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine3.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine4)
-            {
-                if (vTileOfEngine4.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine4.FreeBitmap();
             }
             if (vThereIsATileFromWWWEngine)
             {
@@ -1728,10 +1565,7 @@ namespace FSEarthTilesDLL
             mToEngineDelegatedTilesControllList2.Clear();
             mSuspiciousList1.Clear();
             mSuspiciousList2.Clear();
-            EarthEngines.EmptyEngine1Queue();
-            EarthEngines.EmptyEngine2Queue();
-            EarthEngines.EmptyEngine3Queue();
-            EarthEngines.EmptyEngine4Queue();
+            EarthEngines.EmptyEnginesQueue();
             mWorkFeedEnginesMutex.ReleaseMutex();
         }
 
@@ -1741,10 +1575,11 @@ namespace FSEarthTilesDLL
 
             mWorkFeedEnginesMutex.WaitOne();
 
-            Int32 vFreeEngine1 = 0;
-            Int32 vFreeEngine2 = 0;
-            Int32 vFreeEngine3 = 0;
-            Int32 vFreeEngine4 = 0;
+            List<Int32> vFreeEngines = new List<int>(mEngineThreads.Count);
+            for (int i = 0; i < mEngineThreads.Count; i++)
+            {
+                vFreeEngines.Add(0);
+            }
             Int32 vFreeWWWEngine  = 0;
             Int32 vTotalFreeSlots = 0;
 
@@ -1755,10 +1590,10 @@ namespace FSEarthTilesDLL
                 mIsWebEngine = mEarthWeb.Created;
             }
 
-            vFreeEngine1 = EarthEngines.GetFreeSpaceOfEngine1();
-            vFreeEngine2 = EarthEngines.GetFreeSpaceOfEngine2();
-            vFreeEngine3 = EarthEngines.GetFreeSpaceOfEngine3();
-            vFreeEngine4 = EarthEngines.GetFreeSpaceOfEngine4();
+            for (int i = 0; i < vFreeEngines.Count; i++)
+            {
+                vFreeEngines[i] = EarthEngines.GetFreeSpaceOfEngine(i);
+            }
 
             if (mIsWebEngine)
             {
@@ -1782,10 +1617,15 @@ namespace FSEarthTilesDLL
                 }
             }
 
+            Console.WriteLine("before the loop " + Environment.TickCount);
+            Console.WriteLine("we have work " + vWeHaveWork.ToString() + " mtimeoutblock " + mTimeOutBlock + " tileswemayput " + vTilesWeMayPut);
             if ((vWeHaveWork) && (!mTimeOutBlock) && (vTilesWeMayPut > 0))
             {
 
-                vTotalFreeSlots = vFreeEngine1 + vFreeEngine2 + vFreeEngine3 + vFreeEngine4;
+                foreach (Int32 vFreeEngine in vFreeEngines)
+                {
+                    vTotalFreeSlots += vFreeEngine;
+                }
 
                 if (mIsWebEngine)
                 {
@@ -1794,6 +1634,7 @@ namespace FSEarthTilesDLL
 
                 while ((vWeHaveWork) && (vTotalFreeSlots > 0) && (vTilesWeMayPut > 0))
                 {
+                    Console.WriteLine("we have work");
                     //Find out the most Empty Queue and choose random Engine if multiple with equal free slots
                     //= efficient work load balancing
 
@@ -1838,55 +1679,57 @@ namespace FSEarthTilesDLL
 
                         Int32 vMaxFreeSlots = 0;
                         Int32 vNrOfEnginesWithMaxFreeSlots = 0;
-                        Int32[] vEngineArray = new Int32[5] { 0, 0, 0, 0, 0 };
+                        Int32[] vEngineArray = new Int32[mEngineThreads.Count + 1];
+                        for (int i = 0; i < vEngineArray.Length; i++)
+                        {
+                            vEngineArray[i] = 0;
+                        }
+
                         Int32 vWinnerEngine = 0;
 
-                        if (!mIsWebEngine && (vFreeEngine1 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine1; };
-                        if (!mIsWebEngine && (vFreeEngine2 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine2; };
-                        if (!mIsWebEngine && (vFreeEngine3 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine3; };
-                        if (!mIsWebEngine && (vFreeEngine4 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine4; };
+                        foreach (Int32 vFreeEngine in vFreeEngines)
+                        {
+                            if (!mIsWebEngine && (vFreeEngine > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine; };
+                        }
                         if (mIsWebEngine && (vFreeWWWEngine > vMaxFreeSlots)) { vMaxFreeSlots = vFreeWWWEngine; };
-                        if (!mIsWebEngine && (vFreeEngine1 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 1; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine2 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 2; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine3 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 3; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine4 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 4; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (mIsWebEngine && (vFreeWWWEngine >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 5; vNrOfEnginesWithMaxFreeSlots++; };
+                        for (int i = 0; i < vFreeEngines.Count; i++)
+                        {
+                            if (!mIsWebEngine && (vFreeEngines[i] >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = i + 1; vNrOfEnginesWithMaxFreeSlots++; };
+                        }
+                        if (mIsWebEngine && (vFreeWWWEngine >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = vFreeEngines.Count + 1; vNrOfEnginesWithMaxFreeSlots++; };
 
                         Int32 vRandom = mRandomGenerator.Next(1, vNrOfEnginesWithMaxFreeSlots + 1); //a Randomnumber between 1 and vNrOfEnginesWithMaxFreeSlots
 
 
                         //And the Winner Engine is...tata
                         vWinnerEngine = vEngineArray[vRandom - 1];
+                        Console.WriteLine("the winner engine is " + vWinnerEngine);
 
 
-                        if ((mIsWebEngine) && (vWinnerEngine!=5))
+                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
                         {
                             Thread.Sleep(10); //then Error
                         }
 
-                        if (vWinnerEngine == 1)
+                        for (int i = 0; i < vFreeEngines.Count; i++)
                         {
-                            vFreeEngine1 = EarthEngines.AddTileInfoToEngine1(vTileInfo);
+                            if (vWinnerEngine == i)
+                            {
+                                Console.WriteLine("added tile to engine " + i);
+                                vFreeEngines[i] = EarthEngines.AddTileInfoToEngine(i, vTileInfo);
+                            }
                         }
-                        if (vWinnerEngine == 2)
-                        {
-                            vFreeEngine2 = EarthEngines.AddTileInfoToEngine2(vTileInfo);
-                        }
-                        if (vWinnerEngine == 3)
-                        {
-                            vFreeEngine3 = EarthEngines.AddTileInfoToEngine3(vTileInfo);
-                        }
-                        if (vWinnerEngine == 4)
-                        {
-                            vFreeEngine4 = EarthEngines.AddTileInfoToEngine4(vTileInfo);
-                        }
-                        if (vWinnerEngine == 5)
+                        if (vWinnerEngine == vFreeEngines.Count + 1)
                         {
                             vFreeWWWEngine = mEarthWeb.AddTileInfoToWWWEngine(vTileInfo);
                         }
                         vTilesWeMayPut--;
-                        vTotalFreeSlots = vFreeEngine1 + vFreeEngine2 + vFreeEngine3 + vFreeEngine4; 
-                       
+                        vTotalFreeSlots = 0;
+                        foreach (Int32 vFreeEngine in vFreeEngines)
+                        {
+                            vTotalFreeSlots += vFreeEngine;
+                        }
+
                         if (mIsWebEngine)
                         {
                             vTotalFreeSlots = vFreeWWWEngine;
@@ -1903,19 +1746,19 @@ namespace FSEarthTilesDLL
             Int32 vEnginesQueueSize = EarthEngines.GetEnginesQueueSize();
 
             ProgressQueue1Box.Invalidate();
-            ProgressQueue1Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine1)) / vEnginesQueueSize);
+            ProgressQueue1Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[0])) / vEnginesQueueSize);
             ProgressQueue1Box.Refresh();
 
             ProgressQueue2Box.Invalidate();
-            ProgressQueue2Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine2)) / vEnginesQueueSize);
+            ProgressQueue2Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[1])) / vEnginesQueueSize);
             ProgressQueue2Box.Refresh();
 
             ProgressQueue3Box.Invalidate();
-            ProgressQueue3Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine3)) / vEnginesQueueSize);
+            ProgressQueue3Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[2])) / vEnginesQueueSize);
             ProgressQueue3Box.Refresh();
 
             ProgressQueue4Box.Invalidate();
-            ProgressQueue4Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine4)) / vEnginesQueueSize);
+            ProgressQueue4Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[3])) / vEnginesQueueSize);
             ProgressQueue4Box.Refresh();
 
             mWorkFeedEnginesMutex.ReleaseMutex();
@@ -7573,25 +7416,15 @@ namespace FSEarthTilesDLL
             {
                 //nothign to do
             }
-            if (mEngine1Thread != null)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                mEngine1Thread.Abort();
-                mEngine1Thread = null;
-            }
-            if (mEngine2Thread != null)
-            {
-                mEngine2Thread.Abort();
-                mEngine2Thread = null;
-            }
-            if (mEngine3Thread != null)
-            {
-                mEngine3Thread.Abort();
-                mEngine3Thread = null;
-            }
-            if (mEngine4Thread != null)
-            {
-                mEngine4Thread.Abort();
-                mEngine4Thread = null;
+                Thread mEngineThread = mEngineThreads[i];
+                if (mEngineThread != null)
+                {
+                    mEngineThread.Abort();
+                    mEngineThread = null;
+                    mEngineThreads[i] = mEngineThread;
+                }
             }
             if (mAreaAftermathThread != null)
             {
