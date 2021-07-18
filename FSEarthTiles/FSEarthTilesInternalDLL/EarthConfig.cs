@@ -335,7 +335,7 @@ namespace FSEarthTilesInternalDLL
 
             mShuffleTilesForDownload = false;
             mShuffleAreasForDownload = false;
-            mMaxDownloadSpeed = 20.0;   //[tiles/sec]
+            mMaxDownloadSpeed = 1000000000.0;   //[tiles/sec]
 
             //Intialshoot one timer
             mAreaDefModeStart = "1Point";
@@ -1050,10 +1050,6 @@ namespace FSEarthTilesInternalDLL
                     try
                     {
                         EarthConfig.mMaxDownloadSpeed = Convert.ToDouble(vCutString, NumberFormatInfo.InvariantInfo);
-                        if (EarthConfig.mMaxDownloadSpeed > 20)
-                        {
-                            EarthConfig.mMaxDownloadSpeed = 20; //Hard speed limitation we don't want to be a pain for the services
-                        }
                     }
                     catch
                     {
