@@ -1699,7 +1699,7 @@ namespace FSEarthTilesDLL
 
 
                         //And the Winner Engine is...tata
-                        vWinnerEngine = vEngineArray[vRandom - 1];
+                        vWinnerEngine = vEngineArray[vRandom - 1] - 1;
 
 
                         if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
