@@ -199,7 +199,6 @@ namespace FSEarthTilesDLL
             String vServiceStringBegin;
             String vServiceStringEnd;
             EarthEngine ea = earthEngines[engineNumber];
-            int i = 0;
 
             do //Endless Loop
             {
@@ -207,12 +206,8 @@ namespace FSEarthTilesDLL
                 //Get TileInfo from FIFO Queue
                 do
                 {
-                    i++;
-                    //Console.WriteLine(i + " sign for engine " + ea.id + " empty? " + ea.mQueueEngine.IsEmpty());
                     ea.mSignForEngine.WaitOne();
-                    //Console.WriteLine(i + " signforengine done " + ea.id);
 
-                    //Console.WriteLine(i + " enginemutex " + ea.id);
                     ea.mEngineMutex.WaitOne();
                     if (!ea.mQueueEngine.IsEmpty())
                     {
@@ -220,7 +215,6 @@ namespace FSEarthTilesDLL
                         ea.mTileInWorkEngine = true;
                     }
                     ea.mEngineMutex.ReleaseMutex();
-                    //Console.WriteLine(i + " enginemutex done " + ea.id);
 
 
                 } while (!ea.mTileInWorkEngine);
@@ -236,11 +230,9 @@ namespace FSEarthTilesDLL
                 //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
                 vServiceUserAgent = EarthConfig.mServiceUserAgent[ea.mWorkTileInfoEngine.mService - 1];
 
-                //Console.WriteLine(i + " exclusive mutex " + ea.id);
                 mExclusiveMutex.WaitOne();
                 vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
                 mExclusiveMutex.ReleaseMutex();
-                //Console.WriteLine(i + " done exclusive mutex " + ea.id);
 
                 vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
 
@@ -455,9 +447,7 @@ namespace FSEarthTilesDLL
                 ea.mTileInWorkEngine = false;
                 if (!ea.mQueueEngine.IsEmpty())
                 {
-                    //Console.WriteLine(i + " signforengine set " + ea.id);
                     ea.mSignForEngine.Set();  //sign self to continue
-                    //Console.WriteLine(i + " signforengine set done " + ea.id);
                 }
                 ea.mEngineMutex.ReleaseMutex();
 

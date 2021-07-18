@@ -1617,8 +1617,6 @@ namespace FSEarthTilesDLL
                 }
             }
 
-            Console.WriteLine("before the loop " + Environment.TickCount);
-            Console.WriteLine("we have work " + vWeHaveWork.ToString() + " mtimeoutblock " + mTimeOutBlock + " tileswemayput " + vTilesWeMayPut);
             if ((vWeHaveWork) && (!mTimeOutBlock) && (vTilesWeMayPut > 0))
             {
 
@@ -1634,7 +1632,6 @@ namespace FSEarthTilesDLL
 
                 while ((vWeHaveWork) && (vTotalFreeSlots > 0) && (vTilesWeMayPut > 0))
                 {
-                    Console.WriteLine("we have work");
                     //Find out the most Empty Queue and choose random Engine if multiple with equal free slots
                     //= efficient work load balancing
 
@@ -1703,7 +1700,6 @@ namespace FSEarthTilesDLL
 
                         //And the Winner Engine is...tata
                         vWinnerEngine = vEngineArray[vRandom - 1];
-                        Console.WriteLine("the winner engine is " + vWinnerEngine);
 
 
                         if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
@@ -1715,7 +1711,6 @@ namespace FSEarthTilesDLL
                         {
                             if (vWinnerEngine == i)
                             {
-                                Console.WriteLine("added tile to engine " + i);
                                 vFreeEngines[i] = EarthEngines.AddTileInfoToEngine(i, vTileInfo);
                             }
                         }
