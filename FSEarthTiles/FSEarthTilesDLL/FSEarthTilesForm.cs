@@ -348,8 +348,6 @@ namespace FSEarthTilesDLL
         void InitializeFSEarthTiles(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
         {
 
-            PrepareMultiThreading();
-
             mTitle = this.Text;
 
             mThreadsStarted       = false;
@@ -575,6 +573,8 @@ namespace FSEarthTilesDLL
                             {
                                 if (FillInFormWithEarthConfigValues())
                                 {
+                                    PrepareMultiThreading();
+
                                     mConfigInitDone = true;
 
                                     SetVisibilityForIdle(); //visibility chanegs depending on read config
@@ -841,8 +841,8 @@ namespace FSEarthTilesDLL
         {
             //Set up the  Threading
             EarthEngines.PrepareMultiThreading();
-            mEngineThreads = new List<Thread>(4);
-            for (int i = 0; i < 4; i++)
+            mEngineThreads = new List<Thread>(EarthConfig.mMaxDownloadThreads);
+            for (int i = 0; i < EarthConfig.mMaxDownloadThreads; i++)
             {
                 int kingdomIdx = i; // needed so we don't call kingdom with the last i
                 mEngineThreads.Add(new Thread(() => EarthEngines.EngineKingdom(kingdomIdx)));
@@ -5297,7 +5297,7 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
                                     
-                                    mMultiThreadedQueue = new MultiThreadedQueue(8);
+                                    mMultiThreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
                                     mMultiThreadedQueue.jobHandler = StartSceneryCompilerAndCleanup;
 
                                     mCurrentAreaInfo = new AreaInfo(0, 0);

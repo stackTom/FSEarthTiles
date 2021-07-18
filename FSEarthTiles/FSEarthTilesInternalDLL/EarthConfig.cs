@@ -235,6 +235,10 @@ namespace FSEarthTilesInternalDLL
         public static String mScenprocFS9Script;
         public static String mScenprocFSXP3DScript;
 
+        // multithreading
+        public static int mMaxResampleThreads;
+        public static int mMaxDownloadThreads;
+
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
 
@@ -336,6 +340,9 @@ namespace FSEarthTilesInternalDLL
             mShuffleTilesForDownload = false;
             mShuffleAreasForDownload = false;
             mMaxDownloadSpeed = 1000000000.0;   //[tiles/sec]
+
+            mMaxResampleThreads = 4;
+            mMaxDownloadThreads = 4;
 
             //Intialshoot one timer
             mAreaDefModeStart = "1Point";
@@ -789,6 +796,8 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex83 = vFocus.IndexOf("FS9_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex84 = vFocus.IndexOf("FSX_P3D_scenproc_script", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex85 = vFocus.IndexOf("CreateScenproc", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex86 = vFocus.IndexOf("MaxResampleThreads", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1546,6 +1555,40 @@ namespace FSEarthTilesInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     mCreateScenproc = GetBooleanFromString(vCutString);
+                }
+
+                if (vIndex86 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        EarthConfig.mMaxResampleThreads = Convert.ToInt32(vCutString, NumberFormatInfo.InvariantInfo);
+                        if (EarthConfig.mMaxResampleThreads < 1)
+                        {
+                            EarthConfig.mMaxResampleThreads = 1;
+                        }
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
+
+                if (vIndex87 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        EarthConfig.mMaxDownloadThreads = Convert.ToInt32(vCutString, NumberFormatInfo.InvariantInfo);
+                        if (EarthConfig.mMaxDownloadThreads < 4)
+                        {
+                            EarthConfig.mMaxDownloadThreads = 4;
+                        }
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
                 }
             }
         }

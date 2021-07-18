@@ -72,7 +72,7 @@ namespace FSEarthTilesDLL
         private const Int32 cEngineQueueSize = 10;
         private static String mStatusFromEngines;
 
-        private static List<EarthEngine> earthEngines = new List<EarthEngine>(4);
+        private static List<EarthEngine> earthEngines = new List<EarthEngine>(EarthConfig.mMaxDownloadThreads);
 
         //Mutexes
         private static Mutex mExclusiveMutex;  //exclusive Block of all threads
@@ -81,7 +81,7 @@ namespace FSEarthTilesDLL
         {
             //Set up the  Threading
             mExclusiveMutex = new Mutex();
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < EarthConfig.mMaxDownloadThreads; i++)
             {
                 earthEngines.Add(new EarthEngine(cEngineQueueSize));
             }
