@@ -1426,7 +1426,7 @@ namespace FSEarthTilesDLL
                             }
                         }
                     }
-                    if (false && !vAtLeastOneTileInAnyQueueOrEngine)
+                    if (!vAtLeastOneTileInAnyQueueOrEngine)
                     {
                         //Text = mTitle + "  <!> Blocking catched: " + Convert.ToString(mAreaTilesInfoDownloadCheckList.Count) + " lost Tiles";
                         //Refresh();
