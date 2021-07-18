@@ -42,9 +42,8 @@ namespace FSEarthTilesDLL
         public CookieCollection mEngineCookies;
         public Boolean mEngineHandleCookies;
         public String mEngineProxy;
-        public int id;
 
-        public EarthEngine(int cEngineQueueSize, int TIKA)
+        public EarthEngine(int cEngineQueueSize)
         {
             mEngineMutex = new Mutex();
             mSignForEngine = new AutoResetEvent(false);
@@ -63,7 +62,6 @@ namespace FSEarthTilesDLL
             mEngineHandleCookies = false;
 
             mEngineProxy = "direct";
-            id = TIKA;
         }
     }
 
@@ -85,7 +83,7 @@ namespace FSEarthTilesDLL
             mExclusiveMutex = new Mutex();
             for (int i = 0; i < 4; i++)
             {
-                earthEngines.Add(new EarthEngine(cEngineQueueSize, i));
+                earthEngines.Add(new EarthEngine(cEngineQueueSize));
             }
 
             mStatusFromEngines = "";
