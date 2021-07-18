@@ -1131,7 +1131,6 @@ namespace FSEarthTilesDLL
                 {
                     String VMapCode = EarthScriptsHandler.MapAreaCoordToTileCode(vAreaCodeX, vAreaCodeY, EarthConfig.mFetchLevel, "ABCD");
                     SetStatus(VMapCode);
-                    DisplayPicture(iTile.GetBitmapReference());
                 }
 
 
