@@ -731,16 +731,8 @@ namespace FSEarthTilesDLL
                 iStream.WriteLine("CellYdimensionDeg = " + iBGLDatasStringPackage.mBGLYPixelAngleString);
             }
 
-            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
-            {
-                iStream.WriteLine("PixelIsPoint      = 0");   //for center mode: vStream.WriteLine("PixelIsPoint      = 1"); 
-                iStream.WriteLine("SamplingMethod    = Point");
-            }
-            else
-            {
-                //FSEarthDefault
-                iStream.WriteLine("PixelIsPoint      = 0");
-            }
+            iStream.WriteLine("PixelIsPoint      = 0");   //for center mode: vStream.WriteLine("PixelIsPoint      = 1");
+            iStream.WriteLine("SamplingMethod    = Point");
         }
 
         private void WriteSourceFSXWaterMaskReference(StreamWriter iStream, Int32 iWaterMaskSourcePosition)
