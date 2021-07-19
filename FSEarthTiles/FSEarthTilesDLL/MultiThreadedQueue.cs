@@ -12,7 +12,7 @@ namespace FSEarthTilesDLL
     // I've made some modifications to gracefully stop the consumer processes
     class MultiThreadedQueue
     {
-        public BlockingCollection<string> _jobs = new BlockingCollection<string>();
+        public BlockingCollection<MasksResampleWorker> _jobs = new BlockingCollection<MasksResampleWorker>();
         private List<Thread> threads;
         private CancellationTokenSource stopFlag;
 
@@ -29,7 +29,7 @@ namespace FSEarthTilesDLL
             }
         }
 
-        public void Enqueue(string job)
+        public void Enqueue(MasksResampleWorker job)
         {
             if (!_jobs.IsAddingCompleted)
             {
@@ -42,7 +42,7 @@ namespace FSEarthTilesDLL
             //This will cause '_jobs.GetConsumingEnumerable' to stop blocking and exit when it's empty
             _jobs.CompleteAdding();
             stopFlag.Cancel();
-            _jobs = new BlockingCollection<string>();
+            _jobs = new BlockingCollection<MasksResampleWorker>();
             foreach (Thread t in threads)
             {
                 t.Abort();
@@ -50,7 +50,7 @@ namespace FSEarthTilesDLL
             threads = new List<Thread>();
         }
 
-        public delegate bool JobHandler(string job);
+        public delegate void JobHandler(MasksResampleWorker job);
 
         public JobHandler jobHandler;
 
