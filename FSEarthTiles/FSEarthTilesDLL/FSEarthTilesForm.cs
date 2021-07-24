@@ -2702,6 +2702,7 @@ namespace FSEarthTilesDLL
 
         Boolean StartFSEarthMasks(MasksResampleWorker w)
         {
+            System.Diagnostics.Process proc = null;
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mFSEarthMasks))
@@ -2709,7 +2710,7 @@ namespace FSEarthTilesDLL
 
                     String vAreaEarthInfoFileName = "AreaEarthInfo" + w.AreaFileString + ".txt";
 
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc = new System.Diagnostics.Process();
                     //proc.EnableRaisingEvents = false;
                     //proc.StartInfo.UseShellExecute = false;
                     //proc.StartInfo.RedirectStandardOutput = true;
@@ -2733,6 +2734,15 @@ namespace FSEarthTilesDLL
                     SetStatusFromFriendThread("FSEarthMasks exe in FSEarthTiles is missing!");
                     return false;
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                if (proc != null)
+                {
+                    proc.Kill();
+                }
+
+                return false;
             }
             catch
             {
