@@ -50,6 +50,10 @@ namespace FSEarthTilesDLL
                 t.Abort();
             }
             threads = new List<Thread>();
+            lock (threadsRunningLock)
+            {
+                threadsRunning = 0;
+            }
         }
 
         public delegate void JobHandler(MasksResampleWorker job);
