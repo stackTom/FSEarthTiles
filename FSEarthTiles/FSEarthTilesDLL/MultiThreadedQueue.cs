@@ -14,6 +14,8 @@ namespace FSEarthTilesDLL
     {
         public BlockingCollection<MasksResampleWorker> _jobs = new BlockingCollection<MasksResampleWorker>();
         private List<Thread> threads;
+        private int threadsRunning = 0;
+        private readonly object threadsRunningLock = new object();
         private CancellationTokenSource stopFlag;
 
         public MultiThreadedQueue(int numThreads)
@@ -54,17 +56,40 @@ namespace FSEarthTilesDLL
 
         public JobHandler jobHandler;
 
+        public bool AllThreadsDone()
+        {
+            int running = 0;
+            lock (threadsRunningLock)
+            {
+                running = threadsRunning;
+            }
+
+            return running == 0;
+        }
+
         private void OnHandlerStart()
         {
             try
             {
                 foreach (var job in _jobs.GetConsumingEnumerable(stopFlag.Token))
                 {
+                    lock (threadsRunningLock)
+                    {
+                        threadsRunning++;
+                    }
                     jobHandler(job);
+                    lock (threadsRunningLock)
+                    {
+                        threadsRunning--;
+                    }
                 }
             }
             catch (OperationCanceledException)
             {
+                lock (threadsRunningLock)
+                {
+                    threadsRunning = 0;
+                }
             }
         }
     }

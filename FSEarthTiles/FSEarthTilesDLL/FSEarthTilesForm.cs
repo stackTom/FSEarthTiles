@@ -2654,7 +2654,7 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    if (!ScenprocUtils.ScenProcRunning)
+                    if (mMultiThreadedQueue.AllThreadsDone() && !ScenprocUtils.ScenProcRunning)
                     {
                         SetExitStatusFromFriendThread("Done.");
                     }
@@ -7162,10 +7162,18 @@ namespace FSEarthTilesDLL
 
 
             // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
-            if (scenProcWasRunning && !ScenprocUtils.ScenProcRunning && !mAreaProcessRunning)
+            if (mMultiThreadedQueue != null && !mAreaProcessRunning && mMultiThreadedQueue.AllThreadsDone())
             {
-                SetStatus("Done.");
-                scenProcWasRunning = false;
+                if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
+                {
+                    // scenproc wasn't running, or it was but now it's not
+                    SetStatus("Done.");
+                    scenProcWasRunning = false;
+                }
+                else
+                {
+                    SetStatus("Done.");
+                }
             }
 
             //Get Status from Area Processing Friend Thread
@@ -7243,9 +7251,9 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (mMultiThreadedQueue._jobs.Count > 0)
+                            if (!mMultiThreadedQueue.AllThreadsDone())
                             {
-                                SetStatus("Waiting on FS Scenery Compiler threads to finish.");
+                                SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
                             }
                             else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
                             {
