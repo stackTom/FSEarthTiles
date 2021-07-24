@@ -2306,7 +2306,7 @@ namespace FSEarthTilesDLL
                 w.mCurrentActiveAreaNr = mCurrentActiveAreaNr;
                 w.mCurrentDownloadedTilesTotal = mCurrentDownloadedTilesTotal;
                 w.mMultiAreaMode = mMultiAreaMode;
-                w.mEarthAreaTexture = mEarthAreaTexture;
+                w.mEarthAreaTexture = mEarthAreaTexture.Clone();
                 mMultiThreadedQueue.Enqueue(w);
             }
             else
@@ -2444,13 +2444,13 @@ namespace FSEarthTilesDLL
                 }
 
 
-                mEarthAreaTexture.FreeTextureMemory();
+                w.mEarthAreaTexture.FreeTextureMemory();
             }
 
             catch (System.Exception e)
             {
 
-                mEarthAreaTexture.FreeTextureMemory();
+                w.mEarthAreaTexture.FreeTextureMemory();
 
                 SetExitStatusFromFriendThread("Memory or Code conflict! - ProcessDownloadedArea() - " + e.ToString());
                 mStopProcess = true; //pretend scenery compilation

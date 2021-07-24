@@ -2863,6 +2863,58 @@ namespace FSEarthTilesInternalDLL
         }
 
 
+        private EarthAreaTexture ShallowCopy()
+        {
+            return (EarthAreaTexture)this.MemberwiseClone();
+        }
+
+
+        private EarthAreaTexture DeepCopy()
+        {
+            EarthAreaTexture dc = ShallowCopy();
+            if (mAreaBitmap != null)
+            {
+                dc.mAreaBitmap = (Bitmap)mAreaBitmap.Clone();
+            }
+            if (mAreaBitmapArray != null)
+            {
+                dc.mAreaBitmapArray = (uint[,])mAreaBitmapArray.Clone();
+            }
+            if (mUndistortionBitmapRowRingbuffer != null)
+            {
+                dc.mUndistortionBitmapRowRingbuffer = (uint[,])mUndistortionBitmapRowRingbuffer.Clone();
+            }
+            if (mAreaResampleArray != null)
+            {
+                dc.mAreaResampleArray = (uint[,])mAreaResampleArray.Clone();
+            }
+            if (mAreaResampleAllocTestDummyArray != null)
+            {
+                dc.mAreaResampleAllocTestDummyArray = (uint[,])mAreaResampleAllocTestDummyArray.Clone();
+            }
+            if (mColorCorrectionTable != null)
+            {
+                dc.mColorCorrectionTable = (uint[])mColorCorrectionTable.Clone();
+            }
+            if (mMaxBitmap1Array != null)
+            {
+                dc.mMaxBitmap1Array = (uint[,])mMaxBitmap1Array.Clone();
+            }
+            if (mMaxBitmap2Array != null)
+            {
+                dc.mMaxBitmap2Array = (uint[,])mMaxBitmap2Array.Clone();
+            }
+
+            return dc;
+        }
+
+
+        public EarthAreaTexture Clone()
+        {
+            return DeepCopy();
+        }
+
+
         //Direct Area Bitmap Data Bitmap Array
         protected UInt32[,] mAreaBitmapArray;                        //RGB 24Bit Bitmap Data Array
         protected UInt32[,] mUndistortionBitmapRowRingbuffer;        //used for undistorting the texture
