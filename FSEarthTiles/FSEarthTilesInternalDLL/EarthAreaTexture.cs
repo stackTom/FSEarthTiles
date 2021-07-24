@@ -2872,14 +2872,6 @@ namespace FSEarthTilesInternalDLL
         private EarthAreaTexture DeepCopy()
         {
             EarthAreaTexture dc = ShallowCopy();
-            if (mAreaBitmap != null)
-            {
-                dc.mAreaBitmap = (Bitmap)mAreaBitmap.Clone();
-            }
-            if (mAreaBitmapArray != null)
-            {
-                dc.mAreaBitmapArray = (uint[,])mAreaBitmapArray.Clone();
-            }
             if (mUndistortionBitmapRowRingbuffer != null)
             {
                 dc.mUndistortionBitmapRowRingbuffer = (uint[,])mUndistortionBitmapRowRingbuffer.Clone();
@@ -2904,6 +2896,17 @@ namespace FSEarthTilesInternalDLL
             {
                 dc.mMaxBitmap2Array = (uint[,])mMaxBitmap2Array.Clone();
             }
+
+            // the below can't be just clone.
+            // I'm not entirely sure why. I think it has to do with the GCHandle, which is freed elsewhere
+            // cloning the below and not doing it like this causes some images to be duplicate of others
+            // or have black squares (aka be corrupt)
+            dc.mAreaBitmapArray = new UInt32[dc.mArrayHeight, dc.mArrayWidth];
+            dc.mGCHandle = GCHandle.Alloc(mAreaBitmapArray, GCHandleType.Pinned);
+            IntPtr vPointer = Marshal.UnsafeAddrOfPinnedArrayElement(mAreaBitmapArray, 0);
+            dc.mAreaBitmap = new Bitmap(mAreaBitmap.Width, mAreaBitmap.Height, mArrayWidth << 2, System.Drawing.Imaging.PixelFormat.Format24bppRgb, vPointer);
+            dc.mAreaGraphics = Graphics.FromImage(mAreaBitmap);
+            dc.mMemoryAllocated = true;
 
             return dc;
         }
