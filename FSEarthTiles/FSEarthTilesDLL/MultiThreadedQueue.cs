@@ -90,6 +90,7 @@ namespace FSEarthTilesDLL
             {
                 threadsRunning = 0;
             }
+            CompleteAdding();
         }
 
         public delegate void JobHandler(MasksResampleWorker job);

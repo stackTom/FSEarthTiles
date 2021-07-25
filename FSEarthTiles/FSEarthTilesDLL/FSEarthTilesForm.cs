@@ -5415,7 +5415,12 @@ namespace FSEarthTilesDLL
 
         private void StartDownload()
         {
-            if (!mAreaProcessRunning && !ScenprocUtils.ScenProcRunning)
+            bool shouldStart = !mAreaProcessRunning && !ScenprocUtils.ScenProcRunning
+                && ((mMasksCompilerMultithreadedQueue == null && mImageProcessingMultithreadedQueue == null)
+                || MultiThreadedQueuesFinished()) && (mImageToolThread == null
+                || ImageToolThreadUnstarted() || ImageToolThreadFinished());
+
+            if (shouldStart)
             {
                 if (mInputCoordsValidity)
                 {
@@ -7111,6 +7116,26 @@ namespace FSEarthTilesDLL
         }
 
 
+        bool MultiThreadedQueuesFinished()
+        {
+            bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
+                                    && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
+
+            return multithreadedQueuesFinished;
+        }
+
+        bool ImageToolThreadUnstarted()
+        {
+            return (mImageToolThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
+        }
+
+        bool ImageToolThreadFinished()
+        {
+            return mImageToolThread != null
+                && ((mImageToolThread.ThreadState & ThreadState.Stopped) == ThreadState.Stopped)
+                || ((mImageToolThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
+        }
+
         void MainThreadTimerEventProcessor(Object myObject, EventArgs myEventArgs)
         {
 
@@ -7224,11 +7249,10 @@ namespace FSEarthTilesDLL
 
 
             // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
-            bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
-                                    && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
+            bool multithreadedQueuesFinished = MultiThreadedQueuesFinished();
             bool shouldStartImageTool = multithreadedQueuesFinished && EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler
                                         && mImageToolThread != null
-                                        && (mImageToolThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
+                                        && ImageToolThreadUnstarted();
             if (shouldStartImageTool)
             {
                 mImageToolThread.Start();
