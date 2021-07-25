@@ -321,7 +321,10 @@ namespace FSEarthTilesDLL
         String      mExitStatusFriendThread;
 
         // Producer/consumer to run resample processes
-        MultiThreadedQueue mMultiThreadedQueue;
+        MultiThreadedQueue mMasksCompilerMultithreadedQueue;
+
+        // Producer/consumer to run image processing (undistortion etc.)
+        MultiThreadedQueue mImageProcessingMultithreadedQueue;
 
         //The WorldWideWeb Browser
         EarthWebForm mEarthWeb;
@@ -2264,7 +2267,7 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private void RunMasksAndSceneryCompiler(MasksResampleWorker w)
+        private void RunImageProcessing(MasksResampleWorker w)
         {
             EarthScriptsHandler.DoBeforeResampleing(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
@@ -2272,6 +2275,14 @@ namespace FSEarthTilesDLL
 
             EarthScriptsHandler.DoAfterDownload(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
+            if (!mStopProcess)
+            {
+                mMasksCompilerMultithreadedQueue.Enqueue(w);
+            }
+        }
+
+        private void RunMasksAndSceneryCompiler(MasksResampleWorker w)
+        {
             if (!mStopProcess)
             {
                 ProcessMasks(w);
@@ -2307,7 +2318,7 @@ namespace FSEarthTilesDLL
                 w.mCurrentDownloadedTilesTotal = mCurrentDownloadedTilesTotal;
                 w.mMultiAreaMode = mMultiAreaMode;
                 w.mEarthAreaTexture = mEarthAreaTexture.Clone();
-                mMultiThreadedQueue.Enqueue(w);
+                mImageProcessingMultithreadedQueue.Enqueue(w);
             }
             else
             {
@@ -2654,7 +2665,7 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    if (mMultiThreadedQueue.AllThreadsDone() && !ScenprocUtils.ScenProcRunning)
+                    if (mMasksCompilerMultithreadedQueue.AllThreadsDone() && mImageProcessingMultithreadedQueue.AllThreadsDone() && !ScenprocUtils.ScenProcRunning)
                     {
                         SetExitStatusFromFriendThread("Done.");
                     }
@@ -5442,8 +5453,11 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
                                     
-                                    mMultiThreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
-                                    mMultiThreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
+                                    mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
+                                    mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
+
+                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
+                                    mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
 
                                     mCurrentAreaInfo = new AreaInfo(0, 0);
                                     mCurrentActiveAreaNr = 1;
@@ -5561,7 +5575,8 @@ namespace FSEarthTilesDLL
             {
                 ScenprocUtils.TellScenprocToTerminate();
             }
-            mMultiThreadedQueue.Stop();
+            mMasksCompilerMultithreadedQueue.Stop();
+            mImageProcessingMultithreadedQueue.Stop();
         }
 
         private void LatGradBox_TextChanged(object sender, EventArgs e)
@@ -7172,7 +7187,8 @@ namespace FSEarthTilesDLL
 
 
             // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
-            if (mMultiThreadedQueue != null && !mAreaProcessRunning && mMultiThreadedQueue.AllThreadsDone())
+            if (mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
+                && !mAreaProcessRunning && mMasksCompilerMultithreadedQueue.AllThreadsDone() && mImageProcessingMultithreadedQueue.AllThreadsDone())
             {
                 if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
                 {
@@ -7261,9 +7277,13 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (!mMultiThreadedQueue.AllThreadsDone())
+                            if (!mMasksCompilerMultithreadedQueue.AllThreadsDone())
                             {
                                 SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
+                            }
+                            else if (!mImageProcessingMultithreadedQueue.AllThreadsDone())
+                            {
+                                SetStatus("Waiting on image processing threads to finish.");
                             }
                             else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
                             {
@@ -7573,9 +7593,13 @@ namespace FSEarthTilesDLL
                 mEarthWeb.Dispose();
                 mEarthWeb = null;
             }
-            if (mMultiThreadedQueue != null)
+            if (mMasksCompilerMultithreadedQueue != null)
             {
-                mMultiThreadedQueue.Stop();
+                mMasksCompilerMultithreadedQueue.Stop();
+            }
+            if (mImageProcessingMultithreadedQueue != null)
+            {
+                mImageProcessingMultithreadedQueue.Stop();
             }
             EarthScriptsHandler.CleanUp();
         }
