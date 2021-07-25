@@ -320,6 +320,9 @@ namespace FSEarthTilesDLL
         String      mStatusFriendThread;
         String      mExitStatusFriendThread;
 
+        // Imagetool thread
+        Thread mImageToolThread;
+
         // Producer/consumer to run resample processes
         MultiThreadedQueue mMasksCompilerMultithreadedQueue;
 
@@ -866,6 +869,9 @@ namespace FSEarthTilesDLL
 
             ThreadStart vAreaAftermathDelegate = new ThreadStart(AreaAfterDownloadProcessing);
             mAreaAftermathThread               = new Thread(vAreaAftermathDelegate);
+
+            ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
+            mImageToolThread = new Thread(vImageToolThreadDelegate);
 
         }
 
@@ -2665,10 +2671,6 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    if (mMasksCompilerMultithreadedQueue.AllThreadsDone() && mImageProcessingMultithreadedQueue.AllThreadsDone() && !ScenprocUtils.ScenProcRunning)
-                    {
-                        SetExitStatusFromFriendThread("Done.");
-                    }
                 }
                 else
                 {
@@ -5458,6 +5460,12 @@ namespace FSEarthTilesDLL
 
                                     mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
                                     mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
+                                    if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
+                                    {
+                                        // reset image tool thread
+                                        ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
+                                        mImageToolThread = new Thread(vImageToolThreadDelegate);
+                                    }
 
                                     mCurrentAreaInfo = new AreaInfo(0, 0);
                                     mCurrentActiveAreaNr = 1;
@@ -5577,6 +5585,10 @@ namespace FSEarthTilesDLL
             }
             mMasksCompilerMultithreadedQueue.Stop();
             mImageProcessingMultithreadedQueue.Stop();
+            if (mImageToolThread != null && mImageToolThread.IsAlive)
+            {
+                mImageToolThread.Abort();
+            }
         }
 
         private void LatGradBox_TextChanged(object sender, EventArgs e)
@@ -5799,10 +5811,130 @@ namespace FSEarthTilesDLL
         }
 
 
+        Boolean RunImageTool()
+        {
+            System.Diagnostics.Process procImgTool = null;
+            try
+            {
+                if (!EarthCommon.StringCompare(EarthConfig.mSceneryImageTool, ""))
+                {
+                    if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
+                    {
+
+                        SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
+
+                        // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
+                        // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
+                        // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
+                        // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
+                        // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
+                        // and I don't want to write my own when this simpler solution gets the job done
+                        ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
+
+                        SetStatusFromFriendThread("Starting FS2004 Imagetool..");
+                        Thread.Sleep(1000);
+
+                        procImgTool = new System.Diagnostics.Process();
+                        //procImgTool.EnableRaisingEvents = false;
+                        //procImgTool.StartInfo.UseShellExecute = false;
+                        //procImgTool.StartInfo.RedirectStandardOutput = true;
+                        //procImgTool.StartInfo.CreateNoWindow = true;
+                        //procImgTool.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                        procImgTool.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool;
+                        procImgTool.StartInfo.Arguments = "-nogui -terrainphoto " + "\"" + EarthConfig.mWorkFolder + "\\" + "*.tga" + "\"";
+                        procImgTool.Start();
+
+                        SetStatusFromFriendThread("FS2004 Imagetool active. Waiting for completion.");
+                        Thread.Sleep(500);
+
+                        procImgTool.WaitForExit();
+                        if (!procImgTool.HasExited)
+                        {
+                            procImgTool.Kill();
+                        };
+
+
+                        SetStatusFromFriendThread("Copying Texture Files ....");
+                        Thread.Sleep(500);
+
+                        String vTgaSubDirectory = EarthConfig.mSceneryFolderTexture + "\\" + "TgaSourceFiles";
+
+                        if (EarthConfig.mFS2004KeepTGAs)
+                        {
+                            //First create a TGA subdirectory.
+                            if (!(Directory.Exists(vTgaSubDirectory)))
+                            {
+                                Directory.CreateDirectory(vTgaSubDirectory);
+                            }
+                        }
+
+                        String[] vMipFiles = Directory.GetFiles(EarthConfig.mWorkFolder, "*.mip");
+
+                        for (Int32 vFileCount = 0; vFileCount < vMipFiles.Length; vFileCount++)
+                        {
+                            String vDestFileName = vMipFiles[vFileCount];
+                            String vTgaFullFileName;
+                            String vTgaFileName;
+
+                            //replace Ending
+                            Int32 vEndingIndex = vDestFileName.IndexOf(".mip");
+                            vDestFileName = vDestFileName.Remove(vEndingIndex);
+                            vTgaFullFileName = vDestFileName;
+                            vDestFileName += ".bmp";
+                            vTgaFullFileName += ".tga";
+                            vTgaFileName = vTgaFullFileName;
+                            //GetRightOfDirectory
+                            Int32 vDirectoryIndex = vDestFileName.IndexOf("\\");
+                            while (vDirectoryIndex >= 0)
+                            {
+                                vDestFileName = vDestFileName.Substring(vDirectoryIndex + 1, vDestFileName.Length - (vDirectoryIndex + 1));
+                                vTgaFileName = vTgaFileName.Substring(vDirectoryIndex + 1, vTgaFileName.Length - (vDirectoryIndex + 1));
+                                vDirectoryIndex = vDestFileName.IndexOf("\\");
+                            }
+
+                            //finaly Copy and rename!
+                            String vSource = vMipFiles[vFileCount];
+                            String vDest = EarthConfig.mSceneryFolderTexture + "\\" + vDestFileName;
+                            String vTgaDest = vTgaSubDirectory + "\\" + vTgaFileName;
+                            File.Copy(vSource, vDest, true);
+                            if (EarthConfig.mFS2004KeepTGAs)
+                            {
+                                File.Copy(vTgaFullFileName, vTgaDest, true);
+                            }
+                            File.Delete(vSource);
+                            File.Delete(vTgaFullFileName);
+                        }
+                    }
+
+                    return true;
+                }
+            }
+            catch (ThreadAbortException)
+            {
+                if (procImgTool != null)
+                {
+                    procImgTool.Kill();
+                }
+
+                return false;
+            }
+
+            return false;
+        }
+
+
+        void RunImageToolProcessing()
+        {
+            if (!RunImageTool())
+            {
+                SetStatusFromFriendThread("There was an error running ImageTool");
+            }
+        }
+
+
         Boolean StartSceneryCompiler(MasksResampleWorker w)
         {
             System.Diagnostics.Process proc = null;
-            System.Diagnostics.Process procImgTool = null;
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryCompiler))
@@ -5868,97 +6000,6 @@ namespace FSEarthTilesDLL
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName);
                     }
 
-                    if (!EarthCommon.StringCompare(EarthConfig.mSceneryImageTool, ""))
-                    {
-                        if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
-                        {
-
-                            SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
-
-                            // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
-                            // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
-                            // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
-                            // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
-                            // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
-                            // and I don't want to write my own when this simpler solution gets the job done
-                            ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
-
-                            SetStatusFromFriendThread("Starting FS2004 Imagetool..");
-                            Thread.Sleep(1000);
-
-                            procImgTool = new System.Diagnostics.Process();
-                            //procImgTool.EnableRaisingEvents = false;
-                            //procImgTool.StartInfo.UseShellExecute = false;
-                            //procImgTool.StartInfo.RedirectStandardOutput = true;
-                            //procImgTool.StartInfo.CreateNoWindow = true;
-                            //procImgTool.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-                            procImgTool.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool;
-                            procImgTool.StartInfo.Arguments = "-nogui -terrainphoto " + "\"" + EarthConfig.mWorkFolder + "\\" + "*.tga" + "\"";
-                            procImgTool.Start();
-
-                            SetStatusFromFriendThread("FS2004 Imagetool active. Waiting for completion.");
-                            Thread.Sleep(500);
-
-                            procImgTool.WaitForExit();
-                            if (!procImgTool.HasExited)
-                            {
-                                procImgTool.Kill();
-                            };
-
-
-                            SetStatusFromFriendThread("Copying Texture Files ....");
-                            Thread.Sleep(500);
-
-                            String vTgaSubDirectory = EarthConfig.mSceneryFolderTexture + "\\" + "TgaSourceFiles";
-
-                            if (EarthConfig.mFS2004KeepTGAs)
-                            {
-                                //First create a TGA subdirectory.
-                                if (!(Directory.Exists(vTgaSubDirectory)))
-                                {
-                                    Directory.CreateDirectory(vTgaSubDirectory);
-                                }
-                            }
-
-                            String[] vMipFiles = Directory.GetFiles(EarthConfig.mWorkFolder, "*.mip");
-
-                            for (Int32 vFileCount = 0; vFileCount < vMipFiles.Length; vFileCount++)
-                            {
-                                String vDestFileName = vMipFiles[vFileCount];
-                                String vTgaFullFileName;
-                                String vTgaFileName;
-
-                                //replace Ending
-                                Int32 vEndingIndex = vDestFileName.IndexOf(".mip");
-                                vDestFileName = vDestFileName.Remove(vEndingIndex);
-                                vTgaFullFileName = vDestFileName;
-                                vDestFileName += ".bmp";
-                                vTgaFullFileName += ".tga";
-                                vTgaFileName = vTgaFullFileName;
-                                //GetRightOfDirectory
-                                Int32 vDirectoryIndex = vDestFileName.IndexOf("\\");
-                                while (vDirectoryIndex >= 0)
-                                {
-                                    vDestFileName = vDestFileName.Substring(vDirectoryIndex + 1, vDestFileName.Length - (vDirectoryIndex + 1));
-                                    vTgaFileName = vTgaFileName.Substring(vDirectoryIndex + 1, vTgaFileName.Length - (vDirectoryIndex + 1));
-                                    vDirectoryIndex = vDestFileName.IndexOf("\\");
-                                }
-
-                                //finaly Copy and rename!
-                                String vSource = vMipFiles[vFileCount];
-                                String vDest = EarthConfig.mSceneryFolderTexture + "\\" + vDestFileName;
-                                String vTgaDest = vTgaSubDirectory + "\\" + vTgaFileName;
-                                File.Copy(vSource, vDest, true);
-                                if (EarthConfig.mFS2004KeepTGAs)
-                                {
-                                    File.Copy(vTgaFullFileName, vTgaDest, true);
-                                }
-                                File.Delete(vSource);
-                                File.Delete(vTgaFullFileName);
-                            }
-                        }
-                    }
-
                     return true;
                 }
                 else
@@ -5972,10 +6013,6 @@ namespace FSEarthTilesDLL
                 if (proc != null)
                 {
                     proc.Kill();
-                }
-                if (procImgTool != null)
-                {
-                    procImgTool.Kill();
                 }
                 return false;
             }
@@ -7187,10 +7224,22 @@ namespace FSEarthTilesDLL
 
 
             // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
-            if (mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
-                && !mAreaProcessRunning && mMasksCompilerMultithreadedQueue.AllThreadsDone() && mImageProcessingMultithreadedQueue.AllThreadsDone())
+            bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
+                                    && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
+            bool shouldStartImageTool = multithreadedQueuesFinished && EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler
+                                        && mImageToolThread != null
+                                        && (mImageToolThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
+            if (shouldStartImageTool)
             {
-                if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
+                mImageToolThread.Start();
+            }
+            if (multithreadedQueuesFinished && !mAreaProcessRunning)
+            {
+                if (mImageToolThread != null && mImageToolThread.IsAlive)
+                {
+                    SetStatus("Waiting on ImageTool to finish.");
+                }
+                else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
                 {
                     // scenproc wasn't running, or it was but now it's not
                     SetStatus("Done.");
@@ -7277,11 +7326,13 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (!mMasksCompilerMultithreadedQueue.AllThreadsDone())
+                            mMasksCompilerMultithreadedQueue.CompleteAdding();
+                            mImageProcessingMultithreadedQueue.CompleteAdding();
+                            if (!mMasksCompilerMultithreadedQueue.AllDone())
                             {
                                 SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
                             }
-                            else if (!mImageProcessingMultithreadedQueue.AllThreadsDone())
+                            else if (!mImageProcessingMultithreadedQueue.AllDone())
                             {
                                 SetStatus("Waiting on image processing threads to finish.");
                             }
@@ -7600,6 +7651,10 @@ namespace FSEarthTilesDLL
             if (mImageProcessingMultithreadedQueue != null)
             {
                 mImageProcessingMultithreadedQueue.Stop();
+            }
+            if (mImageToolThread != null && mImageToolThread.IsAlive)
+            {
+                mImageToolThread.Abort();
             }
             EarthScriptsHandler.CleanUp();
         }

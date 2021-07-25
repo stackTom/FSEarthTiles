@@ -17,6 +17,7 @@ namespace FSEarthTilesDLL
         private int threadsRunning = 0;
         private readonly object threadsRunningLock = new object();
         private CancellationTokenSource stopFlag;
+        private bool doneAdding = false;
 
         public MultiThreadedQueue(int numThreads)
         {
@@ -39,6 +40,41 @@ namespace FSEarthTilesDLL
             }
         }
 
+        // can't use CompleteAdding of BlockingCollection
+        // because then jobs don't get called.
+        // TODO: I must be misunderstanding it. Try it again and use
+        // BlockingCollection's CompleteAdding
+        public void CompleteAdding()
+        {
+            doneAdding = true;
+        }
+
+        public void UncompleteAdding()
+        {
+            doneAdding = false;
+        }
+
+        public int GetRunningThreads()
+        {
+            int running = 0;
+            lock (threadsRunningLock)
+            {
+                running = threadsRunning;
+            }
+
+            return running;
+        }
+
+        public bool AllThreadsDone()
+        {
+            return GetRunningThreads() == 0;
+        }
+
+        public bool AllDone()
+        {
+            return AllThreadsDone() && doneAdding;
+        }
+
         public void Stop()
         {
             //This will cause '_jobs.GetConsumingEnumerable' to stop blocking and exit when it's empty
@@ -59,17 +95,6 @@ namespace FSEarthTilesDLL
         public delegate void JobHandler(MasksResampleWorker job);
 
         public JobHandler jobHandler;
-
-        public bool AllThreadsDone()
-        {
-            int running = 0;
-            lock (threadsRunningLock)
-            {
-                running = threadsRunning;
-            }
-
-            return running == 0;
-        }
 
         private void OnHandlerStart()
         {
