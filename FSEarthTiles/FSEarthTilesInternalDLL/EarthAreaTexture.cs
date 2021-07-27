@@ -2869,20 +2869,45 @@ namespace FSEarthTilesInternalDLL
         }
 
 
+        private uint[,] DeepCopy2DArray(uint[,] toCopy)
+        {
+            uint[,] temp = new uint[toCopy.GetLength(0), toCopy.GetLength(1)];
+            for (int i = 0; i < temp.GetLength(0); i++)
+            {
+                for (int j = 0; j < temp.GetLength(1); j++)
+                {
+                    temp[i, j] = toCopy[i, j];
+                }
+            }
+
+            return temp;
+        }
+
+        private void DeepCopy2DArray(uint[,]src, uint[,] dest)
+        {
+            for (int i = 0; i < src.GetLength(0); i++)
+            {
+                for (int j = 0; j < src.GetLength(1); j++)
+                {
+                    dest[i, j] = src[i, j];
+                }
+            }
+        }
+
         private EarthAreaTexture DeepCopy()
         {
             EarthAreaTexture dc = ShallowCopy();
             if (mUndistortionBitmapRowRingbuffer != null)
             {
-                dc.mUndistortionBitmapRowRingbuffer = (uint[,])mUndistortionBitmapRowRingbuffer.Clone();
+                dc.mUndistortionBitmapRowRingbuffer = DeepCopy2DArray(mUndistortionBitmapRowRingbuffer);
             }
             if (mAreaResampleArray != null)
             {
-                dc.mAreaResampleArray = (uint[,])mAreaResampleArray.Clone();
+                dc.mAreaResampleArray = DeepCopy2DArray(mAreaResampleArray);
             }
             if (mAreaResampleAllocTestDummyArray != null)
             {
-                dc.mAreaResampleAllocTestDummyArray = (uint[,])mAreaResampleAllocTestDummyArray.Clone();
+                dc.mAreaResampleAllocTestDummyArray = DeepCopy2DArray(mAreaResampleAllocTestDummyArray);
             }
             if (mColorCorrectionTable != null)
             {
@@ -2890,11 +2915,11 @@ namespace FSEarthTilesInternalDLL
             }
             if (mMaxBitmap1Array != null)
             {
-                dc.mMaxBitmap1Array = (uint[,])mMaxBitmap1Array.Clone();
+                dc.mMaxBitmap1Array = DeepCopy2DArray(mMaxBitmap1Array);
             }
             if (mMaxBitmap2Array != null)
             {
-                dc.mMaxBitmap2Array = (uint[,])mMaxBitmap2Array.Clone();
+                dc.mMaxBitmap2Array = DeepCopy2DArray(mMaxBitmap2Array);
             }
 
             // the below can't be just clone.
@@ -2905,6 +2930,7 @@ namespace FSEarthTilesInternalDLL
             dc.mGCHandle = GCHandle.Alloc(mAreaBitmapArray, GCHandleType.Pinned);
             IntPtr vPointer = Marshal.UnsafeAddrOfPinnedArrayElement(mAreaBitmapArray, 0);
             dc.mAreaBitmap = new Bitmap(mAreaBitmap.Width, mAreaBitmap.Height, mArrayWidth << 2, System.Drawing.Imaging.PixelFormat.Format24bppRgb, vPointer);
+            DeepCopy2DArray(mAreaBitmapArray, dc.mAreaBitmapArray);
             dc.mAreaGraphics = Graphics.FromImage(mAreaBitmap);
             dc.mMemoryAllocated = true;
 
