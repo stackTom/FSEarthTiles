@@ -2250,6 +2250,15 @@ namespace FSEarthTilesDLL
             double startLat = mEarthArea.AreaSnapStartLatitude < mEarthArea.AreaSnapStopLatitude ? mEarthArea.AreaSnapStartLatitude : mEarthArea.AreaSnapStopLatitude;
             double stopLat = startLat == mEarthArea.AreaSnapStartLatitude ? mEarthArea.AreaSnapStopLatitude : mEarthArea.AreaSnapStartLatitude;
 
+            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
+            {
+                startLong = mEarthArea.AreaFSResampledStartLongitude < mEarthArea.AreaFSResampledStopLongitude ? mEarthArea.AreaFSResampledStartLongitude : mEarthArea.AreaFSResampledStopLongitude;
+                stopLong = startLong == mEarthArea.AreaFSResampledStartLongitude ? mEarthArea.AreaFSResampledStopLongitude : mEarthArea.AreaFSResampledStartLongitude;
+                startLat = mEarthArea.AreaFSResampledStartLatitude < mEarthArea.AreaFSResampledStopLatitude ? mEarthArea.AreaFSResampledStartLatitude : mEarthArea.AreaFSResampledStopLatitude;
+                stopLat = startLat == mEarthArea.AreaFSResampledStartLatitude ? mEarthArea.AreaFSResampledStopLatitude : mEarthArea.AreaFSResampledStartLatitude;
+            }
+
+
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
             foreach (double[] tile in tilesToDownload)
