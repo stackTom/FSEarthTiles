@@ -2578,33 +2578,10 @@ namespace FSEarthTilesDLL
                         EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                     }
 
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mWorkFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Error Could not change to specified working directory! Check your working directory.");
-                        Thread.Sleep(2000);
-                        vSceneryCompilerReturnOk = false;
-                        vContinue = false;
-                    }
-
                     if (vContinue)
                     {
                         SetStatusFromFriendThread("Starting FS Scenery Compiler...");
                         vSceneryCompilerReturnOk = StartSceneryCompiler(w);
-                    }
-
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mStartExeFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Warning! Could not change back to start directory!");
-                        Thread.Sleep(2000);
-                        vContinue = false;
                     }
                 }
 
