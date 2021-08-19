@@ -282,7 +282,7 @@ namespace FSEarthTilesInternalDLL
             mSelectedService = 2;
             mAutoReferenceMode = 1;
 
-            mSelectedSceneryCompiler = "FSX";
+            mSelectedSceneryCompiler = "FSX/P3D";
             mCompileWithAreaMask = true;
             mCompileScenery = true;
             mUseCache = true;

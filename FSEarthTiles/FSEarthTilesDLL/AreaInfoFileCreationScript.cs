@@ -711,7 +711,7 @@ namespace FSEarthTilesDLL
             iStream.WriteLine("NumOfCellsPerLine = " + iBGLDatasStringPackage.mBGLPixelsInXString + "       ;Pixel is not used in FSX");
             iStream.WriteLine("NumOfLines        = " + iBGLDatasStringPackage.mBGLPixelsInYString + "       ;Pixel is not used in FSX");
 
-            if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+            if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
             {
                 iStream.WriteLine("xDim = " + iBGLDatasStringPackage.mBGLXPixelAngleString);
                 iStream.WriteLine("yDim = " + iBGLDatasStringPackage.mBGLYPixelAngleString);

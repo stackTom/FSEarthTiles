@@ -2567,7 +2567,7 @@ namespace FSEarthTilesDLL
                 {
                     EarthConfig.mSceneryCompiler = "";
                     EarthConfig.mSceneryImageTool = "";
-                    if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+                    if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
                     {
                         EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                         EarthConfig.mSceneryImageTool = "";
@@ -5416,7 +5416,7 @@ namespace FSEarthTilesDLL
                         {
                             if (PrepareSceneryDirectory())
                             {
-                                if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+                                if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
                                 {
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                                     EarthConfig.mSceneryImageTool = "";
@@ -5437,7 +5437,7 @@ namespace FSEarthTilesDLL
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
                                         }
-                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(fsxp3dScriptLoc))
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX/P3D" && File.Exists(fsxp3dScriptLoc))
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
                                         }
@@ -5730,7 +5730,7 @@ namespace FSEarthTilesDLL
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eLOD13;
                 }
                 //Auto set Off if FS2004 is selected
-                if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX"))
+                if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX/P3D"))
                 {
                     AreaSnapBox.Text = "Off";
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eOff;
