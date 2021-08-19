@@ -28,10 +28,6 @@ namespace FSEarthTilesDLL
             public String mBGLFS2004SeasonsDesitnationStopLongitudeString;
             public String mBGLFS2004SeasonsDesitnationStartLatitudeString;
             public String mBGLFS2004SeasonsDesitnationStopLatitudeString;
-            public String mAreaSnapStartLatitudeString;
-            public String mAreaSnapStopLatitudeString;
-            public String mAreaSnapStartLongitudeString;
-            public String mAreaSnapStopLongitudeString;
         }
 
 
@@ -109,11 +105,6 @@ namespace FSEarthTilesDLL
                 vBGLPixelsInX      = iEarthArea.AreaPixelsInX;
                 vBGLPixelsInY      = iEarthArea.AreaPixelsInY;
             }
-
-            vBGLDatasStringPackage.mAreaSnapStartLatitudeString = Convert.ToString(iEarthArea.AreaSnapStartLatitude, NumberFormatInfo.InvariantInfo);
-            vBGLDatasStringPackage.mAreaSnapStopLatitudeString = Convert.ToString(iEarthArea.AreaSnapStopLatitude, NumberFormatInfo.InvariantInfo);
-            vBGLDatasStringPackage.mAreaSnapStartLongitudeString = Convert.ToString(iEarthArea.AreaSnapStartLongitude, NumberFormatInfo.InvariantInfo);
-            vBGLDatasStringPackage.mAreaSnapStopLongitudeString = Convert.ToString(iEarthArea.AreaSnapStopLongitude, NumberFormatInfo.InvariantInfo);
 
             Double vBGLXPixelAngle;
             Double vBGLYPixelAngle;
@@ -720,7 +711,7 @@ namespace FSEarthTilesDLL
             iStream.WriteLine("NumOfCellsPerLine = " + iBGLDatasStringPackage.mBGLPixelsInXString + "       ;Pixel is not used in FSX");
             iStream.WriteLine("NumOfLines        = " + iBGLDatasStringPackage.mBGLPixelsInYString + "       ;Pixel is not used in FSX");
 
-            if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+            if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
             {
                 iStream.WriteLine("xDim = " + iBGLDatasStringPackage.mBGLXPixelAngleString);
                 iStream.WriteLine("yDim = " + iBGLDatasStringPackage.mBGLYPixelAngleString);
@@ -731,16 +722,8 @@ namespace FSEarthTilesDLL
                 iStream.WriteLine("CellYdimensionDeg = " + iBGLDatasStringPackage.mBGLYPixelAngleString);
             }
 
-            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
-            {
-                iStream.WriteLine("PixelIsPoint      = 0");   //for center mode: vStream.WriteLine("PixelIsPoint      = 1"); 
-                iStream.WriteLine("SamplingMethod    = Point");
-            }
-            else
-            {
-                //FSEarthDefault
-                iStream.WriteLine("PixelIsPoint      = 0");
-            }
+            iStream.WriteLine("PixelIsPoint      = 0");   //for center mode: vStream.WriteLine("PixelIsPoint      = 1");
+            iStream.WriteLine("SamplingMethod    = Point");
         }
 
         private void WriteSourceFSXWaterMaskReference(StreamWriter iStream, Int32 iWaterMaskSourcePosition)
@@ -874,11 +857,6 @@ namespace FSEarthTilesDLL
                 if (EarthConfig.mCreateWaterMaskBitmap)
                 {
                     vStream.WriteLine("CreateWaterMaskBitmap      = Yes    # yes = create Water/Blend Mask. (An AreaVectors file is required for this!)");
-
-                    vStream.WriteLine("AreaSnapStartLatitude      = " + iBGLDatasStringPackage.mAreaSnapStartLatitudeString);
-                    vStream.WriteLine("AreaSnapStopLatitude      = " + iBGLDatasStringPackage.mAreaSnapStopLatitudeString);
-                    vStream.WriteLine("AreaSnapStartLongitude      = " + iBGLDatasStringPackage.mAreaSnapStartLongitudeString);
-                    vStream.WriteLine("AreaSnapStopLongitude      = " + iBGLDatasStringPackage.mAreaSnapStopLongitudeString);
                 }
                 else
                 {

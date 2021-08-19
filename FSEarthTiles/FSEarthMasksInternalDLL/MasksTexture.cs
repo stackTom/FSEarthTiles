@@ -2942,11 +2942,10 @@ namespace FSEarthMasksInternalDLL
 
         private List<PointF[]> readAllMeshFiles()
         {
-            double startLong = MasksConfig.mAreaSnapStartLongitude < MasksConfig.mAreaSnapStopLongitude ? MasksConfig.mAreaSnapStartLongitude : MasksConfig.mAreaSnapStopLongitude;
-            double stopLong = startLong == MasksConfig.mAreaSnapStartLongitude ? MasksConfig.mAreaSnapStopLongitude : MasksConfig.mAreaSnapStartLongitude;
-            double startLat = MasksConfig.mAreaSnapStartLatitude < MasksConfig.mAreaSnapStopLatitude ? MasksConfig.mAreaSnapStartLatitude : MasksConfig.mAreaSnapStopLatitude;
-            double stopLat = startLat == MasksConfig.mAreaSnapStartLatitude ? MasksConfig.mAreaSnapStopLatitude : MasksConfig.mAreaSnapStartLatitude;
-
+            double startLong = MasksConfig.mAreaNWCornerLongitude < MasksConfig.mAreaSECornerLongitude ? MasksConfig.mAreaNWCornerLongitude : MasksConfig.mAreaSECornerLongitude;
+            double stopLong = startLong == MasksConfig.mAreaNWCornerLongitude ? MasksConfig.mAreaSECornerLongitude : MasksConfig.mAreaNWCornerLongitude;
+            double startLat = MasksConfig.mAreaNWCornerLatitude < MasksConfig.mAreaSECornerLatitude ? MasksConfig.mAreaNWCornerLatitude : MasksConfig.mAreaSECornerLatitude;
+            double stopLat = startLat == MasksConfig.mAreaNWCornerLatitude ? MasksConfig.mAreaSECornerLatitude : MasksConfig.mAreaNWCornerLatitude;
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
 

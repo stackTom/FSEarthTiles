@@ -13,6 +13,8 @@ using System.Security.AccessControl;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
 using TGASharpLib;
+using System.Collections.Concurrent;
+using System.Linq;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -81,7 +83,19 @@ using TGASharpLib;
 
 namespace FSEarthTilesDLL
 {
- 
+
+
+    struct MasksResampleWorker
+    {
+        public string AreaFileString;
+        public EarthArea mEarthArea;           //The complete snapped Area coords information. That's the description of the Area that will be downloaded
+        public EarthMultiArea mEarthMultiArea;      //The complete snapped Multi Area coords information. That's the describtion of the MultiArea that will be downloaded in steps of single Areas
+        public AreaInfo mCurrentAreaInfo;
+        public Int64 mCurrentActiveAreaNr;
+        public Int64 mCurrentDownloadedTilesTotal;
+        public Boolean mMultiAreaMode;
+        public EarthAreaTexture mEarthAreaTexture;
+    }
 
     public partial class FSEarthTilesForm : Form, FSEarthTilesInternalInterface, FSEarthTilesInterface
     {
@@ -298,16 +312,22 @@ namespace FSEarthTilesDLL
         Mutex mSetFriendThreadStatusMutex;  //for Status transfer from Area Processing aftermath thread 
 
         //And the Threads Themself
-        Thread      mEngine1Thread;
-        Thread      mEngine2Thread;
-        Thread      mEngine3Thread;
-        Thread      mEngine4Thread;
+        List<Thread>      mEngineThreads;
         Boolean     mThreadsStarted;
 
         //Area After Download Processing Friend Thread (Texture undistortion / Scenery compilation etc)
         Thread      mAreaAftermathThread;
         String      mStatusFriendThread;
         String      mExitStatusFriendThread;
+
+        // Imagetool thread
+        Thread mImageToolThread;
+
+        // Producer/consumer to run resample processes
+        MultiThreadedQueue mMasksCompilerMultithreadedQueue;
+
+        // Producer/consumer to run image processing (undistortion etc.)
+        MultiThreadedQueue mImageProcessingMultithreadedQueue;
 
         //The WorldWideWeb Browser
         EarthWebForm mEarthWeb;
@@ -345,8 +365,6 @@ namespace FSEarthTilesDLL
 
         void InitializeFSEarthTiles(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
         {
-
-            PrepareMultiThreading();
 
             mTitle = this.Text;
 
@@ -573,6 +591,8 @@ namespace FSEarthTilesDLL
                             {
                                 if (FillInFormWithEarthConfigValues())
                                 {
+                                    PrepareMultiThreading();
+
                                     mConfigInitDone = true;
 
                                     SetVisibilityForIdle(); //visibility chanegs depending on read config
@@ -839,19 +859,19 @@ namespace FSEarthTilesDLL
         {
             //Set up the  Threading
             EarthEngines.PrepareMultiThreading();
+            mEngineThreads = new List<Thread>(EarthConfig.mMaxDownloadThreads);
+            for (int i = 0; i < EarthConfig.mMaxDownloadThreads; i++)
+            {
+                int kingdomIdx = i; // needed so we don't call kingdom with the last i
+                mEngineThreads.Add(new Thread(() => EarthEngines.EngineKingdom(kingdomIdx)));
+            }
 
-            ThreadStart vEngine1Delegate = new ThreadStart(EarthEngines.Engine1Kingdom);
-            ThreadStart vEngine2Delegate = new ThreadStart(EarthEngines.Engine2Kingdom);
-            ThreadStart vEngine3Delegate = new ThreadStart(EarthEngines.Engine3Kingdom);
-            ThreadStart vEngine4Delegate = new ThreadStart(EarthEngines.Engine4Kingdom);
-
-            mEngine1Thread   = new Thread(vEngine1Delegate);
-            mEngine2Thread   = new Thread(vEngine2Delegate);
-            mEngine3Thread   = new Thread(vEngine3Delegate);
-            mEngine4Thread   = new Thread(vEngine4Delegate);
 
             ThreadStart vAreaAftermathDelegate = new ThreadStart(AreaAfterDownloadProcessing);
             mAreaAftermathThread               = new Thread(vAreaAftermathDelegate);
+
+            ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
+            mImageToolThread = new Thread(vImageToolThreadDelegate);
 
         }
 
@@ -860,16 +880,13 @@ namespace FSEarthTilesDLL
         {
             
             //do the last preparation. -> Only now we have the NoTileFound in the memory
-            EarthEngines.SetNoTileFoundBitmapEngine1(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine2(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine3(mNoTileFound);
-            EarthEngines.SetNoTileFoundBitmapEngine4(mNoTileFound);
+            EarthEngines.SetNoTileFoundBitmapEngines(mNoTileFound);
 
             //And start the threading
-            mEngine1Thread.Start();
-            mEngine2Thread.Start();
-            mEngine3Thread.Start();
-            mEngine4Thread.Start();
+            foreach (Thread mEngineThread in mEngineThreads)
+            {
+                mEngineThread.Start();
+            }
 
             mThreadsStarted = true;
         }
@@ -885,20 +902,14 @@ namespace FSEarthTilesDLL
                 }
                 String vProxy = EarthConfig.mProxyList[EarthConfig.mProxyListIndex];
                 mProxy = vProxy;
-                EarthEngines.SetProxyEngine1(vProxy);
-                EarthEngines.SetProxyEngine2(vProxy);
-                EarthEngines.SetProxyEngine3(vProxy);
-                EarthEngines.SetProxyEngine4(vProxy);
+                EarthEngines.SetProxyEngines(vProxy);
                 ProxyLabel.Text = vProxy;
                 ProxyLabel.Refresh();
             }
             else
             {
                 mProxy = "direct";
-                EarthEngines.SetProxyEngine1("direct");
-                EarthEngines.SetProxyEngine2("direct");
-                EarthEngines.SetProxyEngine3("direct");
-                EarthEngines.SetProxyEngine4("direct");
+                EarthEngines.SetProxyEngines("direct");
                 ProxyLabel.Text = "direct";
                 ProxyLabel.Refresh();
             }
@@ -1071,20 +1082,14 @@ namespace FSEarthTilesDLL
 
                 // To DO read in Cookies
                 mHandleCookies = true;
-                EarthEngines.SetCookiesEngine1(mCookies, true);
-                EarthEngines.SetCookiesEngine2(mCookies, true);
-                EarthEngines.SetCookiesEngine3(mCookies, true);
-                EarthEngines.SetCookiesEngine4(mCookies, true);
+                EarthEngines.SetCookiesEngines(mCookies, true);
                 CookieLabel.Text = "Cookies On";
                 CookieLabel.Refresh();
             }
             else
             {
                 mHandleCookies = false;
-                EarthEngines.SetCookiesEngine1(mCookies, false);
-                EarthEngines.SetCookiesEngine2(mCookies, false);
-                EarthEngines.SetCookiesEngine3(mCookies, false);
-                EarthEngines.SetCookiesEngine4(mCookies, false);
+                EarthEngines.SetCookiesEngines(mCookies, false);
                 CookieLabel.Text = "Cookies Off";
                 CookieLabel.Refresh();
             }
@@ -1127,7 +1132,6 @@ namespace FSEarthTilesDLL
                 {
                     String VMapCode = EarthScriptsHandler.MapAreaCoordToTileCode(vAreaCodeX, vAreaCodeY, EarthConfig.mFetchLevel, "ABCD");
                     SetStatus(VMapCode);
-                    DisplayPicture(iTile.GetBitmapReference());
                 }
 
 
@@ -1345,126 +1349,49 @@ namespace FSEarthTilesDLL
             mWorkFeedEnginesMutex.WaitOne();
 
             String vEngineStatusFeedback = "";
-            Tile vTileOfEngine1 = new Tile();
-            Tile vTileOfEngine2 = new Tile();
-            Tile vTileOfEngine3 = new Tile();
-            Tile vTileOfEngine4 = new Tile();
+            Tile vTileOfEngine = new Tile();
             Tile vTileOfWWWEngine = new Tile();
 
-            Boolean vThereIsATileFromEngine1   = false;
-            Boolean vThereIsATileFromEngine2   = false;
-            Boolean vThereIsATileFromEngine3   = false;
-            Boolean vThereIsATileFromEngine4   = false;
+            Boolean vThereIsATileFromEngine   = false;
+            List<Boolean> vThereIsATileFromEngineNumber = Enumerable.Repeat(false, mEngineThreads.Count).ToList();
+            List<Tile> vTilesOfEngines = new List<Tile>(mEngineThreads.Count);
             Boolean vThereIsATileFromWWWEngine = false;
 
-            vThereIsATileFromEngine1 = EarthEngines.CheckForTileOfEngine1();
-
-            if (vThereIsATileFromEngine1)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                vTileOfEngine1 = EarthEngines.GetTileOfEngine1();
-                
-                mLastTileInfo = vTileOfEngine1.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
+                bool tileFromEngine = EarthEngines.CheckForTileOfEngine(i);
+                // make sure at least 1 tile from engine
+                if (tileFromEngine && !vThereIsATileFromEngine)
                 {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine1);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine1);
+                    vThereIsATileFromEngine = tileFromEngine;
                 }
-                else
+
+                if (tileFromEngine)
                 {
-                    if (vTileOfEngine1.IsGoodBitmap())
+                    vTileOfEngine = EarthEngines.GetTileOfEngine(i);
+                    vTilesOfEngines.Add(vTileOfEngine);
+                    mLastTileInfo = vTileOfEngine.mTileInfo.Clone();
+
+                    if (mAreaProcessRunning)
                     {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine1.mTileInfo))
+
+                            CheckAndHandleSuspiciousTile(vTileOfEngine);
+
+                        HandleHarvestedAreaTile(vTileOfEngine);
+                    }
+                    else
+                    {
+                        if (vTileOfEngine.IsGoodBitmap())
                         {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine1);
+                            if (!mDisplayTileCache.IsTileInCache(vTileOfEngine.mTileInfo))
+                            {
+                                mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine);
+                            }
                         }
                     }
                 }
             }
 
-
-            vThereIsATileFromEngine2 = EarthEngines.CheckForTileOfEngine2();
-
-            if (vThereIsATileFromEngine2)
-            {
-                vTileOfEngine2 = EarthEngines.GetTileOfEngine2();
-                
-                mLastTileInfo = vTileOfEngine2.mTileInfo.Clone();
-                
-                if (mAreaProcessRunning)
-                {
-  
-                        CheckAndHandleSuspiciousTile(vTileOfEngine2);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine2);
-                }
-                else
-                {
-                    if (vTileOfEngine2.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine2.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine2);
-                        }
-                    }
-                }
-            }
-
-            vThereIsATileFromEngine3 = EarthEngines.CheckForTileOfEngine3();
-
-            if (vThereIsATileFromEngine3)
-            {
-                vTileOfEngine3 = EarthEngines.GetTileOfEngine3();
-
-                mLastTileInfo = vTileOfEngine3.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
-                {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine3);
-                
-                    HandleHarvestedAreaTile(vTileOfEngine3);
-                }
-                else
-                {
-                    if (vTileOfEngine3.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine3.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine3);
-                        }
-                    }
-                }
-            }
-
-            vThereIsATileFromEngine4 = EarthEngines.CheckForTileOfEngine4();
-
-            if (vThereIsATileFromEngine4)
-            {
-                vTileOfEngine4 = EarthEngines.GetTileOfEngine4();
-
-                mLastTileInfo = vTileOfEngine4.mTileInfo.Clone();
-
-                if (mAreaProcessRunning)
-                {
-
-                        CheckAndHandleSuspiciousTile(vTileOfEngine4);
-                   
-                    HandleHarvestedAreaTile(vTileOfEngine4);
-                }
-                else
-                {
-                    if (vTileOfEngine4.IsGoodBitmap())
-                    {
-                        if (!mDisplayTileCache.IsTileInCache(vTileOfEngine4.mTileInfo))
-                        {
-                            mDisplayTileCache.AddTileOverwriteOldTiles(vTileOfEngine4);
-                        }
-                    }
-                }
-            }
 
             if (mEarthWeb != null)
             {
@@ -1510,10 +1437,14 @@ namespace FSEarthTilesDLL
                     }
                     if (!vAtLeastOneTileInAnyQueueOrEngine)
                     {
-                        vAtLeastOneTileInAnyQueueOrEngine = true;
-                        if (EarthEngines.IsEngine1TileFree() && EarthEngines.IsEngine2TileFree() && EarthEngines.IsEngine3TileFree() && EarthEngines.IsEngine4TileFree())
+                        vAtLeastOneTileInAnyQueueOrEngine = false;
+                        for (int i = 0; i < mEngineThreads.Count; i++)
                         {
-                            vAtLeastOneTileInAnyQueueOrEngine = false;
+                            if (!EarthEngines.IsEngineTileFree(i))
+                            {
+                                vAtLeastOneTileInAnyQueueOrEngine = true;
+                                break;
+                            }
                         }
                     }
                     if (!vAtLeastOneTileInAnyQueueOrEngine)
@@ -1544,58 +1475,24 @@ namespace FSEarthTilesDLL
             else
             {
                 //Display
-                if ((vThereIsATileFromEngine1) || (vThereIsATileFromEngine2) || (vThereIsATileFromEngine3) || (vThereIsATileFromEngine4) || (vThereIsATileFromWWWEngine))
+                if ((vThereIsATileFromEngine) || (vThereIsATileFromWWWEngine))
                 {
-                    if (vThereIsATileFromEngine1)
+                    for (int i = 0; i < mEngineThreads.Count; i++)
                     {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine1.mTileInfo.Equals))
+                        Boolean vThereIsATileFromThisEngine = vThereIsATileFromEngineNumber[i];
+                        if (vThereIsATileFromThisEngine)
                         {
-                            TileInfo vTileInfoToRemove1 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine1.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove1);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine1.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove1 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine1.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove1);
-                        }
-                    }
-                    if (vThereIsATileFromEngine2)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine2.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove2 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine2.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove2);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine2.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove2 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine2.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove2);
-                        }
-                    }
-                    if (vThereIsATileFromEngine3)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine3.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove3 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine3.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove3);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine3.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove3 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine3.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove3);
-                        }
-                    }
-                    if (vThereIsATileFromEngine4)
-                    {
-                        if (mToEngineDelegatedTilesControllList1.Exists(vTileOfEngine4.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove4 = mToEngineDelegatedTilesControllList1.Find(vTileOfEngine4.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove4);
-                        }
-                        if (mToEngineDelegatedTilesControllList2.Exists(vTileOfEngine4.mTileInfo.Equals))
-                        {
-                            TileInfo vTileInfoToRemove4 = mToEngineDelegatedTilesControllList2.Find(vTileOfEngine4.mTileInfo.Equals);
-                            mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove4);
+                            Tile vTileOfCurEngine = vTilesOfEngines[i];
+                            if (mToEngineDelegatedTilesControllList1.Exists(vTileOfCurEngine.mTileInfo.Equals))
+                            {
+                                TileInfo vTileInfoToRemove = mToEngineDelegatedTilesControllList1.Find(vTileOfCurEngine.mTileInfo.Equals);
+                                mToEngineDelegatedTilesControllList1.Remove(vTileInfoToRemove);
+                            }
+                            if (mToEngineDelegatedTilesControllList2.Exists(vTileOfCurEngine.mTileInfo.Equals))
+                            {
+                                TileInfo vTileInfoToRemove = mToEngineDelegatedTilesControllList2.Find(vTileOfCurEngine.mTileInfo.Equals);
+                                mToEngineDelegatedTilesControllList2.Remove(vTileInfoToRemove);
+                            }
                         }
                     }
                     if (vThereIsATileFromWWWEngine)
@@ -1632,56 +1529,20 @@ namespace FSEarthTilesDLL
             }
 
             //TimeOutHandling and free bitmap
-            if (vThereIsATileFromEngine1)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                if (vTileOfEngine1.IsGoodBitmap())
+                if (vThereIsATileFromEngineNumber[i])
                 {
-                    ResetTimeOutCounter();
+                    if (vTilesOfEngines[i].IsGoodBitmap())
+                    {
+                        ResetTimeOutCounter();
+                    }
+                    else
+                    {
+                        SetTimeOutCounterIfNotAlreadySet();
+                    }
+                    vTilesOfEngines[i].FreeBitmap();
                 }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine1.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine2)
-            {
-                if (vTileOfEngine2.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine2.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine3)
-            {
-                if (vTileOfEngine3.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine3.FreeBitmap();
-            }
-
-            if (vThereIsATileFromEngine4)
-            {
-                if (vTileOfEngine4.IsGoodBitmap())
-                {
-                    ResetTimeOutCounter();
-                }
-                else
-                {
-                    SetTimeOutCounterIfNotAlreadySet();
-                }
-                vTileOfEngine4.FreeBitmap();
             }
             if (vThereIsATileFromWWWEngine)
             {
@@ -1725,10 +1586,7 @@ namespace FSEarthTilesDLL
             mToEngineDelegatedTilesControllList2.Clear();
             mSuspiciousList1.Clear();
             mSuspiciousList2.Clear();
-            EarthEngines.EmptyEngine1Queue();
-            EarthEngines.EmptyEngine2Queue();
-            EarthEngines.EmptyEngine3Queue();
-            EarthEngines.EmptyEngine4Queue();
+            EarthEngines.EmptyEnginesQueue();
             mWorkFeedEnginesMutex.ReleaseMutex();
         }
 
@@ -1738,10 +1596,11 @@ namespace FSEarthTilesDLL
 
             mWorkFeedEnginesMutex.WaitOne();
 
-            Int32 vFreeEngine1 = 0;
-            Int32 vFreeEngine2 = 0;
-            Int32 vFreeEngine3 = 0;
-            Int32 vFreeEngine4 = 0;
+            List<Int32> vFreeEngines = new List<int>(mEngineThreads.Count);
+            for (int i = 0; i < mEngineThreads.Count; i++)
+            {
+                vFreeEngines.Add(0);
+            }
             Int32 vFreeWWWEngine  = 0;
             Int32 vTotalFreeSlots = 0;
 
@@ -1752,10 +1611,10 @@ namespace FSEarthTilesDLL
                 mIsWebEngine = mEarthWeb.Created;
             }
 
-            vFreeEngine1 = EarthEngines.GetFreeSpaceOfEngine1();
-            vFreeEngine2 = EarthEngines.GetFreeSpaceOfEngine2();
-            vFreeEngine3 = EarthEngines.GetFreeSpaceOfEngine3();
-            vFreeEngine4 = EarthEngines.GetFreeSpaceOfEngine4();
+            for (int i = 0; i < vFreeEngines.Count; i++)
+            {
+                vFreeEngines[i] = EarthEngines.GetFreeSpaceOfEngine(i);
+            }
 
             if (mIsWebEngine)
             {
@@ -1782,7 +1641,10 @@ namespace FSEarthTilesDLL
             if ((vWeHaveWork) && (!mTimeOutBlock) && (vTilesWeMayPut > 0))
             {
 
-                vTotalFreeSlots = vFreeEngine1 + vFreeEngine2 + vFreeEngine3 + vFreeEngine4;
+                foreach (Int32 vFreeEngine in vFreeEngines)
+                {
+                    vTotalFreeSlots += vFreeEngine;
+                }
 
                 if (mIsWebEngine)
                 {
@@ -1835,55 +1697,55 @@ namespace FSEarthTilesDLL
 
                         Int32 vMaxFreeSlots = 0;
                         Int32 vNrOfEnginesWithMaxFreeSlots = 0;
-                        Int32[] vEngineArray = new Int32[5] { 0, 0, 0, 0, 0 };
+                        Int32[] vEngineArray = new Int32[mEngineThreads.Count + 1];
+                        for (int i = 0; i < vEngineArray.Length; i++)
+                        {
+                            vEngineArray[i] = 0;
+                        }
+
                         Int32 vWinnerEngine = 0;
 
-                        if (!mIsWebEngine && (vFreeEngine1 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine1; };
-                        if (!mIsWebEngine && (vFreeEngine2 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine2; };
-                        if (!mIsWebEngine && (vFreeEngine3 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine3; };
-                        if (!mIsWebEngine && (vFreeEngine4 > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine4; };
+                        foreach (Int32 vFreeEngine in vFreeEngines)
+                        {
+                            if (!mIsWebEngine && (vFreeEngine > vMaxFreeSlots)) { vMaxFreeSlots = vFreeEngine; };
+                        }
                         if (mIsWebEngine && (vFreeWWWEngine > vMaxFreeSlots)) { vMaxFreeSlots = vFreeWWWEngine; };
-                        if (!mIsWebEngine && (vFreeEngine1 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 1; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine2 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 2; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine3 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 3; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (!mIsWebEngine && (vFreeEngine4 >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 4; vNrOfEnginesWithMaxFreeSlots++; };
-                        if (mIsWebEngine && (vFreeWWWEngine >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = 5; vNrOfEnginesWithMaxFreeSlots++; };
+                        for (int i = 0; i < vFreeEngines.Count; i++)
+                        {
+                            if (!mIsWebEngine && (vFreeEngines[i] >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = i + 1; vNrOfEnginesWithMaxFreeSlots++; };
+                        }
+                        if (mIsWebEngine && (vFreeWWWEngine >= vMaxFreeSlots)) { vEngineArray[vNrOfEnginesWithMaxFreeSlots] = vFreeEngines.Count + 1; vNrOfEnginesWithMaxFreeSlots++; };
 
                         Int32 vRandom = mRandomGenerator.Next(1, vNrOfEnginesWithMaxFreeSlots + 1); //a Randomnumber between 1 and vNrOfEnginesWithMaxFreeSlots
 
 
                         //And the Winner Engine is...tata
-                        vWinnerEngine = vEngineArray[vRandom - 1];
+                        vWinnerEngine = vEngineArray[vRandom - 1] - 1;
 
 
-                        if ((mIsWebEngine) && (vWinnerEngine!=5))
+                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
                         {
                             Thread.Sleep(10); //then Error
                         }
 
-                        if (vWinnerEngine == 1)
+                        for (int i = 0; i < vFreeEngines.Count; i++)
                         {
-                            vFreeEngine1 = EarthEngines.AddTileInfoToEngine1(vTileInfo);
+                            if (vWinnerEngine == i)
+                            {
+                                vFreeEngines[i] = EarthEngines.AddTileInfoToEngine(i, vTileInfo);
+                            }
                         }
-                        if (vWinnerEngine == 2)
-                        {
-                            vFreeEngine2 = EarthEngines.AddTileInfoToEngine2(vTileInfo);
-                        }
-                        if (vWinnerEngine == 3)
-                        {
-                            vFreeEngine3 = EarthEngines.AddTileInfoToEngine3(vTileInfo);
-                        }
-                        if (vWinnerEngine == 4)
-                        {
-                            vFreeEngine4 = EarthEngines.AddTileInfoToEngine4(vTileInfo);
-                        }
-                        if (vWinnerEngine == 5)
+                        if (vWinnerEngine == vFreeEngines.Count + 1)
                         {
                             vFreeWWWEngine = mEarthWeb.AddTileInfoToWWWEngine(vTileInfo);
                         }
                         vTilesWeMayPut--;
-                        vTotalFreeSlots = vFreeEngine1 + vFreeEngine2 + vFreeEngine3 + vFreeEngine4; 
-                       
+                        vTotalFreeSlots = 0;
+                        foreach (Int32 vFreeEngine in vFreeEngines)
+                        {
+                            vTotalFreeSlots += vFreeEngine;
+                        }
+
                         if (mIsWebEngine)
                         {
                             vTotalFreeSlots = vFreeWWWEngine;
@@ -1900,19 +1762,19 @@ namespace FSEarthTilesDLL
             Int32 vEnginesQueueSize = EarthEngines.GetEnginesQueueSize();
 
             ProgressQueue1Box.Invalidate();
-            ProgressQueue1Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine1)) / vEnginesQueueSize);
+            ProgressQueue1Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[0])) / vEnginesQueueSize);
             ProgressQueue1Box.Refresh();
 
             ProgressQueue2Box.Invalidate();
-            ProgressQueue2Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine2)) / vEnginesQueueSize);
+            ProgressQueue2Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[1])) / vEnginesQueueSize);
             ProgressQueue2Box.Refresh();
 
             ProgressQueue3Box.Invalidate();
-            ProgressQueue3Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine3)) / vEnginesQueueSize);
+            ProgressQueue3Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[2])) / vEnginesQueueSize);
             ProgressQueue3Box.Refresh();
 
             ProgressQueue4Box.Invalidate();
-            ProgressQueue4Box.Value = ((100 * (vEnginesQueueSize - vFreeEngine4)) / vEnginesQueueSize);
+            ProgressQueue4Box.Value = ((100 * (vEnginesQueueSize - vFreeEngines[3])) / vEnginesQueueSize);
             ProgressQueue4Box.Refresh();
 
             mWorkFeedEnginesMutex.ReleaseMutex();
@@ -2388,6 +2250,15 @@ namespace FSEarthTilesDLL
             double startLat = mEarthArea.AreaSnapStartLatitude < mEarthArea.AreaSnapStopLatitude ? mEarthArea.AreaSnapStartLatitude : mEarthArea.AreaSnapStopLatitude;
             double stopLat = startLat == mEarthArea.AreaSnapStartLatitude ? mEarthArea.AreaSnapStopLatitude : mEarthArea.AreaSnapStartLatitude;
 
+            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
+            {
+                startLong = mEarthArea.AreaFSResampledStartLongitude < mEarthArea.AreaFSResampledStopLongitude ? mEarthArea.AreaFSResampledStartLongitude : mEarthArea.AreaFSResampledStopLongitude;
+                stopLong = startLong == mEarthArea.AreaFSResampledStartLongitude ? mEarthArea.AreaFSResampledStopLongitude : mEarthArea.AreaFSResampledStartLongitude;
+                startLat = mEarthArea.AreaFSResampledStartLatitude < mEarthArea.AreaFSResampledStopLatitude ? mEarthArea.AreaFSResampledStartLatitude : mEarthArea.AreaFSResampledStopLatitude;
+                stopLat = startLat == mEarthArea.AreaFSResampledStartLatitude ? mEarthArea.AreaFSResampledStopLatitude : mEarthArea.AreaFSResampledStartLatitude;
+            }
+
+
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
             foreach (double[] tile in tilesToDownload)
@@ -2411,6 +2282,37 @@ namespace FSEarthTilesDLL
             }
         }
 
+        private void RunImageProcessing(MasksResampleWorker w)
+        {
+            EarthScriptsHandler.DoBeforeResampleing(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+
+            ProcessDownloadedArea(w);
+
+            EarthScriptsHandler.DoAfterDownload(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+
+            if (!mStopProcess)
+            {
+                mMasksCompilerMultithreadedQueue.Enqueue(w);
+            }
+        }
+
+        private void RunMasksAndSceneryCompiler(MasksResampleWorker w)
+        {
+            if (!mStopProcess)
+            {
+                ProcessMasks(w);
+
+                if (!mStopProcess)
+                {
+                    EarthScriptsHandler.DoBeforeFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+
+                    ProcessSceneryCompilation(w);
+
+                    EarthScriptsHandler.DoAfterFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+                }
+            }
+        }
+
         //AfterMath-Thread start point
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
@@ -2422,26 +2324,16 @@ namespace FSEarthTilesDLL
                     createMeshFiles();
                 }
 
-                    EarthScriptsHandler.DoBeforeResampleing(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
-
-                    ProcessDownloadedArea();
-
-                    EarthScriptsHandler.DoAfterDownload(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
-
-                    if (!mStopProcess)
-                    {
-                        ProcessMasks();
-
-                        if (!mStopProcess)
-                        {
-                            EarthScriptsHandler.DoBeforeFSCompilation(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
-
-                            ProcessSceneryCompilation();
-
-                            EarthScriptsHandler.DoAfterFSCompilation(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
-                        }
-                    }
-                
+                MasksResampleWorker w = new MasksResampleWorker();
+                w.AreaFileString = GetAreaFileString(); ;
+                w.mEarthArea = mEarthArea.Clone();
+                w.mEarthMultiArea = mEarthMultiArea.Clone();
+                w.mCurrentAreaInfo = mCurrentAreaInfo.Clone();
+                w.mCurrentActiveAreaNr = mCurrentActiveAreaNr;
+                w.mCurrentDownloadedTilesTotal = mCurrentDownloadedTilesTotal;
+                w.mMultiAreaMode = mMultiAreaMode;
+                w.mEarthAreaTexture = mEarthAreaTexture.Clone();
+                mImageProcessingMultithreadedQueue.Enqueue(w);
             }
             else
             {
@@ -2454,7 +2346,7 @@ namespace FSEarthTilesDLL
 
 
         //--- AreaAftermathThread territory
-        void ProcessDownloadedArea()
+        void ProcessDownloadedArea(MasksResampleWorker w)
         {
             try
             {
@@ -2468,7 +2360,7 @@ namespace FSEarthTilesDLL
                         {
                             //SetStatusFromFriendThread("Undistortion Mode is set to 'Good' -> processing Mercator Y only");
                             //Thread.Sleep(500);
-                            mEarthAreaTexture.UndistortTextureY(mEarthArea, tYUndistortionMode.eMercatorOnly, this);
+                            w.mEarthAreaTexture.UndistortTextureY(w.mEarthArea, tYUndistortionMode.eMercatorOnly, this);
                             vUndistortionExecuted = true;
                         }
                         else if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfect)
@@ -2476,12 +2368,12 @@ namespace FSEarthTilesDLL
                             //SetStatusFromFriendThread("Undistortion Mode is set to 'Perfect' -> processing exact X and Y undistortion");
                             //Thread.Sleep(500);
 
-                            mEarthAreaTexture.UndistortTextureY(mEarthArea, tYUndistortionMode.eExact, this);
+                            w.mEarthAreaTexture.UndistortTextureY(w.mEarthArea, tYUndistortionMode.eExact, this);
                             vUndistortionExecuted = true;
 
                             if ((EarthConfig.mAreaSnapMode != tAreaSnapMode.eTiles) && (EarthConfig.mAreaSnapMode != tAreaSnapMode.ePixel))
                             {
-                                mEarthAreaTexture.UndistortTextureX(mEarthArea, this);
+                                w.mEarthAreaTexture.UndistortTextureX(w.mEarthArea, this);
                                 vUndistortionExecuted = true;
                             }
                             else
@@ -2495,7 +2387,7 @@ namespace FSEarthTilesDLL
                             tPictureEnhancement vPictureEnhancement;
                             vPictureEnhancement.mBrightness = EarthConfig.mBrightness;
                             vPictureEnhancement.mContrast = EarthConfig.mContrast;
-                            Boolean vContinue = mEarthAreaTexture.FSResampleTexture(mEarthArea, tResampleMode.eMercator, vPictureEnhancement, this);
+                            Boolean vContinue = w.mEarthAreaTexture.FSResampleTexture(w.mEarthArea, tResampleMode.eMercator, vPictureEnhancement, this);
                             if (vContinue)
                             {
                                 vUndistortionExecuted = true;
@@ -2540,7 +2432,7 @@ namespace FSEarthTilesDLL
                         {
                             SetStatusFromFriendThread("Processing Color enhancement...");
                             Thread.Sleep(500);
-                            mEarthAreaTexture.EnhanceColor(vPictureEnhancement);
+                            w.mEarthAreaTexture.EnhanceColor(vPictureEnhancement);
                         }
                     }
 
@@ -2548,43 +2440,43 @@ namespace FSEarthTilesDLL
                     {
                        SetStatusFromFriendThread("Suppress pitch black pixels ...");
                        Thread.Sleep(500);
-                       mEarthAreaTexture.SuppressPitchBlackPixels();
+                       w.mEarthAreaTexture.SuppressPitchBlackPixels();
                     }
 
                     if (!mStopProcess)
                     {
 
                         
-                        String vAreaBmpFileName = "Area" + GetAreaFileString() + ".bmp";
+                        String vAreaBmpFileName = "Area" + w.AreaFileString + ".bmp";
                         String vTextureDestination = EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName;
 
                         
-                        String vAreaThumbnailFileName = "AreaThumbnail" + GetAreaFileString() + ".bmp";
+                        String vAreaThumbnailFileName = "AreaThumbnail" + w.AreaFileString + ".bmp";
                         String vThumbnailDestination = EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName;
 
                         SetStatusFromFriendThread("Saving Area Bitmap to File.");
                         Thread.Sleep(500);
 
-                        mEarthAreaTexture.SaveBitmap(vTextureDestination);
+                        w.mEarthAreaTexture.SaveBitmap(vTextureDestination);
 
                         SetStatusFromFriendThread("Creating Thumbnail and AreaInfo.");
                         Thread.Sleep(500);
 
-                        mEarthAreaTexture.CreateAndSaveThumbnail(vThumbnailDestination);
+                        w.mEarthAreaTexture.CreateAndSaveThumbnail(vThumbnailDestination);
 
-                        SaveAreaInfo();
+                        SaveAreaInfo(w);
 
                     }
                 }
 
 
-                mEarthAreaTexture.FreeTextureMemory();
+                w.mEarthAreaTexture.FreeTextureMemory();
             }
 
             catch (System.Exception e)
             {
 
-                mEarthAreaTexture.FreeTextureMemory();
+                w.mEarthAreaTexture.FreeTextureMemory();
 
                 SetExitStatusFromFriendThread("Memory or Code conflict! - ProcessDownloadedArea() - " + e.ToString());
                 mStopProcess = true; //pretend scenery compilation
@@ -2592,8 +2484,79 @@ namespace FSEarthTilesDLL
         }
 
 
+        void cleanupAfterResample(string areaFileString)
+        {
+            try
+            {
+
+                if (!EarthConfig.mKeepAreaInfFile)
+                {
+                    String vAreaInfoFileName = "AreaFSInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaMaskInfFile)
+                {
+                    String vAreaFS2004MasksInfoFileName = "AreaFS2004MasksInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksInfoFileName);
+                    String vAreaFSXMasksInfoFileName = "AreaFSXMasksInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaMaskSeasonInfFile)
+                {
+                    String vAreaFS2004MasksSeasonsInfoFileName = "AreaFS2004MasksSeasonsInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksSeasonsInfoFileName);
+                    String vAreaFSXMasksSeasonsInfoFileName = "AreaFSXMasksSeasonsInfo" + areaFileString + ".inf";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksSeasonsInfoFileName);
+                }
+                if (!EarthConfig.mKeepAreaEarthInfoFile)
+                {
+                    String vAreaEarthInfoFileName = "AreaEarthInfo" + areaFileString + ".txt";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaEarthInfoFileName);
+                }
+                if (!EarthConfig.mKeepSourceBitmap)
+                {
+                    String vAreaBmpFileName = "Area" + areaFileString + ".bmp";
+                    File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName);
+                }
+
+                //MaskStuff
+                if (EarthConfig.mCreateAreaMask)
+                {
+                    String vAreaMaskFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + areaFileString + ".bmp";
+                    String vAreaSummerFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSummer" + areaFileString + ".bmp";
+                    String vAreaNightFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaNight" + areaFileString + ".bmp";
+                    String vAreaSpringFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSpring" + areaFileString + ".bmp";
+                    String vAreaAutumnFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaAutumn" + areaFileString + ".bmp";
+                    String vAreaWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaWinter" + areaFileString + ".bmp";
+                    String vAreaHardWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaHardWinter" + areaFileString + ".bmp";
+
+                    if (!EarthConfig.mKeepSummerBitmap)
+                    {
+                        File.Delete(vAreaSummerFullFilePath);
+                    }
+                    if (!EarthConfig.mKeepMaskBitmap)
+                    {
+                        File.Delete(vAreaMaskFullFilePath);
+                    }
+                    if (!EarthConfig.mKeepSeasonsBitmaps)
+                    {
+                        File.Delete(vAreaNightFullFilePath);
+                        File.Delete(vAreaSpringFullFilePath);
+                        File.Delete(vAreaAutumnFullFilePath);
+                        File.Delete(vAreaWinterFullFilePath);
+                        File.Delete(vAreaHardWinterFullFilePath);
+                    }
+                }
+            }
+            catch
+            {
+                //ignore
+            }
+        }
+
+
         //--- AreaAftermathThread territory
-        void ProcessSceneryCompilation()
+        void ProcessSceneryCompilation(MasksResampleWorker w)
         {
             try
             {
@@ -2604,7 +2567,7 @@ namespace FSEarthTilesDLL
                 {
                     EarthConfig.mSceneryCompiler = "";
                     EarthConfig.mSceneryImageTool = "";
-                    if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+                    if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
                     {
                         EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                         EarthConfig.mSceneryImageTool = "";
@@ -2615,33 +2578,10 @@ namespace FSEarthTilesDLL
                         EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
                     }
 
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mWorkFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Error Could not change to specified working directory! Check your working directory.");
-                        Thread.Sleep(2000);
-                        vSceneryCompilerReturnOk = false;
-                        vContinue = false;
-                    }
-
                     if (vContinue)
                     {
                         SetStatusFromFriendThread("Starting FS Scenery Compiler...");
-                        vSceneryCompilerReturnOk = StartSceneryCompiler();
-                    }
-
-                    try
-                    {
-                        Directory.SetCurrentDirectory(EarthConfig.mStartExeFolder);
-                    }
-                    catch
-                    {
-                        SetStatusFromFriendThread("Warning! Could not change back to start directory!");
-                        Thread.Sleep(2000);
-                        vContinue = false;
+                        vSceneryCompilerReturnOk = StartSceneryCompiler(w);
                     }
                 }
 
@@ -2651,44 +2591,44 @@ namespace FSEarthTilesDLL
 
                     if (!EarthConfig.mKeepAreaInfFile)
                     {
-                        String vAreaInfoFileName = "AreaFSInfo" + GetAreaFileString() + ".inf";
+                        String vAreaInfoFileName = "AreaFSInfo" + w.AreaFileString + ".inf";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName);
                     }
                     if (!EarthConfig.mKeepAreaMaskInfFile)
                     {
-                        String vAreaFS2004MasksInfoFileName = "AreaFS2004MasksInfo" + GetAreaFileString() + ".inf";
+                        String vAreaFS2004MasksInfoFileName = "AreaFS2004MasksInfo" + w.AreaFileString + ".inf";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksInfoFileName);
-                        String vAreaFSXMasksInfoFileName = "AreaFSXMasksInfo" + GetAreaFileString() + ".inf";
+                        String vAreaFSXMasksInfoFileName = "AreaFSXMasksInfo" + w.AreaFileString + ".inf";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksInfoFileName);
                     }
                     if (!EarthConfig.mKeepAreaMaskSeasonInfFile)
                     {
-                        String vAreaFS2004MasksSeasonsInfoFileName = "AreaFS2004MasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                        String vAreaFS2004MasksSeasonsInfoFileName = "AreaFS2004MasksSeasonsInfo" + w.AreaFileString + ".inf";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFS2004MasksSeasonsInfoFileName);
-                        String vAreaFSXMasksSeasonsInfoFileName = "AreaFSXMasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                        String vAreaFSXMasksSeasonsInfoFileName = "AreaFSXMasksSeasonsInfo" + w.AreaFileString + ".inf";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaFSXMasksSeasonsInfoFileName);
                     }
                     if (!EarthConfig.mKeepAreaEarthInfoFile)
                     {
-                        String vAreaEarthInfoFileName = "AreaEarthInfo" + GetAreaFileString() + ".txt";
+                        String vAreaEarthInfoFileName = "AreaEarthInfo" + w.AreaFileString + ".txt";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaEarthInfoFileName);
                     }
                     if (!EarthConfig.mKeepSourceBitmap)
                     {
-                        String vAreaBmpFileName = "Area" + GetAreaFileString() + ".bmp";
+                        String vAreaBmpFileName = "Area" + w.AreaFileString + ".bmp";
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName);
                     }
 
                     //MaskStuff
                     if (EarthConfig.mCreateAreaMask)
                     {
-                        String vAreaMaskFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + GetAreaFileString() + ".bmp";
-                        String vAreaSummerFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSummer" + GetAreaFileString() + ".bmp";
-                        String vAreaNightFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaNight" + GetAreaFileString() + ".bmp";
-                        String vAreaSpringFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSpring" + GetAreaFileString() + ".bmp";
-                        String vAreaAutumnFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaAutumn" + GetAreaFileString() + ".bmp";
-                        String vAreaWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaWinter" + GetAreaFileString() + ".bmp";
-                        String vAreaHardWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaHardWinter" + GetAreaFileString() + ".bmp";
+                        String vAreaMaskFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp";
+                        String vAreaSummerFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSummer" + w.AreaFileString + ".bmp";
+                        String vAreaNightFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaNight" + w.AreaFileString + ".bmp";
+                        String vAreaSpringFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaSpring" + w.AreaFileString + ".bmp";
+                        String vAreaAutumnFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaAutumn" + w.AreaFileString + ".bmp";
+                        String vAreaWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaWinter" + w.AreaFileString + ".bmp";
+                        String vAreaHardWinterFullFilePath = EarthConfig.mWorkFolder + "\\" + "AreaHardWinter" + w.AreaFileString + ".bmp";
 
                         if (!EarthConfig.mKeepSummerBitmap)
                         {
@@ -2717,10 +2657,6 @@ namespace FSEarthTilesDLL
                 {
                     //SetExitStatusFromFriendThread("Done.            The Last completed Area contains " + Convert.ToString(mLastDownloadProcessTileMisses) + " faulty or missing Tiles.");
                     //It's always zero fault because 0 fault politic so just say Done.
-                    if (!ScenprocUtils.ScenProcRunning)
-                    {
-                        SetExitStatusFromFriendThread("Done.");
-                    }
                 }
                 else
                 {
@@ -2735,7 +2671,7 @@ namespace FSEarthTilesDLL
 
         }
 
-        void ProcessMasks()
+        void ProcessMasks(MasksResampleWorker w)
         {
             try
             {
@@ -2747,12 +2683,12 @@ namespace FSEarthTilesDLL
                         StartSVGTool();
                     }
 
-                    EarthScriptsHandler.DoBeforeFSEarthMasks(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
+                    EarthScriptsHandler.DoBeforeFSEarthMasks(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
                     SetStatusFromFriendThread("Starting FS Earth Masks Tool");
-                    StartFSEarthMasks();
+                    StartFSEarthMasks(w);
 
-                    EarthScriptsHandler.DoAfterFSEarthMasks(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
+                    EarthScriptsHandler.DoAfterFSEarthMasks(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
                 }
             }
             catch (System.Exception e)
@@ -2763,16 +2699,17 @@ namespace FSEarthTilesDLL
         }
 
 
-        Boolean StartFSEarthMasks()
+        Boolean StartFSEarthMasks(MasksResampleWorker w)
         {
+            System.Diagnostics.Process proc = null;
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mFSEarthMasks))
                 {
 
-                    String vAreaEarthInfoFileName = "AreaEarthInfo" + GetAreaFileString() + ".txt";
+                    String vAreaEarthInfoFileName = "AreaEarthInfo" + w.AreaFileString + ".txt";
 
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc = new System.Diagnostics.Process();
                     //proc.EnableRaisingEvents = false;
                     //proc.StartInfo.UseShellExecute = false;
                     //proc.StartInfo.RedirectStandardOutput = true;
@@ -2796,6 +2733,15 @@ namespace FSEarthTilesDLL
                     SetStatusFromFriendThread("FSEarthMasks exe in FSEarthTiles is missing!");
                     return false;
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                if (proc != null)
+                {
+                    proc.Kill();
+                }
+
+                return false;
             }
             catch
             {
@@ -5455,7 +5401,12 @@ namespace FSEarthTilesDLL
 
         private void StartDownload()
         {
-            if (!mAreaProcessRunning && !ScenprocUtils.ScenProcRunning)
+            bool shouldStart = !mAreaProcessRunning && !ScenprocUtils.ScenProcRunning
+                && ((mMasksCompilerMultithreadedQueue == null && mImageProcessingMultithreadedQueue == null)
+                || MultiThreadedQueuesFinished()) && (mImageToolThread == null
+                || ImageToolThreadUnstarted() || ImageToolThreadFinished());
+
+            if (shouldStart)
             {
                 if (mInputCoordsValidity)
                 {
@@ -5465,7 +5416,7 @@ namespace FSEarthTilesDLL
                         {
                             if (PrepareSceneryDirectory())
                             {
-                                if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX"))
+                                if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FSX/P3D"))
                                 {
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                                     EarthConfig.mSceneryImageTool = "";
@@ -5486,7 +5437,7 @@ namespace FSEarthTilesDLL
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFS9Script, EarthConfig.mWorkFolder);
                                         }
-                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX" && File.Exists(fsxp3dScriptLoc))
+                                        else if (EarthConfig.mSelectedSceneryCompiler == "FSX/P3D" && File.Exists(fsxp3dScriptLoc))
                                         {
                                             ScenprocUtils.RunScenprocThreaded(mEarthMultiArea, EarthConfig.mScenprocLoc, EarthConfig.mScenprocFSXP3DScript, EarthConfig.mWorkFolder);
                                         }
@@ -5495,6 +5446,18 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
                                     
+                                    mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
+                                    mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
+
+                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
+                                    mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
+                                    if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
+                                    {
+                                        // reset image tool thread
+                                        ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
+                                        mImageToolThread = new Thread(vImageToolThreadDelegate);
+                                    }
+
                                     mCurrentAreaInfo = new AreaInfo(0, 0);
                                     mCurrentActiveAreaNr = 1;
                                     mCurrentDownloadedTilesTotal = 0;
@@ -5610,6 +5573,12 @@ namespace FSEarthTilesDLL
             if (ScenprocUtils.ScenProcRunning)
             {
                 ScenprocUtils.TellScenprocToTerminate();
+            }
+            mMasksCompilerMultithreadedQueue.Stop();
+            mImageProcessingMultithreadedQueue.Stop();
+            if (mImageToolThread != null && mImageToolThread.IsAlive)
+            {
+                mImageToolThread.Abort();
             }
         }
 
@@ -5761,7 +5730,7 @@ namespace FSEarthTilesDLL
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eLOD13;
                 }
                 //Auto set Off if FS2004 is selected
-                if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX"))
+                if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX/P3D"))
                 {
                     AreaSnapBox.Text = "Off";
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eOff;
@@ -5770,12 +5739,12 @@ namespace FSEarthTilesDLL
         }
 
 
-        private void SaveAreaInfo()
+        private void SaveAreaInfo(MasksResampleWorker w)
         {
             EarthArea vEarthArea = new EarthArea();
-            vEarthArea.Copy(mEarthArea);  //Copy so it is not dangerous if it is altered in the script
+            vEarthArea.Copy(w.mEarthArea);  //Copy so it is not dangerous if it is altered in the script
 
-            String vAreaFileNameMiddlePart = GetAreaFileString();
+            String vAreaFileNameMiddlePart = w.AreaFileString;
 
             EarthScriptsHandler.SaveAreaInfo(vEarthArea, vAreaFileNameMiddlePart);
         }
@@ -5832,14 +5801,137 @@ namespace FSEarthTilesDLL
             }
         }
 
-        Boolean StartSceneryCompiler()
+
+        Boolean RunImageTool()
         {
+            System.Diagnostics.Process procImgTool = null;
+            try
+            {
+                if (!EarthCommon.StringCompare(EarthConfig.mSceneryImageTool, ""))
+                {
+                    if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
+                    {
+
+                        SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
+
+                        // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
+                        // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
+                        // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
+                        // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
+                        // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
+                        // and I don't want to write my own when this simpler solution gets the job done
+                        ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
+
+                        SetStatusFromFriendThread("Starting FS2004 Imagetool..");
+                        Thread.Sleep(1000);
+
+                        procImgTool = new System.Diagnostics.Process();
+                        //procImgTool.EnableRaisingEvents = false;
+                        //procImgTool.StartInfo.UseShellExecute = false;
+                        //procImgTool.StartInfo.RedirectStandardOutput = true;
+                        //procImgTool.StartInfo.CreateNoWindow = true;
+                        //procImgTool.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                        procImgTool.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool;
+                        procImgTool.StartInfo.Arguments = "-nogui -terrainphoto " + "\"" + EarthConfig.mWorkFolder + "\\" + "*.tga" + "\"";
+                        procImgTool.Start();
+
+                        SetStatusFromFriendThread("FS2004 Imagetool active. Waiting for completion.");
+                        Thread.Sleep(500);
+
+                        procImgTool.WaitForExit();
+                        if (!procImgTool.HasExited)
+                        {
+                            procImgTool.Kill();
+                        };
+
+
+                        SetStatusFromFriendThread("Copying Texture Files ....");
+                        Thread.Sleep(500);
+
+                        String vTgaSubDirectory = EarthConfig.mSceneryFolderTexture + "\\" + "TgaSourceFiles";
+
+                        if (EarthConfig.mFS2004KeepTGAs)
+                        {
+                            //First create a TGA subdirectory.
+                            if (!(Directory.Exists(vTgaSubDirectory)))
+                            {
+                                Directory.CreateDirectory(vTgaSubDirectory);
+                            }
+                        }
+
+                        String[] vMipFiles = Directory.GetFiles(EarthConfig.mWorkFolder, "*.mip");
+
+                        for (Int32 vFileCount = 0; vFileCount < vMipFiles.Length; vFileCount++)
+                        {
+                            String vDestFileName = vMipFiles[vFileCount];
+                            String vTgaFullFileName;
+                            String vTgaFileName;
+
+                            //replace Ending
+                            Int32 vEndingIndex = vDestFileName.IndexOf(".mip");
+                            vDestFileName = vDestFileName.Remove(vEndingIndex);
+                            vTgaFullFileName = vDestFileName;
+                            vDestFileName += ".bmp";
+                            vTgaFullFileName += ".tga";
+                            vTgaFileName = vTgaFullFileName;
+                            //GetRightOfDirectory
+                            Int32 vDirectoryIndex = vDestFileName.IndexOf("\\");
+                            while (vDirectoryIndex >= 0)
+                            {
+                                vDestFileName = vDestFileName.Substring(vDirectoryIndex + 1, vDestFileName.Length - (vDirectoryIndex + 1));
+                                vTgaFileName = vTgaFileName.Substring(vDirectoryIndex + 1, vTgaFileName.Length - (vDirectoryIndex + 1));
+                                vDirectoryIndex = vDestFileName.IndexOf("\\");
+                            }
+
+                            //finaly Copy and rename!
+                            String vSource = vMipFiles[vFileCount];
+                            String vDest = EarthConfig.mSceneryFolderTexture + "\\" + vDestFileName;
+                            String vTgaDest = vTgaSubDirectory + "\\" + vTgaFileName;
+                            File.Copy(vSource, vDest, true);
+                            if (EarthConfig.mFS2004KeepTGAs)
+                            {
+                                File.Copy(vTgaFullFileName, vTgaDest, true);
+                            }
+                            File.Delete(vSource);
+                            File.Delete(vTgaFullFileName);
+                        }
+                    }
+
+                    return true;
+                }
+            }
+            catch (ThreadAbortException)
+            {
+                if (procImgTool != null)
+                {
+                    procImgTool.Kill();
+                }
+
+                return false;
+            }
+
+            return false;
+        }
+
+
+        void RunImageToolProcessing()
+        {
+            if (!RunImageTool())
+            {
+                SetStatusFromFriendThread("There was an error running ImageTool");
+            }
+        }
+
+
+        Boolean StartSceneryCompiler(MasksResampleWorker w)
+        {
+            System.Diagnostics.Process proc = null;
             try
             {
                 if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryCompiler))
                 {
 
-                    String vAreaInfoFileName = "AreaFSInfo" + GetAreaFileString() + ".inf";
+                    String vAreaInfoFileName = "AreaFSInfo" + w.AreaFileString + ".inf";
 
                     if (EarthConfig.mCreateAreaMask)
                     {
@@ -5849,28 +5941,28 @@ namespace FSEarthTilesDLL
                             {
                                 if ((EarthConfig.IsWithSeasons()))
                                 {
-                                    vAreaInfoFileName = "AreaFS2004MasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFS2004MasksSeasonsInfo" + w.AreaFileString + ".inf";
                                 }
                                 else
                                 {
-                                    vAreaInfoFileName = "AreaFS2004MasksInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFS2004MasksInfo" + w.AreaFileString + ".inf";
                                 }
                             }
                             else
                             {
                                 if ((EarthConfig.IsWithSeasons()))
                                 {
-                                    vAreaInfoFileName = "AreaFSXMasksSeasonsInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFSXMasksSeasonsInfo" + w.AreaFileString + ".inf";
                                 }
                                 else
                                 {
-                                    vAreaInfoFileName = "AreaFSXMasksInfo" + GetAreaFileString() + ".inf";
+                                    vAreaInfoFileName = "AreaFSXMasksInfo" + w.AreaFileString + ".inf";
                                 }
                             }
                         }
                     }
 
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                    proc = new System.Diagnostics.Process();
                     //proc.EnableRaisingEvents = false;
                     //proc.StartInfo.UseShellExecute = false;
                     //proc.StartInfo.RedirectStandardOutput = true;
@@ -5887,7 +5979,7 @@ namespace FSEarthTilesDLL
                         proc.Kill();
                     };
 
-                    String vAreaThumbnailFileName = "AreaThumbnail" + GetAreaFileString() + ".bmp";
+                    String vAreaThumbnailFileName = "AreaThumbnail" + w.AreaFileString + ".bmp";
 
                     if (File.Exists(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName))
                     {
@@ -5899,97 +5991,6 @@ namespace FSEarthTilesDLL
                         File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName);
                     }
 
-                    if (!EarthCommon.StringCompare(EarthConfig.mSceneryImageTool, ""))
-                    {
-                        if (File.Exists(EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool))
-                        {
-
-                            SetStatusFromFriendThread("Fixing all black TGAs so imagetool doesn't drop their alpha channel...");
-
-                            // imagetool has a bug/quirk that it drops the alpha channel of an image if it is all one color.
-                            // this is a problem for images which are all water. they will stop being masked properly as their alpha channel
-                            // will be dropped by imagetool. I cheat a little and set one of its pixels to white in such a case. Imperceptible
-                            // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
-                            // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
-                            // and I don't want to write my own when this simpler solution gets the job done
-                            ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
-
-                            SetStatusFromFriendThread("Starting FS2004 Imagetool..");
-                            Thread.Sleep(1000);
-
-                            System.Diagnostics.Process procImgTool = new System.Diagnostics.Process();
-                            //procImgTool.EnableRaisingEvents = false;
-                            //procImgTool.StartInfo.UseShellExecute = false;
-                            //procImgTool.StartInfo.RedirectStandardOutput = true;
-                            //procImgTool.StartInfo.CreateNoWindow = true;
-                            //procImgTool.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-                            procImgTool.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.mSceneryImageTool;
-                            procImgTool.StartInfo.Arguments = "-nogui -terrainphoto " + "\"" + EarthConfig.mWorkFolder + "\\" + "*.tga" + "\"";
-                            procImgTool.Start();
-
-                            SetStatusFromFriendThread("FS2004 Imagetool active. Waiting for completion.");
-                            Thread.Sleep(500);
-
-                            procImgTool.WaitForExit();
-                            if (!procImgTool.HasExited)
-                            {
-                                procImgTool.Kill();
-                            };
-
-
-                            SetStatusFromFriendThread("Copying Texture Files ....");
-                            Thread.Sleep(500);
-
-                            String vTgaSubDirectory = EarthConfig.mSceneryFolderTexture + "\\" + "TgaSourceFiles";
-
-                            if (EarthConfig.mFS2004KeepTGAs)
-                            {
-                                //First create a TGA subdirectory.
-                                if (!(Directory.Exists(vTgaSubDirectory)))
-                                {
-                                    Directory.CreateDirectory(vTgaSubDirectory);
-                                }
-                            }
-
-                            String[] vMipFiles = Directory.GetFiles(EarthConfig.mWorkFolder, "*.mip");
-
-                            for (Int32 vFileCount = 0; vFileCount < vMipFiles.Length; vFileCount++)
-                            {
-                                String vDestFileName = vMipFiles[vFileCount];
-                                String vTgaFullFileName;
-                                String vTgaFileName;
-
-                                //replace Ending
-                                Int32 vEndingIndex = vDestFileName.IndexOf(".mip");
-                                vDestFileName = vDestFileName.Remove(vEndingIndex);
-                                vTgaFullFileName = vDestFileName;
-                                vDestFileName += ".bmp";
-                                vTgaFullFileName += ".tga";
-                                vTgaFileName = vTgaFullFileName;
-                                //GetRightOfDirectory
-                                Int32 vDirectoryIndex = vDestFileName.IndexOf("\\");
-                                while (vDirectoryIndex >= 0)
-                                {
-                                    vDestFileName = vDestFileName.Substring(vDirectoryIndex + 1, vDestFileName.Length - (vDirectoryIndex + 1));
-                                    vTgaFileName = vTgaFileName.Substring(vDirectoryIndex + 1, vTgaFileName.Length - (vDirectoryIndex + 1));
-                                    vDirectoryIndex = vDestFileName.IndexOf("\\");
-                                }
-
-                                //finaly Copy and rename!
-                                String vSource = vMipFiles[vFileCount];
-                                String vDest = EarthConfig.mSceneryFolderTexture + "\\" + vDestFileName;
-                                String vTgaDest = vTgaSubDirectory + "\\" + vTgaFileName;
-                                File.Copy(vSource, vDest, true);
-                                if (EarthConfig.mFS2004KeepTGAs)
-                                {
-                                    File.Copy(vTgaFullFileName, vTgaDest, true);
-                                }
-                                File.Delete(vSource);
-                                File.Delete(vTgaFullFileName);
-                            }
-                        }
-                    }
-
                     return true;
                 }
                 else
@@ -5997,6 +5998,14 @@ namespace FSEarthTilesDLL
                     SetStatusFromFriendThread("SceneryCompiler in FSEarthTiles is missing!");
                     return false;
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                if (proc != null)
+                {
+                    proc.Kill();
+                }
+                return false;
             }
             catch
             {
@@ -7093,6 +7102,26 @@ namespace FSEarthTilesDLL
         }
 
 
+        bool MultiThreadedQueuesFinished()
+        {
+            bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
+                                    && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
+
+            return multithreadedQueuesFinished;
+        }
+
+        bool ImageToolThreadUnstarted()
+        {
+            return (mImageToolThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
+        }
+
+        bool ImageToolThreadFinished()
+        {
+            return mImageToolThread != null
+                && ((mImageToolThread.ThreadState & ThreadState.Stopped) == ThreadState.Stopped)
+                || ((mImageToolThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
+        }
+
         void MainThreadTimerEventProcessor(Object myObject, EventArgs myEventArgs)
         {
 
@@ -7206,10 +7235,30 @@ namespace FSEarthTilesDLL
 
 
             // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
-            if (scenProcWasRunning && !ScenprocUtils.ScenProcRunning && !mAreaProcessRunning)
+            bool multithreadedQueuesFinished = MultiThreadedQueuesFinished();
+            bool shouldStartImageTool = multithreadedQueuesFinished && EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler
+                                        && mImageToolThread != null
+                                        && ImageToolThreadUnstarted();
+            if (shouldStartImageTool)
             {
-                SetStatus("Done.");
-                scenProcWasRunning = false;
+                mImageToolThread.Start();
+            }
+            if (multithreadedQueuesFinished && !mAreaProcessRunning)
+            {
+                if (mImageToolThread != null && mImageToolThread.IsAlive)
+                {
+                    SetStatus("Waiting on ImageTool to finish.");
+                }
+                else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
+                {
+                    // scenproc wasn't running, or it was but now it's not
+                    SetStatus("Done.");
+                    scenProcWasRunning = false;
+                }
+                else
+                {
+                    SetStatus("Done.");
+                }
             }
 
             //Get Status from Area Processing Friend Thread
@@ -7287,7 +7336,17 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
+                            mMasksCompilerMultithreadedQueue.CompleteAdding();
+                            mImageProcessingMultithreadedQueue.CompleteAdding();
+                            if (!mMasksCompilerMultithreadedQueue.AllDone())
+                            {
+                                SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
+                            }
+                            else if (!mImageProcessingMultithreadedQueue.AllDone())
+                            {
+                                SetStatus("Waiting on image processing threads to finish.");
+                            }
+                            else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
                             {
                                 SetStatus("Waiting on Scenproc to finish");
                                 scenProcWasRunning = true;
@@ -7574,25 +7633,15 @@ namespace FSEarthTilesDLL
             {
                 //nothign to do
             }
-            if (mEngine1Thread != null)
+            for (int i = 0; i < mEngineThreads.Count; i++)
             {
-                mEngine1Thread.Abort();
-                mEngine1Thread = null;
-            }
-            if (mEngine2Thread != null)
-            {
-                mEngine2Thread.Abort();
-                mEngine2Thread = null;
-            }
-            if (mEngine3Thread != null)
-            {
-                mEngine3Thread.Abort();
-                mEngine3Thread = null;
-            }
-            if (mEngine4Thread != null)
-            {
-                mEngine4Thread.Abort();
-                mEngine4Thread = null;
+                Thread mEngineThread = mEngineThreads[i];
+                if (mEngineThread != null)
+                {
+                    mEngineThread.Abort();
+                    mEngineThread = null;
+                    mEngineThreads[i] = mEngineThread;
+                }
             }
             if (mAreaAftermathThread != null)
             {
@@ -7604,6 +7653,18 @@ namespace FSEarthTilesDLL
                 mEarthWeb.Close();
                 mEarthWeb.Dispose();
                 mEarthWeb = null;
+            }
+            if (mMasksCompilerMultithreadedQueue != null)
+            {
+                mMasksCompilerMultithreadedQueue.Stop();
+            }
+            if (mImageProcessingMultithreadedQueue != null)
+            {
+                mImageProcessingMultithreadedQueue.Stop();
+            }
+            if (mImageToolThread != null && mImageToolThread.IsAlive)
+            {
+                mImageToolThread.Abort();
             }
             EarthScriptsHandler.CleanUp();
         }

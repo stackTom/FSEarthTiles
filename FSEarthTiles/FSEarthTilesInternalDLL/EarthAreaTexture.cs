@@ -2863,6 +2863,87 @@ namespace FSEarthTilesInternalDLL
         }
 
 
+        private EarthAreaTexture ShallowCopy()
+        {
+            return (EarthAreaTexture)this.MemberwiseClone();
+        }
+
+
+        private uint[,] DeepCopy2DArray(uint[,] toCopy)
+        {
+            uint[,] temp = new uint[toCopy.GetLength(0), toCopy.GetLength(1)];
+            for (int i = 0; i < temp.GetLength(0); i++)
+            {
+                for (int j = 0; j < temp.GetLength(1); j++)
+                {
+                    temp[i, j] = toCopy[i, j];
+                }
+            }
+
+            return temp;
+        }
+
+        private void DeepCopy2DArray(uint[,]src, uint[,] dest)
+        {
+            for (int i = 0; i < src.GetLength(0); i++)
+            {
+                for (int j = 0; j < src.GetLength(1); j++)
+                {
+                    dest[i, j] = src[i, j];
+                }
+            }
+        }
+
+        private EarthAreaTexture DeepCopy()
+        {
+            EarthAreaTexture dc = ShallowCopy();
+            if (mUndistortionBitmapRowRingbuffer != null)
+            {
+                dc.mUndistortionBitmapRowRingbuffer = DeepCopy2DArray(mUndistortionBitmapRowRingbuffer);
+            }
+            if (mAreaResampleArray != null)
+            {
+                dc.mAreaResampleArray = DeepCopy2DArray(mAreaResampleArray);
+            }
+            if (mAreaResampleAllocTestDummyArray != null)
+            {
+                dc.mAreaResampleAllocTestDummyArray = DeepCopy2DArray(mAreaResampleAllocTestDummyArray);
+            }
+            if (mColorCorrectionTable != null)
+            {
+                dc.mColorCorrectionTable = (uint[])mColorCorrectionTable.Clone();
+            }
+            if (mMaxBitmap1Array != null)
+            {
+                dc.mMaxBitmap1Array = DeepCopy2DArray(mMaxBitmap1Array);
+            }
+            if (mMaxBitmap2Array != null)
+            {
+                dc.mMaxBitmap2Array = DeepCopy2DArray(mMaxBitmap2Array);
+            }
+
+            // the below can't be just clone.
+            // I'm not entirely sure why. I think it has to do with the GCHandle, which is freed elsewhere
+            // cloning the below and not doing it like this causes some images to be duplicate of others
+            // or have black squares (aka be corrupt)
+            dc.mAreaBitmapArray = new UInt32[dc.mArrayHeight, dc.mArrayWidth];
+            dc.mGCHandle = GCHandle.Alloc(mAreaBitmapArray, GCHandleType.Pinned);
+            IntPtr vPointer = Marshal.UnsafeAddrOfPinnedArrayElement(mAreaBitmapArray, 0);
+            dc.mAreaBitmap = new Bitmap(mAreaBitmap.Width, mAreaBitmap.Height, mArrayWidth << 2, System.Drawing.Imaging.PixelFormat.Format24bppRgb, vPointer);
+            DeepCopy2DArray(mAreaBitmapArray, dc.mAreaBitmapArray);
+            dc.mAreaGraphics = Graphics.FromImage(mAreaBitmap);
+            dc.mMemoryAllocated = true;
+
+            return dc;
+        }
+
+
+        public EarthAreaTexture Clone()
+        {
+            return DeepCopy();
+        }
+
+
         //Direct Area Bitmap Data Bitmap Array
         protected UInt32[,] mAreaBitmapArray;                        //RGB 24Bit Bitmap Data Array
         protected UInt32[,] mUndistortionBitmapRowRingbuffer;        //used for undistorting the texture

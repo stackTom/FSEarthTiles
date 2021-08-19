@@ -65,6 +65,7 @@
       <DependentUpon>FSEarthTilesForm.cs</DependentUpon>
     </Compile>
     <Compile Include="FSEarthTilesInterface.cs" />
+    <Compile Include="MultiThreadedQueue.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TGASharpLib.cs" />
     <Compile Include="TileCodeingScript.cs" />
