@@ -347,59 +347,65 @@ namespace FSEarthMasksDLL
                 mMasksTexture.ClearCommandArray();
 
                 Bitmap waterMaskBitmap = null;
+                bool KMLFileLoaded = false;
                 if (MasksConfig.mCreateWaterMaskBitmap)
                 {
                     //Water
-                    LoadKMLFile();
+                    KMLFileLoaded = LoadKMLFile();
 
                     if (MasksConfig.mUseReversePoolPolygonOrderForKMLFile)
                     {
                         MasksCommon.ReverseOrderOfPoolPolygonesInList();
                     }
 
-                    LoadAreaVectorsFile();
-
-                    AddBlendBordersVectors();
-
-                    SetStatusFromFriendThread(" Screening Vectors ... ");
-                    mMasksTexture.ReduceLinesCount();
-                    
-                    for (Int32 vTransitionType  = 0; vTransitionType<(Int32)(MasksConfig.tTransitionType.eSize); vTransitionType++)
+                    if (KMLFileLoaded)
                     {
-                        if ((MasksCommon.mCoastLines[vTransitionType].Count > 0) ||
-                            (MasksCommon.mDeepWaterLines[vTransitionType].Count > 0))  //else nothing to do and we can spare the work
+                        LoadAreaVectorsFile();
+
+                        AddBlendBordersVectors();
+
+                        SetStatusFromFriendThread(" Screening Vectors ... ");
+                        mMasksTexture.ReduceLinesCount();
+
+                        for (Int32 vTransitionType = 0; vTransitionType < (Int32)(MasksConfig.tTransitionType.eSize); vTransitionType++)
+                        {
+                            if ((MasksCommon.mCoastLines[vTransitionType].Count > 0) ||
+                                (MasksCommon.mDeepWaterLines[vTransitionType].Count > 0))  //else nothing to do and we can spare the work
+                            {
+                                mMasksTexture.ClearWorkMaskBitmap();
+                                SetStatusFromFriendThread(" Drawing Vectors  ... ");
+                                mMasksTexture.DrawVectorsForWaterRegions(vTransitionType);
+                                mMasksTexture.FloodFillWaterLandTransition(vTransitionType, this);
+                                SetStatusFromFriendThread(" Copy to Command Array  ... ");
+                                mMasksTexture.CopyResultToWorkCommandArray(vTransitionType, this);
+                            }
+                            if (MasksCommon.mTransitionPolygons[vTransitionType].Count > 0)
+                            {
+                                mMasksTexture.ClearWorkMaskBitmap();
+                                SetStatusFromFriendThread(" Drawing Transition Polyons  ... ");
+                                mMasksTexture.DrawTransitionPolygons(vTransitionType);
+                                SetStatusFromFriendThread(" Copy to Command Array  ... ");
+                                mMasksTexture.CopyTransitionPolygonResultToWorkCommandArray(vTransitionType, this);
+                            }
+                        }
+
+                        if (MasksCommon.mPoolPolygons.Count > 0)
                         {
                             mMasksTexture.ClearWorkMaskBitmap();
-                            SetStatusFromFriendThread(" Drawing Vectors  ... ");
-                            mMasksTexture.DrawVectorsForWaterRegions(vTransitionType);
-                            mMasksTexture.FloodFillWaterLandTransition(vTransitionType, this);
+                            SetStatusFromFriendThread(" Drawing Pool Polyons  ... ");
+                            mMasksTexture.DrawPoolPolygons();
                             SetStatusFromFriendThread(" Copy to Command Array  ... ");
-                            mMasksTexture.CopyResultToWorkCommandArray(vTransitionType, this);
-                        }
-                        if (MasksCommon.mTransitionPolygons[vTransitionType].Count > 0)
-                        {
-                            mMasksTexture.ClearWorkMaskBitmap();
-                            SetStatusFromFriendThread(" Drawing Transition Polyons  ... ");
-                            mMasksTexture.DrawTransitionPolygons(vTransitionType);
-                            SetStatusFromFriendThread(" Copy to Command Array  ... ");
-                            mMasksTexture.CopyTransitionPolygonResultToWorkCommandArray(vTransitionType, this);
+                            mMasksTexture.CopyPoolPolygonsResultToWorkCommandArray(this);
                         }
                     }
-
-                    if (MasksCommon.mPoolPolygons.Count > 0)
+                    else
                     {
-                        mMasksTexture.ClearWorkMaskBitmap();
-                        SetStatusFromFriendThread(" Drawing Pool Polyons  ... ");
-                        mMasksTexture.DrawPoolPolygons();
-                        SetStatusFromFriendThread(" Copy to Command Array  ... ");
-                        mMasksTexture.CopyPoolPolygonsResultToWorkCommandArray(this);
+                        waterMaskBitmap = mMasksTexture.createWaterMaskBitmap();
                     }
-
-                    waterMaskBitmap = mMasksTexture.createWaterMaskBitmap();
                 }
 
 
-                if (MasksConfig.mCreateCommandGraphicBitmap)
+                if (KMLFileLoaded && MasksConfig.mCreateCommandGraphicBitmap)
                 {
                     SetStatusFromFriendThread(" Save Command Graphic Bitmap ... ");
                     mMasksTexture.ClearWorkMaskBitmap();
@@ -422,7 +428,14 @@ namespace FSEarthMasksDLL
                     {
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... ");
-                        mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
+                        if (KMLFileLoaded)
+                        {
+                            mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
+                        }
+                        else
+                        {
+                            mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
+                        }
                     }
                     SetStatusFromFriendThread(" Save Summer Bitmap   ... ");
                     mMasksTexture.SaveAreaMaskSummerBitmap();
@@ -434,7 +447,14 @@ namespace FSEarthMasksDLL
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... Load Source");
                         mMasksTexture.LoadSourceBitmapFileIntoWorkBitmap(this);
-                        mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
+                        if (KMLFileLoaded)
+                        {
+                            mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
+                        }
+                        else
+                        {
+                            mMasksTexture.CreateFS2004WaterInAreaBitmap(waterMaskBitmap);
+                        }
                         SetStatusFromFriendThread(" Save Source Bitmap with Alpha Channel  ... ");
                         mMasksTexture.SaveOriginalBitmap(); //But with an Alpha mask
                     }
@@ -444,8 +464,31 @@ namespace FSEarthMasksDLL
                 {
                     SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
 
-                    SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
-                    mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);
+                    if (KMLFileLoaded)
+                    {
+                        if (!MasksConfig.mCreateSummerBitmap)
+                        {
+                            SetStatusFromFriendThread(" Processing Water-Mask...  Load Source");
+                            mMasksTexture.LoadSourceBitmapFileIntoWorkBitmap(this);
+                        } //else the Summer-Texture is already loaded!
+                        else
+                        {
+                            //else the Summer-Texture is already loaded!
+                            SetStatusFromFriendThread(" Process Water-Mask  ... ");
+                        }
+                        mMasksTexture.GreeningWorkBitmap();
+                        mMasksTexture.CreateWaterInWorkMaskBitmap(this);   //Now Paint Water
+                        SetStatusFromFriendThread(" Save Invert Water-Mask  ... ");
+                        mMasksTexture.InverseWorkBitmap();
+                        SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
+                        mMasksTexture.SaveAreaMaskBitmap();
+                    }
+                    else
+                    {
+                        SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
+                        mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);
+                    }
+
                 }
 
 
@@ -873,7 +916,7 @@ namespace FSEarthMasksDLL
         }
 
 
-        private void LoadKMLFile()
+        private bool LoadKMLFile()
         {
             if (MasksConfig.mUseAreaKMLFile)
             {
@@ -947,12 +990,16 @@ namespace FSEarthMasksDLL
                                 SetStatusFromFriendThread(" Area KML File loaded. ");
                                 Thread.Sleep(2000);
 
+                                return true;
+
                             }
                             catch
                             {
                                 //ops
                                 SetStatusFromFriendThread(" Area KML File load failed. ");
                                 Thread.Sleep(2000);
+
+                                return false;
                             }
                         }
                         else
@@ -960,20 +1007,28 @@ namespace FSEarthMasksDLL
                             //ops
                             SetStatusFromFriendThread(" Area KML File can not be processed without valid Area LatitudeLongitude Coords and PixelCount. ");
                             Thread.Sleep(3000);
+
+                            return false;
                         }
                     }
                     else
                     {
                         SetStatusFromFriendThread("Be aware: Area KML File does not exist.");
                         Thread.Sleep(2000);
+
+                        return false;
                     }
                 }
                 else
                 {
                     SetStatusFromFriendThread("Can not load Area KML File: File path missing.");
                     Thread.Sleep(1500);
+
+                    return false;
                 }
             }
+
+            return false;
         }
 
 
