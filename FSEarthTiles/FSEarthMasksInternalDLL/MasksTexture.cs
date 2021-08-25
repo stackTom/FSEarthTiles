@@ -4540,7 +4540,7 @@ namespace FSEarthMasksInternalDLL
             double NWLon = MasksConfig.mAreaNWCornerLongitude;
             double SELat = MasksConfig.mAreaSECornerLatitude;
             double SELon = MasksConfig.mAreaSECornerLongitude;
-            const double BLEND_WIDTH = 0.005;
+            const double BLEND_WIDTH = 0.0065;
             if (MasksConfig.mBlendNorthBorder)
             {
                 Blend(g, CoordsToPixelRect(NWLat, NWLat - BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
