@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.IO;
 using FSEarthTilesInternalDLL;
+using System.Drawing.Drawing2D;
 
 
 
@@ -4463,6 +4464,69 @@ namespace FSEarthMasksInternalDLL
 
         }
 
+        private tXYCoord CoordToPixel(double lat, double longi)
+        {
+            tXYCoord tempCoord;
+            tempCoord.mX = longi;
+            tempCoord.mY = lat;
+            tXYCoord pixel = ConvertXYLatLongToPixel(tempCoord);
+            pixel.mX -= 0.5f;
+            pixel.mY -= 0.5f;
+
+            return pixel;
+        }
+
+        private PointF[] CoordsToPixelRect(double startLat, double stopLat, double startLong, double stopLong)
+        {
+            PointF[] ret = new PointF[4];
+
+            tXYCoord pixel = CoordToPixel(startLat, startLong);
+            ret[0] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(startLat, stopLong);
+            ret[1] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(stopLat, stopLong);
+            ret[2] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(stopLat, startLong);
+            ret[3] = new PointF((float)pixel.mX, (float)pixel.mY);
+
+            return ret;
+        }
+
+        private enum BlendGradientStartStopMode
+        {
+            WhiteToBlack,
+            BlackToWhite
+        }
+
+        private void Blend(Graphics g, PointF[] rect, LinearGradientMode lgMode, BlendGradientStartStopMode bgMode)
+        {
+            float width = rect[1].X - rect[0].X;
+            float height = rect[3].Y - rect[0].Y;
+
+            RectangleF r = new RectangleF(rect[0].X, rect[0].Y, width, height);
+            LinearGradientBrush b = null;
+            if (bgMode == BlendGradientStartStopMode.BlackToWhite)
+            {
+                b = new LinearGradientBrush(
+                    r,
+                    Color.Black,
+                    Color.White,
+                    lgMode
+                );
+            }
+            else
+            {
+                b = new LinearGradientBrush(
+                    r,
+                    Color.White,
+                    Color.Black,
+                    lgMode
+                );
+            }
+
+            g.FillRectangle(b, r);
+        }
+
         public Bitmap createWaterMaskBitmap()
         {
             var tris = readAllMeshFiles();
@@ -4470,18 +4534,37 @@ namespace FSEarthMasksInternalDLL
             Graphics g = Graphics.FromImage(bmp);
             SolidBrush b = new SolidBrush(Color.Black);
             g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+
+            // borders
+            double NWLat = MasksConfig.mAreaNWCornerLatitude;
+            double NWLon = MasksConfig.mAreaNWCornerLongitude;
+            double SELat = MasksConfig.mAreaSECornerLatitude;
+            double SELon = MasksConfig.mAreaSECornerLongitude;
+            const double BLEND_WIDTH = 0.005;
+            if (MasksConfig.mBlendNorthBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, NWLat - BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
+            }
+            if (MasksConfig.mBlendEastBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
+            }
+            if (MasksConfig.mBlendSouthBorder)
+            {
+                Blend(g, CoordsToPixelRect(SELat + BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
+            }
+            if (MasksConfig.mBlendWestBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
+            }
+
             foreach (var tri in tris)
             {
                 PointF[] convertedTri = new PointF[3];
                 for (int i = 0; i < convertedTri.Length; i++)
                 {
                     PointF toConvert = tri[i];
-                    tXYCoord temp;
-                    temp.mX = toConvert.X;
-                    temp.mY = toConvert.Y;
-                    tXYCoord pixel = ConvertXYLatLongToPixel(temp);
-                    pixel.mX -= 0.5f;
-                    pixel.mY -= 0.5f;
+                    tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
                     convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
                 }
 
