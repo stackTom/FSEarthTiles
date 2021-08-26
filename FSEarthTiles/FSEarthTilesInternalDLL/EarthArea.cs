@@ -63,6 +63,11 @@ namespace FSEarthTilesInternalDLL
         private Int64  mAreaFSResampledPixelsInY;
         private Int64  mAreaFSResampledLOD;                    //The LOD depends on the Resolution Level and is +1 (Texture larger)
 
+        public Boolean mBlendNorthBorder; //InternalUsed Only
+        public Boolean mBlendEastBorder; //InternalUsed Only
+        public Boolean mBlendSouthBorder; //InternalUsed Only
+        public Boolean mBlendWestBorder; //InternalUsed Only
+
 
         public EarthArea()
         {
@@ -148,7 +153,12 @@ namespace FSEarthTilesInternalDLL
         
             mAreaFSResampledPixelsInX = iArea.mAreaFSResampledPixelsInX;
             mAreaFSResampledPixelsInY = iArea.mAreaFSResampledPixelsInY;
-            mAreaFSResampledLOD       = iArea.mAreaFSResampledLOD;  
+            mAreaFSResampledLOD       = iArea.mAreaFSResampledLOD;
+
+            mBlendNorthBorder = iArea.mBlendNorthBorder;
+            mBlendEastBorder = iArea.mBlendEastBorder;
+            mBlendSouthBorder = iArea.mBlendSouthBorder;
+            mBlendWestBorder = iArea.mBlendWestBorder;
         }
 
 

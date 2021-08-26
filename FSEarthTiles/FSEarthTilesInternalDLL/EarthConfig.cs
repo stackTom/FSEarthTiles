@@ -166,11 +166,6 @@ namespace FSEarthTilesInternalDLL
         //Borders
         public static Boolean mBlendBorders;
 
-        public static Boolean mBlendNorthBorder; //InternalUsed Only
-        public static Boolean mBlendEastBorder; //InternalUsed Only
-        public static Boolean mBlendSouthBorder; //InternalUsed Only
-        public static Boolean mBlendWestBorder; //InternalUsed Only
-
 
         //AreaSnapMode
         public static tAreaSnapMode mAreaSnapMode;
@@ -387,11 +382,6 @@ namespace FSEarthTilesInternalDLL
             mCreateHardWinterBitmap = false;
 
             mBlendBorders = false;
-
-            mBlendNorthBorder = false;
-            mBlendEastBorder  = false;
-            mBlendSouthBorder = false;
-            mBlendWestBorder  = false;
 
             mUseScalableVectorGraphicsTool   = false;
             mScalableVectorGraphicsTool = "D:\\Inkscape\\inkscape.exe";
