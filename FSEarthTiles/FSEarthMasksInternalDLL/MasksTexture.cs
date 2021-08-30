@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using FSEarthTilesInternalDLL;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 
 
@@ -4527,6 +4528,148 @@ namespace FSEarthMasksInternalDLL
             g.FillRectangle(b, r);
         }
 
+        public static double[][] ImageTo2DByteArray(Bitmap bmp)
+        {
+            int width = bmp.Width;
+            int height = bmp.Height;
+            BitmapData data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+
+            byte[] bytes = new byte[height * data.Stride];
+            try
+            {
+                Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                bmp.UnlockBits(data);
+            }
+
+            double[][] result = new double[height][];
+            for (int y = 0; y < height; ++y)
+            {
+                result[y] = new double[width];
+                for (int x = 0; x < width; ++x)
+                {
+                    int offset = y * data.Stride + x * 3;
+                    result[y][x] = (double)((bytes[offset + 0] + bytes[offset + 1] + bytes[offset + 2]) / 3);
+                }
+            }
+
+            return result;
+        }
+
+        public struct ColorARGB
+        {
+            public byte B;
+            public byte G;
+            public byte R;
+            public byte A;
+
+            public ColorARGB(Color color)
+            {
+                A = color.A;
+                R = color.R;
+                G = color.G;
+                B = color.B;
+            }
+
+            public ColorARGB(byte a, byte r, byte g, byte b)
+            {
+                A = a;
+                R = r;
+                G = g;
+                B = b;
+            }
+
+            public Color ToColor()
+            {
+                return Color.FromArgb(A, R, G, B);
+            }
+        }
+
+        private unsafe Bitmap ToBitmap(double[][] rawImage)
+        {
+            int width = rawImage[0].Length;
+            int height = rawImage.Length;
+
+            Bitmap Image = new Bitmap(width, height);
+            BitmapData bitmapData = Image.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadWrite,
+                PixelFormat.Format32bppArgb
+            );
+            ColorARGB* startingPosition = (ColorARGB*)bitmapData.Scan0;
+
+
+            for (int i = 0; i < height; i++)
+                for (int j = 0; j < width; j++)
+                {
+                    double color = rawImage[i][j];
+                    byte rgb = (byte)color;
+
+                    ColorARGB* position = startingPosition + j + i * width;
+                    position->A = 255;
+                    position->R = rgb;
+                    position->G = rgb;
+                    position->B = rgb;
+                }
+
+            Image.UnlockBits(bitmapData);
+            return Image;
+        }
+
+        // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
+        private Bitmap ApplyMaskWidth(Bitmap origImg, Bitmap maskWidthImg)
+        {
+            double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
+            double[][] origImgBytes = ImageTo2DByteArray(origImg);
+
+            const double MASKS_WIDTH = 0.01; // in degrees
+
+            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MASKS_WIDTH);
+            if (blurWidth < 2)
+            {
+                return origImg;
+            }
+
+            double[] kernel = new double[2 * blurWidth - 1];
+            for (int i = blurWidth - 1, idx = blurWidth; i > 0; i--, idx++)
+            {
+                kernel[idx] = i;
+            }
+            for (int i = 0; i < 2 * blurWidth - 1; i++)
+            {
+                kernel[i] = (i + 1) / Math.Pow(blurWidth, 2);
+            }
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+            }
+
+            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+            }
+
+            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                for (int j = 0; j < maskWidthImgBytes[0].Length; j++)
+                {
+                    double min = 2 * (maskWidthImgBytes[i][j] < 127 ? maskWidthImgBytes[i][j] : 127);
+                    double temp = origImgBytes[i][j] > 0 ? 255 : 0;
+
+                    origImgBytes[i][j] = temp > min ? temp : min;
+                }
+            }
+
+            return ToBitmap(origImgBytes);
+        }
+
         public Bitmap createWaterMaskBitmap()
         {
             var tris = ReadAllMeshFiles();
@@ -4573,9 +4716,13 @@ namespace FSEarthMasksInternalDLL
                 g.FillPolygon(b, convertedTri);
             }
 
+            MemoryStream memoryStream = new MemoryStream();
+            bmp.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
+            Bitmap streamBitmap = (Bitmap)Bitmap.FromStream(memoryStream);
+            bmp = ApplyMaskWidth(bmp, streamBitmap);
+
             return bmp;
         }
-
         public void FloodFillWaterLandTransition(Int32 iTransitionType, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
 
