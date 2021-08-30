@@ -7,6 +7,8 @@ using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.IO;
 using FSEarthTilesInternalDLL;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 
 
@@ -2940,17 +2942,17 @@ namespace FSEarthMasksInternalDLL
             return tris;
         }
 
-        private List<PointF[]> readAllMeshFiles()
+        private List<PointF[]> ReadAllMeshFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude < MasksConfig.mAreaSECornerLongitude ? MasksConfig.mAreaNWCornerLongitude : MasksConfig.mAreaSECornerLongitude;
             double stopLong = startLong == MasksConfig.mAreaNWCornerLongitude ? MasksConfig.mAreaSECornerLongitude : MasksConfig.mAreaNWCornerLongitude;
             double startLat = MasksConfig.mAreaNWCornerLatitude < MasksConfig.mAreaSECornerLatitude ? MasksConfig.mAreaNWCornerLatitude : MasksConfig.mAreaSECornerLatitude;
             double stopLat = startLat == MasksConfig.mAreaNWCornerLatitude ? MasksConfig.mAreaSECornerLatitude : MasksConfig.mAreaNWCornerLatitude;
-            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            List<double[]> tilesDownloaded = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
 
             List<PointF[]> allTris = new List<PointF[]>();
-            foreach (double[] tile in tilesToDownload)
+            foreach (double[] tile in tilesDownloaded)
             {
                 string meshPath = CommonFunctions.GetMeshFileFullPath(MasksConfig.mWorkFolder, tile);
                 List<PointF[]> tris = readMeshFile(meshPath);
@@ -4463,34 +4465,262 @@ namespace FSEarthMasksInternalDLL
 
         }
 
+        private tXYCoord CoordToPixel(double lat, double longi)
+        {
+            tXYCoord tempCoord;
+            tempCoord.mX = longi;
+            tempCoord.mY = lat;
+            tXYCoord pixel = ConvertXYLatLongToPixel(tempCoord);
+            pixel.mX -= 0.5f;
+            pixel.mY -= 0.5f;
+
+            return pixel;
+        }
+
+        private PointF[] CoordsToPixelRect(double startLat, double stopLat, double startLong, double stopLong)
+        {
+            PointF[] ret = new PointF[4];
+
+            tXYCoord pixel = CoordToPixel(startLat, startLong);
+            ret[0] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(startLat, stopLong);
+            ret[1] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(stopLat, stopLong);
+            ret[2] = new PointF((float)pixel.mX, (float)pixel.mY);
+            pixel = CoordToPixel(stopLat, startLong);
+            ret[3] = new PointF((float)pixel.mX, (float)pixel.mY);
+
+            return ret;
+        }
+
+        private enum BlendGradientStartStopMode
+        {
+            WhiteToBlack,
+            BlackToWhite
+        }
+
+        private void Blend(Graphics g, PointF[] rect, LinearGradientMode lgMode, BlendGradientStartStopMode bgMode)
+        {
+            float width = rect[1].X - rect[0].X;
+            float height = rect[3].Y - rect[0].Y;
+
+            RectangleF r = new RectangleF(rect[0].X, rect[0].Y, width, height);
+            LinearGradientBrush b = null;
+            if (bgMode == BlendGradientStartStopMode.BlackToWhite)
+            {
+                b = new LinearGradientBrush(
+                    r,
+                    Color.Black,
+                    Color.White,
+                    lgMode
+                );
+            }
+            else
+            {
+                b = new LinearGradientBrush(
+                    r,
+                    Color.White,
+                    Color.Black,
+                    lgMode
+                );
+            }
+
+            g.FillRectangle(b, r);
+        }
+
+        public static double[][] ImageTo2DByteArray(Bitmap bmp)
+        {
+            int width = bmp.Width;
+            int height = bmp.Height;
+            BitmapData data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+
+            byte[] bytes = new byte[height * data.Stride];
+            try
+            {
+                Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                bmp.UnlockBits(data);
+            }
+
+            double[][] result = new double[height][];
+            for (int y = 0; y < height; ++y)
+            {
+                result[y] = new double[width];
+                for (int x = 0; x < width; ++x)
+                {
+                    int offset = y * data.Stride + x * 3;
+                    result[y][x] = (double)((bytes[offset + 0] + bytes[offset + 1] + bytes[offset + 2]) / 3);
+                }
+            }
+
+            return result;
+        }
+
+        public struct ColorARGB
+        {
+            public byte B;
+            public byte G;
+            public byte R;
+            public byte A;
+
+            public ColorARGB(Color color)
+            {
+                A = color.A;
+                R = color.R;
+                G = color.G;
+                B = color.B;
+            }
+
+            public ColorARGB(byte a, byte r, byte g, byte b)
+            {
+                A = a;
+                R = r;
+                G = g;
+                B = b;
+            }
+
+            public Color ToColor()
+            {
+                return Color.FromArgb(A, R, G, B);
+            }
+        }
+
+        private unsafe Bitmap ToBitmap(double[][] rawImage)
+        {
+            int width = rawImage[0].Length;
+            int height = rawImage.Length;
+
+            Bitmap Image = new Bitmap(width, height);
+            BitmapData bitmapData = Image.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadWrite,
+                PixelFormat.Format32bppArgb
+            );
+            ColorARGB* startingPosition = (ColorARGB*)bitmapData.Scan0;
+
+
+            for (int i = 0; i < height; i++)
+                for (int j = 0; j < width; j++)
+                {
+                    double color = rawImage[i][j];
+                    byte rgb = (byte)color;
+
+                    ColorARGB* position = startingPosition + j + i * width;
+                    position->A = 255;
+                    position->R = rgb;
+                    position->G = rgb;
+                    position->B = rgb;
+                }
+
+            Image.UnlockBits(bitmapData);
+            return Image;
+        }
+
+        // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
+        private Bitmap ApplyMaskWidth(Bitmap origImg, Bitmap maskWidthImg)
+        {
+            double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
+            double[][] origImgBytes = ImageTo2DByteArray(origImg);
+
+            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
+            if (blurWidth < 2)
+            {
+                return origImg;
+            }
+
+            double[] kernel = new double[2 * blurWidth - 1];
+            for (int i = blurWidth - 1, idx = blurWidth; i > 0; i--, idx++)
+            {
+                kernel[idx] = i;
+            }
+            for (int i = 0; i < 2 * blurWidth - 1; i++)
+            {
+                kernel[i] = (i + 1) / Math.Pow(blurWidth, 2);
+            }
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+            }
+
+            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+            }
+
+            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+
+            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            {
+                for (int j = 0; j < maskWidthImgBytes[0].Length; j++)
+                {
+                    double min = 2 * (maskWidthImgBytes[i][j] < 127 ? maskWidthImgBytes[i][j] : 127);
+                    double temp = origImgBytes[i][j] > 0 ? 255 : 0;
+
+                    origImgBytes[i][j] = temp > min ? temp : min;
+                }
+            }
+
+            return ToBitmap(origImgBytes);
+        }
+
         public Bitmap createWaterMaskBitmap()
         {
-            var tris = readAllMeshFiles();
+            var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             Graphics g = Graphics.FromImage(bmp);
             SolidBrush b = new SolidBrush(Color.Black);
             g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+
+            // borders
+            double NWLat = MasksConfig.mAreaNWCornerLatitude;
+            double NWLon = MasksConfig.mAreaNWCornerLongitude;
+            double SELat = MasksConfig.mAreaSECornerLatitude;
+            double SELon = MasksConfig.mAreaSECornerLongitude;
+            double pixWidth = MasksConfig.mBlendBorderDistance;
+            double LON_BLEND_WIDTH = ((SELon - NWLon) / MasksConfig.mAreaPixelCountInX) * pixWidth;
+            double LAT_BLEND_WIDTH = ((NWLat - SELat) / MasksConfig.mAreaPixelCountInY) * pixWidth;
+            if (MasksConfig.mBlendNorthBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
+            }
+            if (MasksConfig.mBlendEastBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
+            }
+            if (MasksConfig.mBlendSouthBorder)
+            {
+                Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
+            }
+            if (MasksConfig.mBlendWestBorder)
+            {
+                Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
+            }
+
             foreach (var tri in tris)
             {
                 PointF[] convertedTri = new PointF[3];
                 for (int i = 0; i < convertedTri.Length; i++)
                 {
                     PointF toConvert = tri[i];
-                    tXYCoord temp;
-                    temp.mX = toConvert.X;
-                    temp.mY = toConvert.Y;
-                    tXYCoord pixel = ConvertXYLatLongToPixel(temp);
-                    pixel.mX -= 0.5f;
-                    pixel.mY -= 0.5f;
+                    tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
                     convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
                 }
 
                 g.FillPolygon(b, convertedTri);
             }
 
+            MemoryStream memoryStream = new MemoryStream();
+            bmp.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
+            Bitmap streamBitmap = (Bitmap)Bitmap.FromStream(memoryStream);
+            bmp = ApplyMaskWidth(bmp, streamBitmap);
+
             return bmp;
         }
-
         public void FloodFillWaterLandTransition(Int32 iTransitionType, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
 

@@ -28,6 +28,10 @@ namespace FSEarthTilesDLL
             public String mBGLFS2004SeasonsDesitnationStopLongitudeString;
             public String mBGLFS2004SeasonsDesitnationStartLatitudeString;
             public String mBGLFS2004SeasonsDesitnationStopLatitudeString;
+            public Boolean mBlendNorthBorder; //InternalUsed Only
+            public Boolean mBlendEastBorder; //InternalUsed Only
+            public Boolean mBlendSouthBorder; //InternalUsed Only
+            public Boolean mBlendWestBorder; //InternalUsed Only
         }
 
 
@@ -146,6 +150,11 @@ namespace FSEarthTilesDLL
             vBGLDatasStringPackage.mBGLFS2004SeasonsDesitnationStopLongitudeString  = Convert.ToString(vBGLFS2004SeasonsDesitnationEndLongitude,   NumberFormatInfo.InvariantInfo);
             vBGLDatasStringPackage.mBGLFS2004SeasonsDesitnationStartLatitudeString  = Convert.ToString(vBGLFS2004SeasonsDesitnationStartLatitude,  NumberFormatInfo.InvariantInfo);
             vBGLDatasStringPackage.mBGLFS2004SeasonsDesitnationStopLatitudeString   = Convert.ToString(vBGLFS2004SeasonsDesitnationEndLatitude,    NumberFormatInfo.InvariantInfo);
+
+            vBGLDatasStringPackage.mBlendNorthBorder = iEarthArea.mBlendNorthBorder;
+            vBGLDatasStringPackage.mBlendEastBorder = iEarthArea.mBlendEastBorder;
+            vBGLDatasStringPackage.mBlendSouthBorder = iEarthArea.mBlendSouthBorder;
+            vBGLDatasStringPackage.mBlendWestBorder = iEarthArea.mBlendWestBorder;
             return vBGLDatasStringPackage;
         }
 
@@ -819,7 +828,7 @@ namespace FSEarthTilesDLL
                 vStream.WriteLine("WorkFolder     = " + EarthConfig.mWorkFolder);
                 vStream.WriteLine();
 
-                if (EarthConfig.mBlendNorthBorder)
+                if (iBGLDatasStringPackage.mBlendNorthBorder)
                 {
                     vStream.WriteLine("BlendNorthBorder = Yes");
                 }
@@ -827,7 +836,7 @@ namespace FSEarthTilesDLL
                 {
                     vStream.WriteLine("BlendNorthBorder = No");
                 }
-                if (EarthConfig.mBlendEastBorder)
+                if (iBGLDatasStringPackage.mBlendEastBorder)
                 {
                     vStream.WriteLine("BlendEastBorder  = Yes");
                 }
@@ -835,7 +844,7 @@ namespace FSEarthTilesDLL
                 {
                     vStream.WriteLine("BlendEastBorder  = No");
                 }
-                if (EarthConfig.mBlendSouthBorder)
+                if (iBGLDatasStringPackage.mBlendSouthBorder)
                 {
                     vStream.WriteLine("BlendSouthBorder = Yes");
                 }
@@ -843,7 +852,7 @@ namespace FSEarthTilesDLL
                 {
                     vStream.WriteLine("BlendSouthBorder = No");
                 }
-                if (EarthConfig.mBlendWestBorder)
+                if (iBGLDatasStringPackage.mBlendWestBorder)
                 {
                     vStream.WriteLine("BlendWestBorder  = Yes");
                 }

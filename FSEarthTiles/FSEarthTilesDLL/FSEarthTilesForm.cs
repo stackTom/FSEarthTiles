@@ -2054,11 +2054,6 @@ namespace FSEarthTilesDLL
 
         void CreateNextSingleAreaFromMultiArea()
         {
-            EarthConfig.mBlendNorthBorder = false;
-            EarthConfig.mBlendEastBorder  = false;
-            EarthConfig.mBlendSouthBorder = false;
-            EarthConfig.mBlendWestBorder  = false;
-
             Int64 Count;
             if (mMultiAreaMode)
             {
@@ -2067,24 +2062,29 @@ namespace FSEarthTilesDLL
                 //That's right we override the Main EarthArea so we don't have to care about a special separate object handling
                 //The information can be restored at the end of all download processes
                 mEarthArea = mEarthMultiArea.CalculateSingleAreaFormMultiArea(mCurrentAreaInfo, mEarthSingleReferenceArea, EarthConfig.mAreaSnapMode, EarthConfig.mFetchLevel);
+
+                mEarthArea.mBlendNorthBorder = false;
+                mEarthArea.mBlendEastBorder  = false;
+                mEarthArea.mBlendSouthBorder = false;
+                mEarthArea.mBlendWestBorder  = false;
                 
                 if (EarthConfig.mBlendBorders)
                 {
                     if (mCurrentAreaInfo.mAreaNrInX == 0)
                     {
-                        EarthConfig.mBlendWestBorder = true;
+                        mEarthArea.mBlendWestBorder = true;
                     }
                     if (mCurrentAreaInfo.mAreaNrInY == 0)
                     {
-                        EarthConfig.mBlendNorthBorder = true;
+                        mEarthArea.mBlendNorthBorder = true;
                     }
                     if (mCurrentAreaInfo.mAreaNrInX == (mEarthMultiArea.AreaCountInX - 1))
                     {
-                        EarthConfig.mBlendEastBorder = true;
+                        mEarthArea.mBlendEastBorder = true;
                     }
                     if (mCurrentAreaInfo.mAreaNrInY == (mEarthMultiArea.AreaCountInY - 1))
                     {
-                        EarthConfig.mBlendSouthBorder = true;
+                        mEarthArea.mBlendSouthBorder = true;
                     }
                 }
 
@@ -2098,10 +2098,10 @@ namespace FSEarthTilesDLL
             {
                 if (EarthConfig.mBlendBorders)
                 {
-                    EarthConfig.mBlendNorthBorder = true;
-                    EarthConfig.mBlendEastBorder  = true;
-                    EarthConfig.mBlendSouthBorder = true;
-                    EarthConfig.mBlendWestBorder  = true;
+                    mEarthArea.mBlendNorthBorder = true;
+                    mEarthArea.mBlendEastBorder  = true;
+                    mEarthArea.mBlendSouthBorder = true;
+                    mEarthArea.mBlendWestBorder  = true;
                 }
             }
 
