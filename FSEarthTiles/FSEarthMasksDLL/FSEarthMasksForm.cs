@@ -348,20 +348,24 @@ namespace FSEarthMasksDLL
 
                 Bitmap waterMaskBitmap = null;
                 bool KMLFileLoaded = false;
+                bool areaVectorsFileLoaded = false;
+                bool useVectorsForWaterMasks = false;
+
                 if (MasksConfig.mCreateWaterMaskBitmap)
                 {
                     //Water
                     KMLFileLoaded = LoadKMLFile();
 
-                    if (MasksConfig.mUseReversePoolPolygonOrderForKMLFile)
+                    if (KMLFileLoaded && MasksConfig.mUseReversePoolPolygonOrderForKMLFile)
                     {
                         MasksCommon.ReverseOrderOfPoolPolygonesInList();
                     }
 
-                    if (KMLFileLoaded)
-                    {
-                        LoadAreaVectorsFile();
+                    areaVectorsFileLoaded = LoadAreaVectorsFile();
+                    useVectorsForWaterMasks = KMLFileLoaded || areaVectorsFileLoaded;
 
+                    if (useVectorsForWaterMasks)
+                    {
                         AddBlendBordersVectors();
 
                         SetStatusFromFriendThread(" Screening Vectors ... ");
@@ -405,7 +409,7 @@ namespace FSEarthMasksDLL
                 }
 
 
-                if (KMLFileLoaded && MasksConfig.mCreateCommandGraphicBitmap)
+                if (useVectorsForWaterMasks && MasksConfig.mCreateCommandGraphicBitmap)
                 {
                     SetStatusFromFriendThread(" Save Command Graphic Bitmap ... ");
                     mMasksTexture.ClearWorkMaskBitmap();
@@ -428,7 +432,7 @@ namespace FSEarthMasksDLL
                     {
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... ");
-                        if (KMLFileLoaded)
+                        if (useVectorsForWaterMasks)
                         {
                             mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
                         }
@@ -447,7 +451,7 @@ namespace FSEarthMasksDLL
                         SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
                         SetStatusFromFriendThread(" Processing Water... Load Source");
                         mMasksTexture.LoadSourceBitmapFileIntoWorkBitmap(this);
-                        if (KMLFileLoaded)
+                        if (useVectorsForWaterMasks)
                         {
                             mMasksTexture.CreateFS2004WaterInWorkMaskBitmap(this);   //Now Paint Water
                         }
@@ -464,7 +468,7 @@ namespace FSEarthMasksDLL
                 {
                     SetProcessingStateFromFriendThread(tProcessingState.eProcWater);
 
-                    if (KMLFileLoaded)
+                    if (useVectorsForWaterMasks)
                     {
                         if (!MasksConfig.mCreateSummerBitmap)
                         {
@@ -1032,7 +1036,7 @@ namespace FSEarthMasksDLL
         }
 
 
-        private void LoadAreaVectorsFile()
+        private bool LoadAreaVectorsFile()
         {
             if (MasksConfig.mUseAreaVectorsFile)
             {
@@ -1084,26 +1088,36 @@ namespace FSEarthMasksDLL
                             SetStatusFromFriendThread(" Area SVG File loaded. ");
                             Thread.Sleep(2000);
 
+                            return true;
+
                         }
                         catch
                         {
                             //ops
                             SetStatusFromFriendThread(" Area SVG File load failed. ");
                             Thread.Sleep(2000);
+
+                            return false;
                         }
                     }
                     else
                     {
                         SetStatusFromFriendThread("Be aware: Area SVG File does not exist.");
                         Thread.Sleep(2000);
+
+                        return false;
                     }
                 }
                 else
                 {
                     SetStatusFromFriendThread("Can not load Area KML File: File path missing.");
                     Thread.Sleep(1500);
+
+                    return false;
                 }
             }
+
+            return false;
         }
 
 
