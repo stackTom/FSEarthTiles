@@ -4624,9 +4624,7 @@ namespace FSEarthMasksInternalDLL
             double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
             double[][] origImgBytes = ImageTo2DByteArray(origImg);
 
-            const double MASKS_WIDTH = 0.01; // in degrees
-
-            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MASKS_WIDTH);
+            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
             if (blurWidth < 2)
             {
                 return origImg;

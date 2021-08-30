@@ -311,6 +311,8 @@ namespace FSEarthMasksInternalDLL
 
         public static Single  mNightNonStreetLightness                          =  0.5f;
 
+        public static Double mMasksWidth = 0.0f;
+
 
         public static void Initialize() //to call as first
         {
@@ -1288,6 +1290,8 @@ namespace FSEarthMasksInternalDLL
 
                 Int32 vIndex436 = vFocus.IndexOf("NoSnowInWaterForWinterAndHardWinter", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex437 = vFocus.IndexOf("UseCSharpScripts", StringComparison.CurrentCultureIgnoreCase);
+
+                Int32 vIndex438 = vFocus.IndexOf("masks_width", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -3552,6 +3556,11 @@ namespace FSEarthMasksInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     mUseCSharpScripts = GetBooleanFromString(vCutString);
+                }
+                if (vIndex438 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    TryAssignDoubleFromString(ref mMasksWidth, vCutString);
                 }
             }
         }
