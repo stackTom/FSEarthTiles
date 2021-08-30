@@ -4621,21 +4621,22 @@ namespace FSEarthMasksInternalDLL
         // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
         private Bitmap ApplyMaskWidth(Bitmap origImg, Bitmap maskWidthImg)
         {
-            double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
-            double[][] origImgBytes = ImageTo2DByteArray(origImg);
-
             int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
             if (blurWidth < 2)
             {
                 return origImg;
             }
 
+            double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
+            double[][] origImgBytes = ImageTo2DByteArray(origImg);
+
+
             double[] kernel = new double[2 * blurWidth - 1];
             for (int i = blurWidth - 1, idx = blurWidth; i > 0; i--, idx++)
             {
                 kernel[idx] = i;
             }
-            for (int i = 0; i < 2 * blurWidth - 1; i++)
+            for (int i = 0; i < kernel.Length; i++)
             {
                 kernel[i] = (i + 1) / Math.Pow(blurWidth, 2);
             }
