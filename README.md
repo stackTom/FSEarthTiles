@@ -18,5 +18,5 @@ Also, check out my Ortho4XP for FSX/P3D port to create sceneries for FSX and P3D
 * Add more providers
   * Need to increase provider limit number
   * Either add them directly to the default ini, or add direct support for reading Ortho4XP .lay files
-  * Add ability to edit water masks width (port over blurring algorithms from Ortho4XP that Oscar Pilote came up with)
+  * Add ability to edit water masks width (port over blurring algorithms from Ortho4XP that Oscar Pilote came up with) - sand has been implemented. But I need to further understand how the scaling works before I make it public.
 
