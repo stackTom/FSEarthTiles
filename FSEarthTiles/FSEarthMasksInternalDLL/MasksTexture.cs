@@ -2941,17 +2941,17 @@ namespace FSEarthMasksInternalDLL
             return tris;
         }
 
-        private List<PointF[]> readAllMeshFiles()
+        private List<PointF[]> ReadAllMeshFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude < MasksConfig.mAreaSECornerLongitude ? MasksConfig.mAreaNWCornerLongitude : MasksConfig.mAreaSECornerLongitude;
             double stopLong = startLong == MasksConfig.mAreaNWCornerLongitude ? MasksConfig.mAreaSECornerLongitude : MasksConfig.mAreaNWCornerLongitude;
             double startLat = MasksConfig.mAreaNWCornerLatitude < MasksConfig.mAreaSECornerLatitude ? MasksConfig.mAreaNWCornerLatitude : MasksConfig.mAreaSECornerLatitude;
             double stopLat = startLat == MasksConfig.mAreaNWCornerLatitude ? MasksConfig.mAreaSECornerLatitude : MasksConfig.mAreaNWCornerLatitude;
-            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            List<double[]> tilesDownloaded = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
 
             List<PointF[]> allTris = new List<PointF[]>();
-            foreach (double[] tile in tilesToDownload)
+            foreach (double[] tile in tilesDownloaded)
             {
                 string meshPath = CommonFunctions.GetMeshFileFullPath(MasksConfig.mWorkFolder, tile);
                 List<PointF[]> tris = readMeshFile(meshPath);
@@ -4529,7 +4529,7 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap createWaterMaskBitmap()
         {
-            var tris = readAllMeshFiles();
+            var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             Graphics g = Graphics.FromImage(bmp);
             SolidBrush b = new SolidBrush(Color.Black);
