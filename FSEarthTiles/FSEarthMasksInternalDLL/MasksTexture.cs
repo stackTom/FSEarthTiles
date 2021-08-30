@@ -4540,22 +4540,24 @@ namespace FSEarthMasksInternalDLL
             double NWLon = MasksConfig.mAreaNWCornerLongitude;
             double SELat = MasksConfig.mAreaSECornerLatitude;
             double SELon = MasksConfig.mAreaSECornerLongitude;
-            const double BLEND_WIDTH = 0.0065;
+            double pixWidth = MasksConfig.mBlendBorderDistance;
+            double LON_BLEND_WIDTH = ((SELon - NWLon) / MasksConfig.mAreaPixelCountInX) * pixWidth;
+            double LAT_BLEND_WIDTH = ((NWLat - SELat) / MasksConfig.mAreaPixelCountInY) * pixWidth;
             if (MasksConfig.mBlendNorthBorder)
             {
-                Blend(g, CoordsToPixelRect(NWLat, NWLat - BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
+                Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
             }
             if (MasksConfig.mBlendEastBorder)
             {
-                Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
+                Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
             }
             if (MasksConfig.mBlendSouthBorder)
             {
-                Blend(g, CoordsToPixelRect(SELat + BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
+                Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
             }
             if (MasksConfig.mBlendWestBorder)
             {
-                Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
+                Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
             }
 
             foreach (var tri in tris)
