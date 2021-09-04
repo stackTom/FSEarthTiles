@@ -4630,17 +4630,19 @@ namespace FSEarthMasksInternalDLL
             double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
             double[][] origImgBytes = ImageTo2DByteArray(origImg);
 
-
             double[] kernel = new double[2 * blurWidth - 1];
+            for (int i = 0; i < kernel.Length; i++)
+            {
+                kernel[i] = i + 1;
+            }
             for (int i = blurWidth - 1, idx = blurWidth; i > 0; i--, idx++)
             {
                 kernel[idx] = i;
             }
             for (int i = 0; i < kernel.Length; i++)
             {
-                kernel[i] = (i + 1) / Math.Pow(blurWidth, 2);
+                kernel[i] = kernel[i] / Math.Pow(blurWidth, 2);
             }
-
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
                 maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
