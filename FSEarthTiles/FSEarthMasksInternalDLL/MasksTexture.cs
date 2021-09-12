@@ -11,7 +11,6 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
 
-
 //  C# . NET 24Bit RGB Format in Memory
 //  B2 R1 G1 B1 | G3 B3 R2 G2 | R4 G4 B4 R3
 //
@@ -4618,17 +4617,14 @@ namespace FSEarthMasksInternalDLL
             return Image;
         }
 
-        // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
-        private Bitmap ApplyMaskWidth(Bitmap origImg, Bitmap maskWidthImg)
-        {
-            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
-            if (blurWidth < 2)
-            {
-                return origImg;
-            }
 
+        // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
+        private Bitmap ApplyMaskWidthToPart(Bitmap origImg, int blurWidth)
+        {
+            MemoryStream memoryStream = new MemoryStream();
+            origImg.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
+            Bitmap maskWidthImg = (Bitmap)Bitmap.FromStream(memoryStream);
             double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
-            double[][] origImgBytes = ImageTo2DByteArray(origImg);
 
             double[] kernel = new double[2 * blurWidth - 1];
             for (int i = 0; i < kernel.Length; i++)
@@ -4659,19 +4655,118 @@ namespace FSEarthMasksInternalDLL
 
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
-                for (int j = 0; j < maskWidthImgBytes[0].Length; j++)
+                for (int j = 0; j < maskWidthImgBytes[i].Length; j++)
                 {
                     double min = 2 * (maskWidthImgBytes[i][j] < 127 ? maskWidthImgBytes[i][j] : 127);
-                    double temp = origImgBytes[i][j] > 0 ? 255 : 0;
+                    Color c = origImg.GetPixel(j, i);
+                    int temp = c.R > 0 ? 255 : 0;
 
-                    origImgBytes[i][j] = temp > min ? temp : min;
+                    int set = temp > min ? temp : (int)min;
+                    origImg.SetPixel(j, i, Color.FromArgb(set, set, set));
                 }
             }
 
-            return ToBitmap(origImgBytes);
+            return origImg;
         }
 
-        public Bitmap createWaterMaskBitmap()
+        // pieceDims specifies width and height of each piece
+        private List<List<Bitmap>> SplitBitMapIntoPieces(Bitmap img, int pieceDims)
+        {
+            List<List<Bitmap>> pieces = new List<List<Bitmap>>();
+            List<List<double[]>> pieceCoords = CommonFunctions.GetPiecesFromGrid(0, img.Width, 0, img.Height, pieceDims);
+
+            foreach (List<double[]> slice in pieceCoords)
+            {
+                List<Bitmap> bitmapSlice = new List<Bitmap>();
+
+                foreach (double[] pieceCoord in slice)
+                {
+                    int minX = (int)pieceCoord[0];
+                    int minY = (int)pieceCoord[1];
+                    int maxX = (int)pieceCoord[2];
+                    int maxY = (int)pieceCoord[3];
+
+                    int width = maxX - minX;
+                    int height = maxY - minY;
+
+                    Bitmap pieceImg = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                    Graphics g = Graphics.FromImage(pieceImg);
+                    g.DrawImage(img, new Rectangle(0, 0, width, height), new Rectangle(minX, minY, width, height), GraphicsUnit.Pixel);
+                    g.Dispose();
+                    bitmapSlice.Add(pieceImg);
+                }
+                pieces.Add(bitmapSlice);
+            }
+
+            return pieces;
+        }
+
+        private Bitmap CombinePiecesIntoLargeImg(List<List<Bitmap>> pieces)
+        {
+            int height = 0;
+            int width = 0;
+
+            for (int i = 0; i < pieces[0].Count; i++)
+            {
+                height += pieces[0][i].Height;
+            }
+
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                width += pieces[i][0].Width;
+            }
+
+            Bitmap combinedImg = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+            Graphics g = Graphics.FromImage(combinedImg);
+
+            int x = 0;
+            int y = 0;
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                for (int j = 0; j < pieces[i].Count; j++)
+                {
+                    Bitmap piece = pieces[i][j];
+                    g.DrawImage(piece, new Rectangle(x, y, piece.Width, piece.Height), new Rectangle(0, 0, piece.Width, piece.Height), GraphicsUnit.Pixel);
+                    y += piece.Height;
+                    if (y >= height)
+                    {
+                        y = 0;
+                    }
+                }
+
+                x += pieces[i][0].Width;
+                if (x >= width)
+                {
+                    x = 0;
+                }
+            }
+
+            return combinedImg;
+        }
+
+        private Bitmap ApplyMaskWidth(Bitmap img)
+        {
+            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
+            if (blurWidth < 2)
+            {
+                return img;
+            }
+
+            List<List<Bitmap>> pieces = SplitBitMapIntoPieces(img, 4096);
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                for (int j = 0; j < pieces[i].Count; j++)
+                {
+                    pieces[i][j] = ApplyMaskWidthToPart(pieces[i][j], blurWidth);
+                    Console.WriteLine("done " + i + " " + j);
+                }
+            }
+            Bitmap f = CombinePiecesIntoLargeImg(pieces);
+
+            return f;
+        }
+
+        public Bitmap CreateWaterMaskBitmap()
         {
             var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -4717,10 +4812,10 @@ namespace FSEarthMasksInternalDLL
                 g.FillPolygon(b, convertedTri);
             }
 
-            MemoryStream memoryStream = new MemoryStream();
-            bmp.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
-            Bitmap streamBitmap = (Bitmap)Bitmap.FromStream(memoryStream);
-            bmp = ApplyMaskWidth(bmp, streamBitmap);
+            if (MasksConfig.mMasksWidth > 0)
+            {
+                bmp = ApplyMaskWidth(bmp);
+            }
 
             return bmp;
         }
