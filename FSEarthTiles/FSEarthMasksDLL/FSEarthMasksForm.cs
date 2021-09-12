@@ -404,7 +404,7 @@ namespace FSEarthMasksDLL
                     }
                     else
                     {
-                        waterMaskBitmap = mMasksTexture.CreateWaterMaskBitmap();
+                        waterMaskBitmap = mMasksTexture.CreateWaterMaskBitmap(this);
                     }
                 }
 

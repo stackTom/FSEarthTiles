@@ -4744,7 +4744,7 @@ namespace FSEarthMasksInternalDLL
             return combinedImg;
         }
 
-        private Bitmap ApplyMaskWidth(Bitmap img)
+        private Bitmap ApplyMaskWidth(Bitmap img, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
             int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
             if (blurWidth < 2)
@@ -4752,16 +4752,31 @@ namespace FSEarthMasksInternalDLL
                 return img;
             }
 
-            const int IMG_DIM_LIM = 4096;
+            const int IMG_DIM_LIM = 1024;
             if (img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM)
             {
                 // split big images into pieces
+                iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Splitting image for reduced memory usage");
                 List<List<Bitmap>> pieces = SplitBitMapIntoPieces(img, IMG_DIM_LIM);
+
+                // probably more elegant way to do this
+                int totPieces = 0;
+                foreach (List<Bitmap> l in pieces)
+                {
+                    foreach (Bitmap b in l)
+                    {
+                        totPieces++;
+                    }
+                }
+
+                int pieceNum = 1;
                 for (int i = 0; i < pieces.Count; i++)
                 {
                     for (int j = 0; j < pieces[i].Count; j++)
                     {
+                        iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Adding mask width to piece " + pieceNum + " of " + totPieces);
                         pieces[i][j] = ApplyMaskWidthToPart(pieces[i][j], blurWidth);
+                        pieceNum++;
                     }
                 }
                 Bitmap f = CombinePiecesIntoLargeImg(pieces);
@@ -4772,7 +4787,7 @@ namespace FSEarthMasksInternalDLL
             return ApplyMaskWidthToPart(img, blurWidth);
         }
 
-        public Bitmap CreateWaterMaskBitmap()
+        public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
             var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -4820,7 +4835,7 @@ namespace FSEarthMasksInternalDLL
 
             if (MasksConfig.mMasksWidth > 0)
             {
-                bmp = ApplyMaskWidth(bmp);
+                bmp = ApplyMaskWidth(bmp, iFSEarthMasksInternalInterface);
             }
 
             return bmp;
