@@ -4752,18 +4752,24 @@ namespace FSEarthMasksInternalDLL
                 return img;
             }
 
-            List<List<Bitmap>> pieces = SplitBitMapIntoPieces(img, 4096);
-            for (int i = 0; i < pieces.Count; i++)
+            const int IMG_DIM_LIM = 4096;
+            if (img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM)
             {
-                for (int j = 0; j < pieces[i].Count; j++)
+                // split big images into pieces
+                List<List<Bitmap>> pieces = SplitBitMapIntoPieces(img, IMG_DIM_LIM);
+                for (int i = 0; i < pieces.Count; i++)
                 {
-                    pieces[i][j] = ApplyMaskWidthToPart(pieces[i][j], blurWidth);
-                    Console.WriteLine("done " + i + " " + j);
+                    for (int j = 0; j < pieces[i].Count; j++)
+                    {
+                        pieces[i][j] = ApplyMaskWidthToPart(pieces[i][j], blurWidth);
+                    }
                 }
-            }
-            Bitmap f = CombinePiecesIntoLargeImg(pieces);
+                Bitmap f = CombinePiecesIntoLargeImg(pieces);
 
-            return f;
+                return f;
+            }
+
+            return ApplyMaskWidthToPart(img, blurWidth);
         }
 
         public Bitmap CreateWaterMaskBitmap()
