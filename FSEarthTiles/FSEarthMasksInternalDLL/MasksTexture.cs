@@ -4661,8 +4661,12 @@ namespace FSEarthMasksInternalDLL
                     Color c = origImg.GetPixel(j, i);
                     int temp = c.R > 0 ? 255 : 0;
 
-                    int set = temp > min ? temp : (int)min;
-                    origImg.SetPixel(j, i, Color.FromArgb(set, set, set));
+                    if (temp != 255)
+                    {
+                        // only set to red those parts which aren't full white (aka full land without the blur effect yet)
+                        int set = temp > min ? temp : (int)min;
+                        origImg.SetPixel(j, i, Color.FromArgb(set, 0, 0));
+                    }
                 }
             }
 
