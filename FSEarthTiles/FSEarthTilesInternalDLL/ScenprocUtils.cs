@@ -132,23 +132,12 @@ namespace FSEarthTilesInternalDLL
             string[] buildingsAndTreesTags = { "way[\"natural\"]", "way[\"landuse\"]", "way[\"leisure\"]", "way[\"building\"]",
                                                "rel[\"natural\"]", "rel[\"landuse\"]", "rel[\"leisure\"]", "rel[\"building\"]" };
 
-            const double OFFSET = 0.5;
-            int i = 0;
-            int j = 0;
-            while (maxLon < stopLong)
+            List<List<double[]>> chunks = CommonFunctions.GetPiecesFromGrid(startLong, stopLong, startLat, stopLat, 0.5);
+
+            for (int i = 0; i < chunks.Count; i++)
             {
-                maxLon += OFFSET;
-                if (maxLon > stopLong)
+                for (int j = 0; j < chunks[i].Count; j++)
                 {
-                    maxLon = stopLong;
-                }
-                while (maxLat < stopLat)
-                {
-                    maxLat += OFFSET;
-                    if (maxLat > stopLat)
-                    {
-                        maxLat = stopLat;
-                    }
                     string scenprocDataDir = getOSMDataPath(workFolder, startLong, stopLong, startLat, stopLat);
                     string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + "_" + j.ToString() + ".osm";
                     if (!File.Exists(osmFilePath))
@@ -165,14 +154,7 @@ namespace FSEarthTilesInternalDLL
                         File.WriteAllText(osmFilePath, osm);
                         Console.WriteLine("Download successful");
                     }
-                    minLat = maxLat;
-                    j++;
                 }
-                minLon = maxLon;
-                minLat = startLat;
-                maxLat = startLat;
-                j = 0;
-                i++;
             }
         }
 

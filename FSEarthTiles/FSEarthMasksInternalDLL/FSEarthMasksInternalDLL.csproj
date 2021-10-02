@@ -54,6 +54,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ALGLib\ALGLib.csproj">
+      <Project>{4165ec0e-581a-48b6-9d1a-4df0dec345f9}</Project>
+      <Name>ALGLib</Name>
+    </ProjectReference>
     <ProjectReference Include="..\FSEarthTilesInternalDLL\FSEarthTilesInternalDLL.csproj">
       <Project>{6ea9ebed-689a-40b1-9872-9e456458dfa0}</Project>
       <Name>FSEarthTilesInternalDLL</Name>

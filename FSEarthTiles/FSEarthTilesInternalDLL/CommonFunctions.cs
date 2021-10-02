@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -195,6 +196,44 @@ namespace FSEarthTilesInternalDLL
             }
 
             return nd;
+        }
+
+        public static List<List<double[]>> GetPiecesFromGrid(double startX, double stopX, double startY, double stopY, double OFFSET)
+        {
+            double minX = startX;
+            double maxX = startX;
+            double minY = startY;
+            double maxY = startY;
+
+            List<List<double[]>> pieces = new List<List<double[]>>();
+
+            while (maxX < stopX)
+            {
+                List<double[]> slice = new List<double[]>();
+                maxX += OFFSET;
+                if (maxX > stopX)
+                {
+                    maxX = stopX;
+                }
+                while (maxY < stopY)
+                {
+                    maxY += OFFSET;
+                    if (maxY > stopY)
+                    {
+                        maxY = stopY;
+                    }
+
+                    slice.Add(new double[] { minX, minY, maxX, maxY });
+
+                    minY = maxY;
+                }
+                minX = maxX;
+                minY = startY;
+                maxY = startY;
+                pieces.Add(slice);
+            }
+
+            return pieces;
         }
     }
 }

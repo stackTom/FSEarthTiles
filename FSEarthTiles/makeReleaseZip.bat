@@ -31,6 +31,9 @@ copy /Y .\FSEarthMasks\bin\Release\FSEarthMasksInternalDLL.pdb .\FSET
 copy /Y .\FSEarthMasks\bin\Release\FSEarthMasksInternalDLL.dll .\FSET
 copy /Y .\FSEarthMasks\bin\Release\FSEarthMasksInternalDLL.pdb .\FSET
 
+:: copy over ALGLib.dll
+copy /Y .\ALGLib\bin\Release\ALGLib.dll .\FSET
+
 :: copy over createMesh.exe and it's needed files
 xcopy /I .\Ortho4XPMasking\Utils .\FSET\Utils
 copy /Y .\Ortho4XPMasking\createMesh.exe .\FSET

@@ -11,7 +11,6 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
 
-
 //  C# . NET 24Bit RGB Format in Memory
 //  B2 R1 G1 B1 | G3 B3 R2 G2 | R4 G4 B4 R3
 //
@@ -4618,58 +4617,206 @@ namespace FSEarthMasksInternalDLL
             return Image;
         }
 
+
         // this is a port from Ortho4XP. I've no clue how it works, but it applies a nice smooth transition to coasts...
-        private Bitmap ApplyMaskWidth(Bitmap origImg, Bitmap maskWidthImg)
+        private Bitmap ApplyMaskWidthToPart(Bitmap origImg, int blurWidth)
         {
-            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
-            if (blurWidth < 2)
-            {
-                return origImg;
-            }
-
+            MemoryStream memoryStream = new MemoryStream();
+            origImg.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
+            Bitmap maskWidthImg = (Bitmap)Bitmap.FromStream(memoryStream);
             double[][] maskWidthImgBytes = ImageTo2DByteArray(maskWidthImg);
-            double[][] origImgBytes = ImageTo2DByteArray(origImg);
-
 
             double[] kernel = new double[2 * blurWidth - 1];
+            for (int i = 0; i < kernel.Length; i++)
+            {
+                kernel[i] = i + 1;
+            }
             for (int i = blurWidth - 1, idx = blurWidth; i > 0; i--, idx++)
             {
                 kernel[idx] = i;
             }
             for (int i = 0; i < kernel.Length; i++)
             {
-                kernel[i] = (i + 1) / Math.Pow(blurWidth, 2);
+                kernel[i] = kernel[i] / Math.Pow(blurWidth, 2);
             }
-
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
-                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
-            }
-
-            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
-
-            for (int i = 0; i < maskWidthImgBytes.Length; i++)
-            {
-                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+                double[] res;
+                alglib.convr1d(maskWidthImgBytes[i], maskWidthImgBytes[i].Length, kernel, kernel.Length, out res);
+                maskWidthImgBytes[i] = res;
             }
 
             maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
 
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
-                for (int j = 0; j < maskWidthImgBytes[0].Length; j++)
+                double[] res;
+                alglib.convr1d(maskWidthImgBytes[i], maskWidthImgBytes[i].Length, kernel, kernel.Length, out res);
+                maskWidthImgBytes[i] = res;
+            }
+
+            maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+            // an FFT convolution of A, B (with sizes M, N) produces a result of size M + N - 1.
+            // To get an output of the same size as A, we need a "same" convolution. Here is how to get it:
+            // The extra size is due to a padding of A (original image). It is padded an extra N - 1 (kernel length - 1)
+            // to the left and right of the image and to the top and bottom, so that the original image is centered
+            // around the padding. If N - 1 is odd, the left and top get floor((N - 1) / 2). Offset variable
+            // below allows us to get the centered original image from the padded result after the convolution
+            // see here to see what I mean (above was super quick, and thus bad, explanation):
+            // https://johnloomis.org/ece563/notes/filter/conv/convolution.html
+            int offset = (kernel.Length - 1) / 2;
+
+            BitmapData data = origImg.LockBits(new Rectangle(0, 0, origImg.Width, origImg.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
+            int stride = data.Stride;
+            unsafe
+            {
+                byte *ptr = (byte *)data.Scan0;
+                for (int y = 0; y < origImg.Height; y++)
                 {
-                    double min = 2 * (maskWidthImgBytes[i][j] < 127 ? maskWidthImgBytes[i][j] : 127);
-                    double temp = origImgBytes[i][j] > 0 ? 255 : 0;
+                    for (int x = 0; x < origImg.Width; x++)
+                    {
+                        double blurredVal = maskWidthImgBytes[y + offset][x + offset];
+                        double min = 2 * (blurredVal < 127 ? blurredVal : 127);
+                        byte c = ptr[(x * 3) + y * stride + 2]; // red value at this point (proxy for whiteness)
+                        byte temp = (byte)(c > 0 ? 255 : 0);
 
-                    origImgBytes[i][j] = temp > min ? temp : min;
+                        if (temp != 255)
+                        {
+                            // only set to red those parts which aren't full white (aka full land without the blur effect yet)
+                            byte set = temp > min ? temp : (byte)min;
+
+                            // origImg.SetPixel(j, i, Color.FromArgb(set, 0, 0));
+                            ptr[(x * 3) + y * stride] = 0;
+                            ptr[(x * 3) + y * stride + 1] = 0;
+                            ptr[(x * 3) + y * stride + 2] = set;
+                        }
+                    }
+                }
+            }
+            origImg.UnlockBits(data);
+
+            return origImg;
+        }
+
+        // pieceDims specifies width and height of each piece
+        private List<List<Bitmap>> SplitBitMapIntoPieces(Bitmap img, int pieceDims)
+        {
+            List<List<Bitmap>> pieces = new List<List<Bitmap>>();
+            List<List<double[]>> pieceCoords = CommonFunctions.GetPiecesFromGrid(0, img.Width, 0, img.Height, pieceDims);
+
+            foreach (List<double[]> slice in pieceCoords)
+            {
+                List<Bitmap> bitmapSlice = new List<Bitmap>();
+
+                foreach (double[] pieceCoord in slice)
+                {
+                    int minX = (int)pieceCoord[0];
+                    int minY = (int)pieceCoord[1];
+                    int maxX = (int)pieceCoord[2];
+                    int maxY = (int)pieceCoord[3];
+
+                    int width = maxX - minX;
+                    int height = maxY - minY;
+
+                    Bitmap pieceImg = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                    Graphics g = Graphics.FromImage(pieceImg);
+                    g.DrawImage(img, new Rectangle(0, 0, width, height), new Rectangle(minX, minY, width, height), GraphicsUnit.Pixel);
+                    g.Dispose();
+                    bitmapSlice.Add(pieceImg);
+                }
+                pieces.Add(bitmapSlice);
+            }
+
+            return pieces;
+        }
+
+        private Bitmap CombinePiecesIntoLargeImg(List<List<Bitmap>> pieces)
+        {
+            int height = 0;
+            int width = 0;
+
+            for (int i = 0; i < pieces[0].Count; i++)
+            {
+                height += pieces[0][i].Height;
+            }
+
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                width += pieces[i][0].Width;
+            }
+
+            Bitmap combinedImg = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+            Graphics g = Graphics.FromImage(combinedImg);
+
+            int x = 0;
+            int y = 0;
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                for (int j = 0; j < pieces[i].Count; j++)
+                {
+                    Bitmap piece = pieces[i][j];
+                    g.DrawImage(piece, new Rectangle(x, y, piece.Width, piece.Height), new Rectangle(0, 0, piece.Width, piece.Height), GraphicsUnit.Pixel);
+                    y += piece.Height;
+                    if (y >= height)
+                    {
+                        y = 0;
+                    }
+                }
+
+                x += pieces[i][0].Width;
+                if (x >= width)
+                {
+                    x = 0;
                 }
             }
 
-            return ToBitmap(origImgBytes);
+            return combinedImg;
         }
 
-        public Bitmap createWaterMaskBitmap()
+        private Bitmap ApplyMaskWidth(Bitmap img, FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
+        {
+            int blurWidth = (int)((MasksConfig.mAreaPixelCountInX / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude)) * MasksConfig.mMasksWidth);
+            if (blurWidth < 2)
+            {
+                return img;
+            }
+
+            const int IMG_DIM_LIM = 4096;
+            if (img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM)
+            {
+                // split big images into pieces
+                iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Splitting image for reduced memory usage");
+                List<List<Bitmap>> pieces = SplitBitMapIntoPieces(img, IMG_DIM_LIM);
+
+                // probably more elegant way to do this
+                int totPieces = 0;
+                foreach (List<Bitmap> l in pieces)
+                {
+                    foreach (Bitmap b in l)
+                    {
+                        totPieces++;
+                    }
+                }
+
+                int pieceNum = 1;
+                for (int i = 0; i < pieces.Count; i++)
+                {
+                    for (int j = 0; j < pieces[i].Count; j++)
+                    {
+                        iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Adding mask width to piece " + pieceNum + " of " + totPieces);
+                        pieces[i][j] = ApplyMaskWidthToPart(pieces[i][j], blurWidth);
+                        pieceNum++;
+                    }
+                }
+                Bitmap f = CombinePiecesIntoLargeImg(pieces);
+
+                return f;
+            }
+
+            return ApplyMaskWidthToPart(img, blurWidth);
+        }
+
+        public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
             var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -4715,10 +4862,10 @@ namespace FSEarthMasksInternalDLL
                 g.FillPolygon(b, convertedTri);
             }
 
-            MemoryStream memoryStream = new MemoryStream();
-            bmp.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
-            Bitmap streamBitmap = (Bitmap)Bitmap.FromStream(memoryStream);
-            bmp = ApplyMaskWidth(bmp, streamBitmap);
+            if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks)
+            {
+                bmp = ApplyMaskWidth(bmp, iFSEarthMasksInternalInterface);
+            }
 
             return bmp;
         }

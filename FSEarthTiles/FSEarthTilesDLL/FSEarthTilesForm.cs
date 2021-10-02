@@ -2325,7 +2325,7 @@ namespace FSEarthTilesDLL
                 }
 
                 MasksResampleWorker w = new MasksResampleWorker();
-                w.AreaFileString = GetAreaFileString(); ;
+                w.AreaFileString = GetAreaFileString();
                 w.mEarthArea = mEarthArea.Clone();
                 w.mEarthMultiArea = mEarthMultiArea.Clone();
                 w.mCurrentAreaInfo = mCurrentAreaInfo.Clone();
