@@ -2876,14 +2876,13 @@ namespace FSEarthTilesDLL
 
             Tile vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
 
-            if (false)
+            if (EarthConfig.layServiceMode)
             {
-                vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
+                vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
             }
             else
             {
-                vFullTileAddress = EarthConfig.layProviders["OSM"].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
-                Console.WriteLine(vFullTileAddress);
+                vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
             }
             vFullTileAddress = "http://mt0.google.com/vt/lyrs=s&&x=2256&y=3471&z=13";
 
@@ -7840,6 +7839,10 @@ namespace FSEarthTilesDLL
                         EmptyAllJobQueues();
                     }
                     String vWebAddress = EarthScriptsHandler.CreateWebAddress(mLastTileInfo.mAreaCodeX, mLastTileInfo.mAreaCodeY, mLastTileInfo.mLevel, mLastTileInfo.mService);
+                    if (EarthConfig.layServiceMode)
+                    {
+                        vWebAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, mLastTileInfo.mAreaCodeX, mLastTileInfo.mAreaCodeY, EarthMath.cLevel0CodeDeep - mLastTileInfo.mLevel);
+                    }
                     //test vWebAddress = "http://www.simw.com/";
                     HandleWebBrowser(vWebAddress);
                 }

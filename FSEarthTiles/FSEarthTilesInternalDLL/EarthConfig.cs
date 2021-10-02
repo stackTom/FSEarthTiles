@@ -259,6 +259,8 @@ namespace FSEarthTilesInternalDLL
 
         // custom Lay files
         public static Dictionary<string, LayProvider> layProviders = new Dictionary<string, LayProvider>();
+        public static bool layServiceMode = false;
+        public static string layServiceSelected = null;
 
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
@@ -1985,6 +1987,15 @@ namespace FSEarthTilesInternalDLL
 
         public static void SetService(String iService)
         {
+            if (layProviders.ContainsKey(iService))
+            {
+                EarthConfig.layServiceMode = true;
+                EarthConfig.layServiceSelected = iService;
+                return;
+            }
+            EarthConfig.layServiceMode = false;
+            EarthConfig.layServiceSelected = null;
+
             String vCompareString;
             for (Int32 vCon = 1; vCon <= 9; vCon++)
             {

@@ -232,13 +232,13 @@ namespace FSEarthTilesDLL
                 vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
                 mExclusiveMutex.ReleaseMutex();
 
-                if (false)
+                if (EarthConfig.layServiceMode)
                 {
-                    vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+                    vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
                 }
                 else
                 {
-                    vFullTileAddress = EarthConfig.layProviders["GO2"].getURL(0, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
+                    vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
                 }
                 Console.WriteLine(vFullTileAddress);
 
@@ -326,8 +326,18 @@ namespace FSEarthTilesDLL
 
                             Uri myTileUri = new Uri(vFullTileAddress);
                             System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
-                            request.Referer = vServiceReference;
-                            request.UserAgent = vServiceUserAgent;
+                            if (EarthConfig.layServiceMode)
+                            {
+                                request.Referer = myTileUri.Scheme + "://" + request.Host;
+                                request.UserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36";
+                            }
+                            else
+                            {
+                                request.Referer = vServiceReference;
+                                request.UserAgent = vServiceUserAgent;
+                            }
+                            Console.WriteLine(request.Referer);
+                            Console.WriteLine(request.UserAgent);
 
                             if (!EarthCommon.StringCompare(ea.mEngineProxy, "direct"))
                             {
