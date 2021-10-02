@@ -4666,23 +4666,34 @@ namespace FSEarthMasksInternalDLL
             // https://johnloomis.org/ece563/notes/filter/conv/convolution.html
             int offset = (kernel.Length - 1) / 2;
 
-            for (int i = 0; i < origImg.Height; i++)
+            BitmapData data = origImg.LockBits(new Rectangle(0, 0, origImg.Width, origImg.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
+            int stride = data.Stride;
+            unsafe
             {
-                for (int j = 0; j < origImg.Width; j++)
+                byte *ptr = (byte *)data.Scan0;
+                for (int y = 0; y < origImg.Height; y++)
                 {
-                    double blurredVal = maskWidthImgBytes[i + offset][j + offset];
-                    double min = 2 * (blurredVal < 127 ? blurredVal : 127);
-                    Color c = origImg.GetPixel(j, i);
-                    int temp = c.R > 0 ? 255 : 0;
-
-                    if (temp != 255)
+                    for (int x = 0; x < origImg.Width; x++)
                     {
-                        // only set to red those parts which aren't full white (aka full land without the blur effect yet)
-                        int set = temp > min ? temp : (int)min;
-                        origImg.SetPixel(j, i, Color.FromArgb(set, 0, 0));
+                        double blurredVal = maskWidthImgBytes[y + offset][x + offset];
+                        double min = 2 * (blurredVal < 127 ? blurredVal : 127);
+                        byte c = ptr[(x * 3) + y * stride + 2]; // red value at this point (proxy for whiteness)
+                        byte temp = (byte)(c > 0 ? 255 : 0);
+
+                        if (temp != 255)
+                        {
+                            // only set to red those parts which aren't full white (aka full land without the blur effect yet)
+                            byte set = temp > min ? temp : (byte)min;
+
+                            // origImg.SetPixel(j, i, Color.FromArgb(set, 0, 0));
+                            ptr[(x * 3) + y * stride] = 0;
+                            ptr[(x * 3) + y * stride + 1] = 0;
+                            ptr[(x * 3) + y * stride + 2] = set;
+                        }
                     }
                 }
             }
+            origImg.UnlockBits(data);
 
             return origImg;
         }
