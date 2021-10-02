@@ -4641,23 +4641,37 @@ namespace FSEarthMasksInternalDLL
             }
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
-                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+                double[] res;
+                alglib.convr1d(maskWidthImgBytes[i], maskWidthImgBytes[i].Length, kernel, kernel.Length, out res);
+                maskWidthImgBytes[i] = res;
             }
 
             maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
 
             for (int i = 0; i < maskWidthImgBytes.Length; i++)
             {
-                maskWidthImgBytes[i] = CommonFunctions.Convolve(maskWidthImgBytes[i], kernel, "same");
+                double[] res;
+                alglib.convr1d(maskWidthImgBytes[i], maskWidthImgBytes[i].Length, kernel, kernel.Length, out res);
+                maskWidthImgBytes[i] = res;
             }
 
             maskWidthImgBytes = CommonFunctions.Transpose(maskWidthImgBytes);
+            // an FFT convolution of A, B (with sizes M, N) produces a result of size M + N - 1.
+            // To get an output of the same size as A, we need a "same" convolution. Here is how to get it:
+            // The extra size is due to a padding of A (original image). It is padded an extra N - 1 (kernel length - 1)
+            // to the left and right of the image and to the top and bottom, so that the original image is centered
+            // around the padding. If N - 1 is odd, the left and top get floor((N - 1) / 2). Offset variable
+            // below allows us to get the centered original image from the padded result after the convolution
+            // see here to see what I mean (above was super quick, and thus bad, explanation):
+            // https://johnloomis.org/ece563/notes/filter/conv/convolution.html
+            int offset = (kernel.Length - 1) / 2;
 
-            for (int i = 0; i < maskWidthImgBytes.Length; i++)
+            for (int i = 0; i < origImg.Height; i++)
             {
-                for (int j = 0; j < maskWidthImgBytes[i].Length; j++)
+                for (int j = 0; j < origImg.Width; j++)
                 {
-                    double min = 2 * (maskWidthImgBytes[i][j] < 127 ? maskWidthImgBytes[i][j] : 127);
+                    double blurredVal = maskWidthImgBytes[i + offset][j + offset];
+                    double min = 2 * (blurredVal < 127 ? blurredVal : 127);
                     Color c = origImg.GetPixel(j, i);
                     int temp = c.R > 0 ? 255 : 0;
 
@@ -4756,7 +4770,7 @@ namespace FSEarthMasksInternalDLL
                 return img;
             }
 
-            const int IMG_DIM_LIM = 1024;
+            const int IMG_DIM_LIM = 4096;
             if (img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM)
             {
                 // split big images into pieces

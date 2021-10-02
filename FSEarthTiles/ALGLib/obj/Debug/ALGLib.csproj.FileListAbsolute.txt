@@ -1,0 +1,6 @@
+G:\FSEarthTiles\FSEarthTiles\ALGLib\obj\Debug\ALGLib.csprojAssemblyReference.cache
+G:\FSEarthTiles\FSEarthTiles\ALGLib\obj\Debug\ALGLib.csproj.CoreCompileInputs.cache
+G:\FSEarthTiles\FSEarthTiles\ALGLib\bin\Debug\ALGLib.dll
+G:\FSEarthTiles\FSEarthTiles\ALGLib\bin\Debug\ALGLib.pdb
+G:\FSEarthTiles\FSEarthTiles\ALGLib\obj\Debug\ALGLib.dll
+G:\FSEarthTiles\FSEarthTiles\ALGLib\obj\Debug\ALGLib.pdb
