@@ -232,7 +232,15 @@ namespace FSEarthTilesDLL
                 vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
                 mExclusiveMutex.ReleaseMutex();
 
-                vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+                if (false)
+                {
+                    vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+                }
+                else
+                {
+                    vFullTileAddress = EarthConfig.layProviders["GO2"].getURL(0, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
+                }
+                Console.WriteLine(vFullTileAddress);
 
                 Int64 vRetries = 0;
                 Boolean vTileReady = false;

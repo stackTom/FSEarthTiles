@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
+using System.Text.RegularExpressions;
 
 
 
@@ -50,6 +51,28 @@ namespace FSEarthTilesInternalDLL
         eSevice7,
         eSevice8,
         eSevice9
+    }
+
+
+    public class LayProvider
+    {
+        public List<string> variations;
+        public string name;
+
+        public LayProvider(string name)
+        {
+            this.name = name;
+        }
+
+        public string getURL(int variationIdx, long x, long y, long zoom)
+        {
+            string variation = variations[variationIdx];
+            variation = Regex.Replace(variation, "{x}", x.ToString());
+            variation = Regex.Replace(variation, "{y}", y.ToString());
+            variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
+
+            return variation;
+        }
     }
 
 
@@ -233,6 +256,9 @@ namespace FSEarthTilesInternalDLL
         // multithreading
         public static int mMaxResampleThreads;
         public static int mMaxDownloadThreads;
+
+        // custom Lay files
+        public static Dictionary<string, LayProvider> layProviders = new Dictionary<string, LayProvider>();
 
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
@@ -1597,6 +1623,22 @@ namespace FSEarthTilesInternalDLL
         }
 
 
+        private static void PopulateLayProviders()
+        {
+            string providersFolder = EarthConfig.mStartExeFolder + @"\Providers";
+            string[] providerFolders = Directory.GetDirectories(providersFolder);
+            foreach (string providerFolder in providerFolders)
+            {
+                string[] layFiles = Directory.GetFiles(providerFolder);
+
+                foreach (string layFile in layFiles)
+                {
+                    ParseLayFile(layFile);
+                }
+            }
+        }
+
+
         private static void CreateServiceVariations(Int32 iServiceIndex)
         {
             //Make Sure we have 4 identical Variation to edit, no old stuff allowed!
@@ -1875,6 +1917,7 @@ namespace FSEarthTilesInternalDLL
             AnalyseService9ConfigTab();
             AnalyseStartupServiceConfigTab();
             //AnalyseFSEarthTilesConfigTab();
+            PopulateLayProviders();
         }
 
         private static void AddConfigLine(String iConfigLine)
@@ -2426,6 +2469,44 @@ namespace FSEarthTilesInternalDLL
             }
 
             return vWithSeasons;
+        }
+
+        public static void ParseLayFile(string filePath)
+        {
+            string rgstr = @"{switch:([^}]+)(,\s*[^}]+)*}";
+            Regex rg = new Regex(rgstr);
+            string[] fileContents = File.ReadAllLines(filePath);
+            foreach (string line in fileContents)
+            {
+                string url = Regex.Replace(line, "url_template=", "");
+                if (url == line || url == "" || line[0] == '#')
+                {
+                    url = Regex.Replace(line, "url_prefix=", "");
+                }
+                if (url != line && url != "" && url[0] != '#')
+                {
+                    string switchStr = rg.Match(url).Value;
+                    switchStr = Regex.Replace(switchStr, @"{switch:", "");
+                    switchStr = Regex.Replace(switchStr, @"}", "");
+                    LayProvider lp = new LayProvider(Path.GetFileNameWithoutExtension(filePath));
+                    if (switchStr == "")
+                    {
+                        lp.variations = new List<string>();
+                        lp.variations.Add(url);
+                    }
+                    else
+                    {
+                        string[] variationValues = switchStr.Split(',');
+                        List<string> variations = new List<string>();
+                        foreach (string s in variationValues)
+                        {
+                            variations.Add(Regex.Replace(url, rgstr, s));
+                        }
+                        lp.variations = variations;
+                    }
+                    layProviders.Add(lp.name, lp);
+                }
+            }
         }
 
     }

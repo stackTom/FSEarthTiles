@@ -815,6 +815,11 @@ namespace FSEarthTilesDLL
                    }
                }
 
+                foreach (KeyValuePair<string, LayProvider> kv in EarthConfig.layProviders)
+                {
+                    ServiceBox.Items.Add(kv.Key);
+                }
+
                if (vSelectedServiceExist)
                {
                    ServiceBox.Text = EarthConfig.GetServiceString();
@@ -2871,7 +2876,16 @@ namespace FSEarthTilesDLL
 
             Tile vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
 
-            vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
+            if (false)
+            {
+                vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
+            }
+            else
+            {
+                vFullTileAddress = EarthConfig.layProviders["OSM"].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
+                Console.WriteLine(vFullTileAddress);
+            }
+            vFullTileAddress = "http://mt0.google.com/vt/lyrs=s&&x=2256&y=3471&z=13";
 
             vServiceReference = EarthConfig.mServiceReferer[iService - 1];
 
