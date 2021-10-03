@@ -2884,7 +2884,6 @@ namespace FSEarthTilesDLL
             {
                 vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
             }
-            vFullTileAddress = "http://mt0.google.com/vt/lyrs=s&&x=2256&y=3471&z=13";
 
             vServiceReference = EarthConfig.mServiceReferer[iService - 1];
 
