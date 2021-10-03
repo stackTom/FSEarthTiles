@@ -2945,7 +2945,14 @@ namespace FSEarthTilesDLL
                         //-----------------
 
                         System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
-                        request.Referer = vServiceReference;
+                        if (EarthConfig.layServiceMode)
+                        {
+                            request.Referer = myTileUri.Scheme + "://" + request.Host;
+                        }
+                        else
+                        {
+                            request.Referer = vServiceReference;
+                        }
 
                         //test code
                         //Uri vProxyUri = new Uri("http://130.149.49.26:3124/");

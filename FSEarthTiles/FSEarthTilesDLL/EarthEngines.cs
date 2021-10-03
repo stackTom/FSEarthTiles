@@ -240,7 +240,6 @@ namespace FSEarthTilesDLL
                 {
                     vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
                 }
-                Console.WriteLine(vFullTileAddress);
 
                 Int64 vRetries = 0;
                 Boolean vTileReady = false;
@@ -324,20 +323,29 @@ namespace FSEarthTilesDLL
                                 throw vError;
                             }
 
+                            // this old .net framework is missing some of the SecurityProcolType's
+                            // this is hack to get them. needed, otherwise certain https url's throw
+                            // exception and don't work
+                            const SecurityProtocolType tls13 = (SecurityProtocolType)12288;
+                            const SecurityProtocolType tls12 = (SecurityProtocolType)3072;
+                            const SecurityProtocolType tls11 = (SecurityProtocolType)768;
+                            const SecurityProtocolType tls = (SecurityProtocolType)192;
+                            const SecurityProtocolType ssl3 = (SecurityProtocolType)48;
+                            ServicePointManager.SecurityProtocol = tls13 | tls12 | tls11 | tls | ssl3;
+                            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
                             Uri myTileUri = new Uri(vFullTileAddress);
                             System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
                             if (EarthConfig.layServiceMode)
                             {
                                 request.Referer = myTileUri.Scheme + "://" + request.Host;
-                                request.UserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36";
+                                request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
                             }
                             else
                             {
                                 request.Referer = vServiceReference;
                                 request.UserAgent = vServiceUserAgent;
                             }
-                            Console.WriteLine(request.Referer);
-                            Console.WriteLine(request.UserAgent);
 
                             if (!EarthCommon.StringCompare(ea.mEngineProxy, "direct"))
                             {
@@ -345,7 +353,7 @@ namespace FSEarthTilesDLL
                                 request.Proxy = vProxy;
                             }
 
-                            if (ea.mEngineHandleCookies)
+                            if (ea.mEngineHandleCookies || EarthConfig.layServiceMode)
                             {
                                 request.CookieContainer = new CookieContainer();
                                 if (ea.mEngineCookies.Count > 0)
