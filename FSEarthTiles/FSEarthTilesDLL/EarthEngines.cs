@@ -282,9 +282,17 @@ namespace FSEarthTilesDLL
                         Boolean vTileCached = false;
 
 
-                        vTileProvider = EarthConfig.mServiceName[EarthConfig.mSelectedService - 1];
                         vTileFilename = EarthConfig.mWorkFolder + "\\cache\\";
-                        vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + vTileProvider + ".jpg";
+
+                        if (EarthConfig.layServiceMode)
+                        {
+                            vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + EarthConfig.layServiceSelected + ".jpg";
+                        }
+                        else
+                        {
+                            vTileProvider = EarthConfig.mServiceName[EarthConfig.mSelectedService - 1];
+                            vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + vTileProvider + ".jpg";
+                        }
 
                         vTileCached = CheckForCachedFile(vTileFilename);
 
