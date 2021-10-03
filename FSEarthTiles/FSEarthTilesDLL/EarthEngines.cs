@@ -226,7 +226,9 @@ namespace FSEarthTilesDLL
                     vTile.mTileInfo.layService = EarthConfig.layServiceSelected;
                     LayProvider lp = EarthConfig.layProviders[EarthConfig.layServiceSelected];
                     int variationIdx = lp.MapIdxToVariationIdx(engineNumber);
-                    vFullTileAddress = lp.getURL(variationIdx, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
+                    // Not sure if all the ones that use quadkey like bing don't need EarthMath.cLevel0CodeDeep - level part
+                    string potentialQuad = EarthScriptsHandler.MapAreaCoordToTileCode(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, "0123");
+                    vFullTileAddress = lp.getURL(variationIdx, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel, potentialQuad);
                 }
                 else
                 {

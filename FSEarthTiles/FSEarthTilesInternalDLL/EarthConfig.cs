@@ -65,8 +65,9 @@ namespace FSEarthTilesInternalDLL
             this.name = name;
         }
 
-        public string getURL(int variationIdx, long x, long y, long zoom)
+        public string getURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
         {
+            // TODO: make this function (or class) worry about the EarthMath.cLevel0CodeDeep stuff?
             string variation = null;
             if (variationIdx >= variations.Count)
             {
@@ -80,6 +81,7 @@ namespace FSEarthTilesInternalDLL
             variation = Regex.Replace(variation, "{y}", y.ToString());
             variation = Regex.Replace(variation, "{z}", zoom.ToString());
             variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
+            variation = Regex.Replace(variation, "{quadkey}", potentialQuad);
 
             return variation;
         }
