@@ -1728,7 +1728,7 @@ namespace FSEarthTilesDLL
                         vWinnerEngine = vEngineArray[vRandom - 1] - 1;
 
 
-                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
+                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count))
                         {
                             Thread.Sleep(10); //then Error
                         }
@@ -1740,7 +1740,7 @@ namespace FSEarthTilesDLL
                                 vFreeEngines[i] = EarthEngines.AddTileInfoToEngine(i, vTileInfo);
                             }
                         }
-                        if (vWinnerEngine == vFreeEngines.Count + 1)
+                        if (vWinnerEngine == vFreeEngines.Count)
                         {
                             vFreeWWWEngine = mEarthWeb.AddTileInfoToWWWEngine(vTileInfo);
                         }
