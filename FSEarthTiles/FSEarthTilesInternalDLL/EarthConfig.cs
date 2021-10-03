@@ -77,6 +77,7 @@ namespace FSEarthTilesInternalDLL
             }
             variation = Regex.Replace(variation, "{x}", x.ToString());
             variation = Regex.Replace(variation, "{y}", y.ToString());
+            variation = Regex.Replace(variation, "{z}", zoom.ToString());
             variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
 
             return variation;
