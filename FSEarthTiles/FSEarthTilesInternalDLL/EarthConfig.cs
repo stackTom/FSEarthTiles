@@ -1657,7 +1657,10 @@ namespace FSEarthTilesInternalDLL
 
                 foreach (string layFile in layFiles)
                 {
-                    ParseLayFile(layFile);
+                    if (Path.GetExtension(layFile) != ".swp") // Oscar used vim ;)
+                    {
+                        ParseLayFile(layFile);
+                    }
                 }
             }
         }
