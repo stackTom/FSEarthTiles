@@ -615,18 +615,25 @@ namespace FSEarthTilesDLL
                 vServerVariantionSelection = 3;
             }
 
-            vTileCode = MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.mServiceCodeing[iService - 1]);
-            switch (vServerVariantionSelection)
+            if (EarthConfig.layServiceMode)
             {
-                case 0: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
-                case 1: vServiceStringBegin = EarthConfig.mServiceUrlBegin1[iService - 1]; break;
-                case 2: vServiceStringBegin = EarthConfig.mServiceUrlBegin2[iService - 1]; break;
-                case 3: vServiceStringBegin = EarthConfig.mServiceUrlBegin3[iService - 1]; break;
-                default: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
             }
-            vServiceStringEnd = EarthConfig.mServiceUrlEnd[iService - 1];
-            vServiceUserAgent = EarthConfig.mServiceCodeing[iService - 1];
-            vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+            else
+            {
+                vTileCode = MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.mServiceCodeing[iService - 1]);
+                switch (vServerVariantionSelection)
+                {
+                    case 0: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                    case 1: vServiceStringBegin = EarthConfig.mServiceUrlBegin1[iService - 1]; break;
+                    case 2: vServiceStringBegin = EarthConfig.mServiceUrlBegin2[iService - 1]; break;
+                    case 3: vServiceStringBegin = EarthConfig.mServiceUrlBegin3[iService - 1]; break;
+                    default: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                }
+                vServiceStringEnd = EarthConfig.mServiceUrlEnd[iService - 1];
+                vServiceUserAgent = EarthConfig.mServiceCodeing[iService - 1];
+                vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+            }
 
             return vFullTileAddress;
         }
