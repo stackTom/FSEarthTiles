@@ -66,12 +66,32 @@ namespace FSEarthTilesInternalDLL
 
         public string getURL(int variationIdx, long x, long y, long zoom)
         {
-            string variation = variations[variationIdx];
+            string variation = null;
+            if (variationIdx >= variations.Count)
+            {
+                variation = variations[0];
+            }
+            else
+            {
+                variation = variations[variationIdx];
+            }
             variation = Regex.Replace(variation, "{x}", x.ToString());
             variation = Regex.Replace(variation, "{y}", y.ToString());
             variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
 
             return variation;
+        }
+
+        public int MapIdxToVariationIdx(int idx)
+        {
+            return idx % variations.Count;
+        }
+
+        public int GetRandomVariationIdx()
+        {
+            Random random = new Random();
+
+            return random.Next(0, variations.Count);
         }
     }
 

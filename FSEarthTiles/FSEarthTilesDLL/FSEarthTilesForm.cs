@@ -2879,13 +2879,12 @@ namespace FSEarthTilesDLL
             if (EarthConfig.layServiceMode)
             {
                 vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.layServiceSelected,false);
-                vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
             }
             else
             {
                 vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
-                vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
             }
+            vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
 
             vServiceReference = EarthConfig.mServiceReferer[iService - 1];
 
@@ -7855,10 +7854,6 @@ namespace FSEarthTilesDLL
                         EmptyAllJobQueues();
                     }
                     String vWebAddress = EarthScriptsHandler.CreateWebAddress(mLastTileInfo.mAreaCodeX, mLastTileInfo.mAreaCodeY, mLastTileInfo.mLevel, mLastTileInfo.mService);
-                    if (EarthConfig.layServiceMode)
-                    {
-                        vWebAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, mLastTileInfo.mAreaCodeX, mLastTileInfo.mAreaCodeY, EarthMath.cLevel0CodeDeep - mLastTileInfo.mLevel);
-                    }
                     //test vWebAddress = "http://www.simw.com/";
                     HandleWebBrowser(vWebAddress);
                 }

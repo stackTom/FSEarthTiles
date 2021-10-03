@@ -598,29 +598,31 @@ namespace FSEarthTilesDLL
             String vServiceStringBegin;
             String vServiceStringEnd;
 
-            Random vServerVariationRandom = new Random();
-            Double vRandomNumber = vServerVariationRandom.NextDouble();
-            Int32 vServerVariantionSelection = 0;
-
-            if (vRandomNumber > 0.25)
-            {
-                vServerVariantionSelection = 1;
-            }
-            if (vRandomNumber > 0.50)
-            {
-                vServerVariantionSelection = 2;
-            }
-            if (vRandomNumber > 0.75)
-            {
-                vServerVariantionSelection = 3;
-            }
-
             if (EarthConfig.layServiceMode)
             {
-                vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
+                LayProvider lp = EarthConfig.layProviders[EarthConfig.layServiceSelected];
+                int variationIdx = lp.GetRandomVariationIdx();
+                vFullTileAddress = lp.getURL(variationIdx, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
             }
             else
             {
+                Random vServerVariationRandom = new Random();
+                Double vRandomNumber = vServerVariationRandom.NextDouble();
+                Int32 vServerVariantionSelection = 0;
+
+                if (vRandomNumber > 0.25)
+                {
+                    vServerVariantionSelection = 1;
+                }
+                if (vRandomNumber > 0.50)
+                {
+                    vServerVariantionSelection = 2;
+                }
+                if (vRandomNumber > 0.75)
+                {
+                    vServerVariantionSelection = 3;
+                }
+
                 vTileCode = MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.mServiceCodeing[iService - 1]);
                 switch (vServerVariantionSelection)
                 {

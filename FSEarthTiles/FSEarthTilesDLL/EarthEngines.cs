@@ -224,12 +224,33 @@ namespace FSEarthTilesDLL
                 if (EarthConfig.layServiceMode)
                 {
                     vTile.mTileInfo.layService = EarthConfig.layServiceSelected;
-                    vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
+                    LayProvider lp = EarthConfig.layProviders[EarthConfig.layServiceSelected];
+                    int variationIdx = lp.MapIdxToVariationIdx(engineNumber);
+                    vFullTileAddress = lp.getURL(variationIdx, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
                 }
                 else
                 {
                     //Engine1 uses ServiceVariation 0 fix
-                    vServiceStringBegin = EarthConfig.mServiceUrlBegin0[ea.mWorkTileInfoEngine.mService - 1];
+                    string[] variationArray = null;
+                    switch (engineNumber % 4)
+                    {
+                        case 0:
+                            variationArray = EarthConfig.mServiceUrlBegin0;
+                            break;
+                        case 1:
+                            variationArray = EarthConfig.mServiceUrlBegin1;
+                            break;
+                        case 2:
+                            variationArray = EarthConfig.mServiceUrlBegin2;
+                            break;
+                        case 3:
+                            variationArray = EarthConfig.mServiceUrlBegin3;
+                            break;
+                        default:
+                            variationArray = EarthConfig.mServiceUrlBegin0;
+                            break;
+                    }
+                    vServiceStringBegin = variationArray[ea.mWorkTileInfoEngine.mService - 1];
                     vServiceStringEnd = EarthConfig.mServiceUrlEnd[ea.mWorkTileInfoEngine.mService - 1];
                     vServiceReference = EarthConfig.mServiceReferer[ea.mWorkTileInfoEngine.mService - 1];
                     //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
