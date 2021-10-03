@@ -817,7 +817,10 @@ namespace FSEarthTilesDLL
 
                 foreach (KeyValuePair<string, LayProvider> kv in EarthConfig.layProviders)
                 {
-                    ServiceBox.Items.Add(kv.Key);
+                    if (kv.Value.inGui)
+                    {
+                        ServiceBox.Items.Add(kv.Key);
+                    }
                 }
 
                if (vSelectedServiceExist)

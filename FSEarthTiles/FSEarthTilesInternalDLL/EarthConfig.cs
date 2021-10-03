@@ -58,6 +58,7 @@ namespace FSEarthTilesInternalDLL
     {
         public List<string> variations;
         public string name;
+        public bool inGui;
 
         public LayProvider(string name)
         {
@@ -2508,6 +2509,16 @@ namespace FSEarthTilesInternalDLL
             string rgstr = @"{switch:([^}]+)(,\s*[^}]+)*}";
             Regex rg = new Regex(rgstr);
             string[] fileContents = File.ReadAllLines(filePath);
+            bool inGui = true;
+            foreach (string line in fileContents)
+            {
+                if (line.Contains("in_GUI"))
+                {
+                    string[] toks = line.Split('=');
+                    string inGuiStr = toks[1].Trim();
+                    inGui = (inGuiStr == "True");
+                }
+            }
             foreach (string line in fileContents)
             {
                 string url = Regex.Replace(line, "url_template=", "");
@@ -2521,6 +2532,7 @@ namespace FSEarthTilesInternalDLL
                     switchStr = Regex.Replace(switchStr, @"{switch:", "");
                     switchStr = Regex.Replace(switchStr, @"}", "");
                     LayProvider lp = new LayProvider(Path.GetFileNameWithoutExtension(filePath));
+                    lp.inGui = inGui;
                     if (switchStr == "")
                     {
                         lp.variations = new List<string>();
