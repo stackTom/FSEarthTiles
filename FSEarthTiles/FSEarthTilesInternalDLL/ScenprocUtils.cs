@@ -142,6 +142,10 @@ namespace FSEarthTilesInternalDLL
                     string osmFilePath = scenprocDataDir + @"\scenproc_osm_data" + i.ToString() + "_" + j.ToString() + ".osm";
                     if (!File.Exists(osmFilePath))
                     {
+                        minLat = chunks[i][j][1];
+                        minLon = chunks[i][j][0];
+                        maxLat = chunks[i][j][3];
+                        maxLon = chunks[i][j][2];
                         Console.WriteLine("Attempting to download OSM data from " + minLat + ", " + minLon + " to " + maxLat + ", " + maxLon);
                         string bbox = GetBbox(maxLat, minLon, minLat, maxLon, "MAP");
                         if (shouldStop)
