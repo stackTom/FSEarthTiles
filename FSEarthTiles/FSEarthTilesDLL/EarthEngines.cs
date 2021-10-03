@@ -221,23 +221,25 @@ namespace FSEarthTilesDLL
                 //Do the Work
                 Tile vTile = new Tile(ea.mWorkTileInfoEngine);
 
-                //Engine1 uses ServiceVariation 0 fix
-                vServiceStringBegin = EarthConfig.mServiceUrlBegin0[ea.mWorkTileInfoEngine.mService - 1];
-                vServiceStringEnd = EarthConfig.mServiceUrlEnd[ea.mWorkTileInfoEngine.mService - 1];
-                vServiceReference = EarthConfig.mServiceReferer[ea.mWorkTileInfoEngine.mService - 1];
-                //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
-                vServiceUserAgent = EarthConfig.mServiceUserAgent[ea.mWorkTileInfoEngine.mService - 1];
-
-                mExclusiveMutex.WaitOne();
-                vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
-                mExclusiveMutex.ReleaseMutex();
-
                 if (EarthConfig.layServiceMode)
                 {
+                    vTile.mTileInfo.layService = EarthConfig.layServiceSelected;
                     vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel);
                 }
                 else
                 {
+                    //Engine1 uses ServiceVariation 0 fix
+                    vServiceStringBegin = EarthConfig.mServiceUrlBegin0[ea.mWorkTileInfoEngine.mService - 1];
+                    vServiceStringEnd = EarthConfig.mServiceUrlEnd[ea.mWorkTileInfoEngine.mService - 1];
+                    vServiceReference = EarthConfig.mServiceReferer[ea.mWorkTileInfoEngine.mService - 1];
+                    //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
+                    vServiceUserAgent = EarthConfig.mServiceUserAgent[ea.mWorkTileInfoEngine.mService - 1];
+
+                    mExclusiveMutex.WaitOne();
+                    vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
+                    mExclusiveMutex.ReleaseMutex();
+
+                    vTile.mTileInfo.layService = null;
                     vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
                 }
 

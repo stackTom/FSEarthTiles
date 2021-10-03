@@ -2874,14 +2874,16 @@ namespace FSEarthTilesDLL
             String  vFullTileAddress  = "";
             String  vServiceReference = "";
 
-            Tile vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
+            Tile vTile = null;
 
             if (EarthConfig.layServiceMode)
             {
+                vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.layServiceSelected,false);
                 vFullTileAddress = EarthConfig.layProviders[EarthConfig.layServiceSelected].getURL(0, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel);
             }
             else
             {
+                vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
                 vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
             }
 
@@ -4736,7 +4738,15 @@ namespace FSEarthTilesDLL
                 for (Int64 vCountX = 0; vCountX <= vDisplayAreaTilesInX - 1; vCountX++)
                 {
 
-                    TileInfo vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.mSelectedService,false);
+                    TileInfo vTileInfo = null;
+                    if (EarthConfig.layServiceMode)
+                    {
+                        vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.layServiceSelected,false);
+                    }
+                    else
+                    {
+                        vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.mSelectedService,false);
+                    }
 
                     if (mDisplayTileCache.IsTileInCache(vTileInfo))
                     {
