@@ -1651,6 +1651,7 @@ namespace FSEarthTilesInternalDLL
 
         private static void PopulateLayProviders()
         {
+            layProviders = new Dictionary<string, LayProvider>();
             string providersFolder = EarthConfig.mStartExeFolder + @"\Providers";
             string[] providerFolders = Directory.GetDirectories(providersFolder);
             foreach (string providerFolder in providerFolders)
@@ -2041,7 +2042,11 @@ namespace FSEarthTilesInternalDLL
         {
             String vService = "";
 
-            if (mServiceName[mSelectedService - 1].Length > 0)
+            if (EarthConfig.layServiceMode)
+            {
+                vService = EarthConfig.layServiceSelected;
+            }
+            else if (mServiceName[mSelectedService - 1].Length > 0)
             {
                 vService = mServiceName[mSelectedService - 1];
             }
