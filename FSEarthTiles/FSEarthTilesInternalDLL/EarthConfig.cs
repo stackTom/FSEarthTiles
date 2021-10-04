@@ -1945,9 +1945,9 @@ namespace FSEarthTilesInternalDLL
             AnalyseService7ConfigTab();
             AnalyseService8ConfigTab();
             AnalyseService9ConfigTab();
+            PopulateLayProviders();
             AnalyseStartupServiceConfigTab();
             //AnalyseFSEarthTilesConfigTab();
-            PopulateLayProviders();
         }
 
         private static void AddConfigLine(String iConfigLine)
