@@ -7280,15 +7280,19 @@ namespace FSEarthTilesDLL
                 {
                     SetStatus("Waiting on ImageTool to finish.");
                 }
+                // the below else if and else can be refactored into 1 else block, but I think how it is now is more
+                // readable
                 else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
                 {
                     // scenproc wasn't running, or it was but now it's not
                     SetStatus("Done.");
                     scenProcWasRunning = false;
+                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                 }
                 else
                 {
                     SetStatus("Done.");
+                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                 }
             }
 
@@ -7302,8 +7306,12 @@ namespace FSEarthTilesDLL
                     SetStatus(vStatusFeedback);
                 }
 
+                // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
+                // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
+                // also frees up cpu time to resample etc as a minor side effect
+                long deficit =  mCurrentActiveAreaNr - mMasksCompilerMultithreadedQueue.GetTotalJobsDone();
                 //Finish work is when thread exited
-                if (mAreaAftermathThread != null) //can be zero already on a close application concurrency.
+                if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
                 {
                     if (mAreaAftermathThread.ThreadState == ThreadState.Stopped)
                     {
