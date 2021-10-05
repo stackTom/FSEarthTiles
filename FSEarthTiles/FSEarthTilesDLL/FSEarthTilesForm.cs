@@ -324,7 +324,7 @@ namespace FSEarthTilesDLL
         Thread mImageToolThread;
 
         // Producer/consumer to run resample processes
-        MultiThreadedQueue mMasksCompilerMultithreadedQueue;
+        MultiThreadedQueue mCompilerMultithreadedQueue;
 
         // Producer/consumer to run image processing (undistortion etc.)
         MultiThreadedQueue mImageProcessingMultithreadedQueue;
@@ -2290,17 +2290,21 @@ namespace FSEarthTilesDLL
             }
         }
 
-        private void RunImageProcessing(MasksResampleWorker w)
+        private void ProcessAndSaveDownloadedImageToDisk(MasksResampleWorker w)
         {
-            EarthScriptsHandler.DoBeforeResampleing(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+            if (!mStopProcess)
+            {
+                EarthScriptsHandler.DoBeforeResampleing(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
-            ProcessDownloadedArea(w);
+                ProcessDownloadedArea(w);
 
-            EarthScriptsHandler.DoAfterDownload(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+                EarthScriptsHandler.DoAfterDownload(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+            }
 
             if (!mStopProcess)
             {
-                mMasksCompilerMultithreadedQueue.Enqueue(w);
+                ProcessMasks(w);
+                mCompilerMultithreadedQueue.Enqueue(w);
             }
         }
 
@@ -2308,16 +2312,11 @@ namespace FSEarthTilesDLL
         {
             if (!mStopProcess)
             {
-                ProcessMasks(w);
+                EarthScriptsHandler.DoBeforeFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
-                if (!mStopProcess)
-                {
-                    EarthScriptsHandler.DoBeforeFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
+                ProcessSceneryCompilation(w);
 
-                    ProcessSceneryCompilation(w);
-
-                    EarthScriptsHandler.DoAfterFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
-                }
+                EarthScriptsHandler.DoAfterFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
             }
         }
 
@@ -5433,7 +5432,7 @@ namespace FSEarthTilesDLL
         private void StartDownload()
         {
             bool shouldStart = !mAreaProcessRunning && !ScenprocUtils.ScenProcRunning
-                && ((mMasksCompilerMultithreadedQueue == null && mImageProcessingMultithreadedQueue == null)
+                && ((mCompilerMultithreadedQueue == null && mImageProcessingMultithreadedQueue == null)
                 || MultiThreadedQueuesFinished()) && (mImageToolThread == null
                 || ImageToolThreadUnstarted() || ImageToolThreadFinished());
 
@@ -5477,11 +5476,11 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
                                     
-                                    mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
-                                    mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
+                                    mCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
+                                    mCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
 
                                     mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
-                                    mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
+                                    mImageProcessingMultithreadedQueue.jobHandler = ProcessAndSaveDownloadedImageToDisk;
                                     if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
                                     {
                                         // reset image tool thread
@@ -5605,7 +5604,7 @@ namespace FSEarthTilesDLL
             {
                 ScenprocUtils.TellScenprocToTerminate();
             }
-            mMasksCompilerMultithreadedQueue.Stop();
+            mCompilerMultithreadedQueue.Stop();
             mImageProcessingMultithreadedQueue.Stop();
             if (mImageToolThread != null && mImageToolThread.IsAlive)
             {
@@ -7135,8 +7134,8 @@ namespace FSEarthTilesDLL
 
         bool MultiThreadedQueuesFinished()
         {
-            bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
-                                    && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
+            bool multithreadedQueuesFinished = mCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
+                                    && mCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
 
             return multithreadedQueuesFinished;
         }
@@ -7287,12 +7286,14 @@ namespace FSEarthTilesDLL
                     // scenproc wasn't running, or it was but now it's not
                     SetStatus("Done.");
                     scenProcWasRunning = false;
-                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    mCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    mImageProcessingMultithreadedQueue.SetTotalJobsDone(0);
                 }
                 else
                 {
                     SetStatus("Done.");
-                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    mCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    mImageProcessingMultithreadedQueue.SetTotalJobsDone(0);
                 }
             }
 
@@ -7314,7 +7315,7 @@ namespace FSEarthTilesDLL
                 // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
                 // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
                 // also frees up cpu time to resample etc as a minor side effect
-                long deficit =  mCurrentActiveAreaNr - mMasksCompilerMultithreadedQueue.GetTotalJobsDone();
+                long deficit =  mCurrentActiveAreaNr - mImageProcessingMultithreadedQueue.GetTotalJobsDone();
                 //Finish work is when thread exited
                 if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
                 {
@@ -7380,9 +7381,9 @@ namespace FSEarthTilesDLL
                             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
                             mStopProcess = false;
 
-                            mMasksCompilerMultithreadedQueue.CompleteAdding();
+                            mCompilerMultithreadedQueue.CompleteAdding();
                             mImageProcessingMultithreadedQueue.CompleteAdding();
-                            if (!mMasksCompilerMultithreadedQueue.AllDone())
+                            if (!mCompilerMultithreadedQueue.AllDone())
                             {
                                 SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
                             }
@@ -7698,9 +7699,9 @@ namespace FSEarthTilesDLL
                 mEarthWeb.Dispose();
                 mEarthWeb = null;
             }
-            if (mMasksCompilerMultithreadedQueue != null)
+            if (mCompilerMultithreadedQueue != null)
             {
-                mMasksCompilerMultithreadedQueue.Stop();
+                mCompilerMultithreadedQueue.Stop();
             }
             if (mImageProcessingMultithreadedQueue != null)
             {
