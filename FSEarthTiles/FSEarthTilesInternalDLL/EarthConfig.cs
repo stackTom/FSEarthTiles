@@ -279,6 +279,7 @@ namespace FSEarthTilesInternalDLL
 
         // multithreading
         public static int mMaxResampleThreads;
+        public static int mMaxImageProcessingThreads;
         public static int mMaxDownloadThreads;
 
         // custom Lay files
@@ -389,6 +390,7 @@ namespace FSEarthTilesInternalDLL
             mMaxDownloadSpeed = 1000000000.0;   //[tiles/sec]
 
             mMaxResampleThreads = 4;
+            mMaxImageProcessingThreads = 4;
             mMaxDownloadThreads = 4;
 
             //Intialshoot one timer
@@ -840,6 +842,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex85 = vFocus.IndexOf("CreateScenproc", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex86 = vFocus.IndexOf("MaxResampleThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex88 = vFocus.IndexOf("MaxImageProcessingThreads", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1625,6 +1628,23 @@ namespace FSEarthTilesInternalDLL
                         if (EarthConfig.mMaxDownloadThreads < 4)
                         {
                             EarthConfig.mMaxDownloadThreads = 4;
+                        }
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
+
+                if (vIndex88 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        EarthConfig.mMaxImageProcessingThreads = Convert.ToInt32(vCutString, NumberFormatInfo.InvariantInfo);
+                        if (EarthConfig.mMaxImageProcessingThreads < 1)
+                        {
+                            EarthConfig.mMaxImageProcessingThreads = 1;
                         }
                     }
                     catch

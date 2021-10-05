@@ -5479,7 +5479,7 @@ namespace FSEarthTilesDLL
                                     mCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
                                     mCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
 
-                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
+                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxImageProcessingThreads);
                                     mImageProcessingMultithreadedQueue.jobHandler = ProcessAndSaveDownloadedImageToDisk;
                                     if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
                                     {
