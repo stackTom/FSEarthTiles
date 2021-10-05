@@ -7296,6 +7296,11 @@ namespace FSEarthTilesDLL
                 }
             }
 
+            if (mStopProcess)
+            {
+                mAreaProcessRunning = false;
+            }
+
             //Get Status from Area Processing Friend Thread
             if (mAreaProcessRunning)
             {
