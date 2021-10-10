@@ -815,6 +815,14 @@ namespace FSEarthTilesDLL
                    }
                }
 
+                foreach (KeyValuePair<string, LayProvider> kv in EarthConfig.layProviders)
+                {
+                    if (kv.Value.inGui)
+                    {
+                        ServiceBox.Items.Add(kv.Key);
+                    }
+                }
+
                if (vSelectedServiceExist)
                {
                    ServiceBox.Text = EarthConfig.GetServiceString();
@@ -1723,7 +1731,7 @@ namespace FSEarthTilesDLL
                         vWinnerEngine = vEngineArray[vRandom - 1] - 1;
 
 
-                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count + 1))
+                        if ((mIsWebEngine) && (vWinnerEngine!=vFreeEngines.Count))
                         {
                             Thread.Sleep(10); //then Error
                         }
@@ -1735,7 +1743,7 @@ namespace FSEarthTilesDLL
                                 vFreeEngines[i] = EarthEngines.AddTileInfoToEngine(i, vTileInfo);
                             }
                         }
-                        if (vWinnerEngine == vFreeEngines.Count + 1)
+                        if (vWinnerEngine == vFreeEngines.Count)
                         {
                             vFreeWWWEngine = mEarthWeb.AddTileInfoToWWWEngine(vTileInfo);
                         }
@@ -2869,8 +2877,16 @@ namespace FSEarthTilesDLL
             String  vFullTileAddress  = "";
             String  vServiceReference = "";
 
-            Tile vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
+            Tile vTile = null;
 
+            if (EarthConfig.layServiceMode)
+            {
+                vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.layServiceSelected,false);
+            }
+            else
+            {
+                vTile = new Tile(iAreaCodeX, iAreaCodeY, iLevel, iService,false);
+            }
             vFullTileAddress = EarthScriptsHandler.CreateWebAddress(iAreaCodeX, iAreaCodeY, iLevel, iService);
 
             vServiceReference = EarthConfig.mServiceReferer[iService - 1];
@@ -2932,7 +2948,14 @@ namespace FSEarthTilesDLL
                         //-----------------
 
                         System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
-                        request.Referer = vServiceReference;
+                        if (EarthConfig.layServiceMode)
+                        {
+                            request.Referer = myTileUri.Scheme + "://" + request.Host;
+                        }
+                        else
+                        {
+                            request.Referer = vServiceReference;
+                        }
 
                         //test code
                         //Uri vProxyUri = new Uri("http://130.149.49.26:3124/");
@@ -4717,7 +4740,15 @@ namespace FSEarthTilesDLL
                 for (Int64 vCountX = 0; vCountX <= vDisplayAreaTilesInX - 1; vCountX++)
                 {
 
-                    TileInfo vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.mSelectedService,false);
+                    TileInfo vTileInfo = null;
+                    if (EarthConfig.layServiceMode)
+                    {
+                        vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.layServiceSelected,false);
+                    }
+                    else
+                    {
+                        vTileInfo = new TileInfo(vDisplayAreaCodeXArea, vDisplayAreaCodeYArea, EarthConfig.mZoomLevel, EarthConfig.mSelectedService,false);
+                    }
 
                     if (mDisplayTileCache.IsTileInCache(vTileInfo))
                     {
@@ -5449,7 +5480,7 @@ namespace FSEarthTilesDLL
                                     mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
                                     mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
 
-                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(4);
+                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxImageProcessingThreads);
                                     mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
                                     if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
                                     {
@@ -7249,16 +7280,25 @@ namespace FSEarthTilesDLL
                 {
                     SetStatus("Waiting on ImageTool to finish.");
                 }
+                // the below else if and else can be refactored into 1 else block, but I think how it is now is more
+                // readable
                 else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
                 {
                     // scenproc wasn't running, or it was but now it's not
                     SetStatus("Done.");
                     scenProcWasRunning = false;
+                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                 }
                 else
                 {
                     SetStatus("Done.");
+                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                 }
+            }
+
+            if (mStopProcess)
+            {
+                mAreaProcessRunning = false;
             }
 
             //Get Status from Area Processing Friend Thread
@@ -7271,8 +7311,12 @@ namespace FSEarthTilesDLL
                     SetStatus(vStatusFeedback);
                 }
 
+                // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
+                // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
+                // also frees up cpu time to resample etc as a minor side effect
+                long deficit =  mCurrentActiveAreaNr - mImageProcessingMultithreadedQueue.GetTotalJobsDone();
                 //Finish work is when thread exited
-                if (mAreaAftermathThread != null) //can be zero already on a close application concurrency.
+                if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
                 {
                     if (mAreaAftermathThread.ThreadState == ThreadState.Stopped)
                     {

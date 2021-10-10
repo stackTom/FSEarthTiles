@@ -14,6 +14,7 @@ namespace FSEarthTilesInternalDLL
             mAreaCodeY = 0;
             mLevel     = 0;
             mService   = 0;
+            layService = null;
             mSkipTile = false;
         }
 
@@ -23,6 +24,7 @@ namespace FSEarthTilesInternalDLL
             mAreaCodeY = iTileInfo.mAreaCodeY;
             mLevel     = iTileInfo.mLevel;
             mService   = iTileInfo.mService;
+            layService = iTileInfo.layService;
             mSkipTile  = iTileInfo.mSkipTile;
 
         }
@@ -37,6 +39,20 @@ namespace FSEarthTilesInternalDLL
             mSkipTile  = iSkipTile;
         }
 
+        public TileInfo(Int64 iAreaCodeX, Int64 iAreaCodeY, Int64 iLevel, string iService, Boolean iSkipTile)
+        {
+            mAreaCodeX = iAreaCodeX;
+            mAreaCodeY = iAreaCodeY;
+            mLevel     = iLevel;
+            layService = iService;
+            mSkipTile  = iSkipTile;
+        }
+
+        public bool IsLayTile()
+        {
+            return layService != null;
+        }
+
         public TileInfo Clone()
         {
             return new TileInfo(this);
@@ -47,7 +63,19 @@ namespace FSEarthTilesInternalDLL
         {
             Boolean vIsEqual = false;
 
-            if ((mAreaCodeX == iTileInfo.mAreaCodeX) &&
+            // first check if this is a layservice tile
+            if (iTileInfo.IsLayTile())
+            {
+                if ((mAreaCodeX == iTileInfo.mAreaCodeX) &&
+                    (mAreaCodeY == iTileInfo.mAreaCodeY) &&
+                    (mLevel     == iTileInfo.mLevel)     &&
+                    (layService   == iTileInfo.layService)   &&
+                    (mSkipTile  == iTileInfo.mSkipTile))
+                {
+                    vIsEqual = true;
+                }
+            }
+            else if ((mAreaCodeX == iTileInfo.mAreaCodeX) &&
                 (mAreaCodeY == iTileInfo.mAreaCodeY) &&
                 (mLevel     == iTileInfo.mLevel)     &&
                 (mService   == iTileInfo.mService)   &&
@@ -70,6 +98,7 @@ namespace FSEarthTilesInternalDLL
         public Int64 mAreaCodeY;
         public Int64 mLevel;
         public Int32 mService;
+        public string layService;
         public Boolean mSkipTile;
     }
 

@@ -40,6 +40,13 @@ namespace FSEarthTilesInternalDLL
             mTileInfo    = new TileInfo(iAreaCodeX, iAreaCodeY, iLevel, iService,iSkipTile);
         }
 
+        public Tile(Int64 iAreaCodeX, Int64 iAreaCodeY, Int64 iLevel, string iService,Boolean iSkipTile)
+        {
+            mGoodBitmap  = false;
+            mBitmapValid = false;
+            mTileInfo    = new TileInfo(iAreaCodeX, iAreaCodeY, iLevel, iService,iSkipTile);
+        }
+
         public Tile Clone()
         {
             return new Tile(this);

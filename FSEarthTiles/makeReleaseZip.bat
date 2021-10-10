@@ -47,6 +47,9 @@ xcopy /I .\Scenproc_scripts .\FSET\Scenproc_scripts
 copy /Y .\Ini\FSEarthMasks.ini .\FSET
 copy /Y .\Ini\FSEarthTiles.ini .\FSET
 
+:: copy over the providers
+xcopy /I /s .\Providers .\FSET\Providers
+
 :: copy over some needed scripts (more to be added in the future if the default scripts are updated)
 copy /Y .\FSEarthTilesDLL\AreaInfoFileCreationScript.cs .\FSET
 copy /Y .\FSEarthTilesDLL\TileCodeingScript.cs .\FSET

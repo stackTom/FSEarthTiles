@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Globalization;
 using FSEarthTilesInternalDLL;
+using System.Text.RegularExpressions;
 
 
 
@@ -50,6 +51,52 @@ namespace FSEarthTilesInternalDLL
         eSevice7,
         eSevice8,
         eSevice9
+    }
+
+
+    public class LayProvider
+    {
+        public List<string> variations;
+        public string name;
+        public bool inGui;
+
+        public LayProvider(string name)
+        {
+            this.name = name;
+        }
+
+        public string getURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
+        {
+            // TODO: make this function (or class) worry about the EarthMath.cLevel0CodeDeep stuff?
+            string variation = null;
+            if (variationIdx >= variations.Count)
+            {
+                variation = variations[0];
+            }
+            else
+            {
+                variation = variations[variationIdx];
+            }
+            variation = Regex.Replace(variation, "{x}", x.ToString());
+            variation = Regex.Replace(variation, "{y}", y.ToString());
+            variation = Regex.Replace(variation, "{z}", zoom.ToString());
+            variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
+            variation = Regex.Replace(variation, "{quadkey}", potentialQuad);
+
+            return variation;
+        }
+
+        public int MapIdxToVariationIdx(int idx)
+        {
+            return idx % variations.Count;
+        }
+
+        public int GetRandomVariationIdx()
+        {
+            Random random = new Random();
+
+            return random.Next(0, variations.Count);
+        }
     }
 
 
@@ -232,7 +279,13 @@ namespace FSEarthTilesInternalDLL
 
         // multithreading
         public static int mMaxResampleThreads;
+        public static int mMaxImageProcessingThreads;
         public static int mMaxDownloadThreads;
+
+        // custom Lay files
+        public static Dictionary<string, LayProvider> layProviders = new Dictionary<string, LayProvider>();
+        public static bool layServiceMode = false;
+        public static string layServiceSelected = null;
 
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
@@ -337,6 +390,7 @@ namespace FSEarthTilesInternalDLL
             mMaxDownloadSpeed = 1000000000.0;   //[tiles/sec]
 
             mMaxResampleThreads = 4;
+            mMaxImageProcessingThreads = 4;
             mMaxDownloadThreads = 4;
 
             //Intialshoot one timer
@@ -788,6 +842,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex85 = vFocus.IndexOf("CreateScenproc", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex86 = vFocus.IndexOf("MaxResampleThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex88 = vFocus.IndexOf("MaxImageProcessingThreads", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1580,6 +1635,23 @@ namespace FSEarthTilesInternalDLL
                         //ignore if failed
                     }
                 }
+
+                if (vIndex88 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    try
+                    {
+                        EarthConfig.mMaxImageProcessingThreads = Convert.ToInt32(vCutString, NumberFormatInfo.InvariantInfo);
+                        if (EarthConfig.mMaxImageProcessingThreads < 1)
+                        {
+                            EarthConfig.mMaxImageProcessingThreads = 1;
+                        }
+                    }
+                    catch
+                    {
+                        //ignore if failed
+                    }
+                }
             }
         }
 
@@ -1592,6 +1664,26 @@ namespace FSEarthTilesInternalDLL
                 if (!EarthCommon.StringCompare(vFocus,""))
                 {
                   EarthConfig.mProxyList.Add(vFocus);
+                }
+            }
+        }
+
+
+        private static void PopulateLayProviders()
+        {
+            layProviders = new Dictionary<string, LayProvider>();
+            string providersFolder = EarthConfig.mStartExeFolder + @"\Providers";
+            string[] providerFolders = Directory.GetDirectories(providersFolder);
+            foreach (string providerFolder in providerFolders)
+            {
+                string[] layFiles = Directory.GetFiles(providerFolder);
+
+                foreach (string layFile in layFiles)
+                {
+                    if (Path.GetExtension(layFile) != ".swp") // Oscar used vim ;)
+                    {
+                        ParseLayFile(layFile);
+                    }
                 }
             }
         }
@@ -1873,6 +1965,7 @@ namespace FSEarthTilesInternalDLL
             AnalyseService7ConfigTab();
             AnalyseService8ConfigTab();
             AnalyseService9ConfigTab();
+            PopulateLayProviders();
             AnalyseStartupServiceConfigTab();
             //AnalyseFSEarthTilesConfigTab();
         }
@@ -1942,6 +2035,15 @@ namespace FSEarthTilesInternalDLL
 
         public static void SetService(String iService)
         {
+            if (layProviders.ContainsKey(iService))
+            {
+                EarthConfig.layServiceMode = true;
+                EarthConfig.layServiceSelected = iService;
+                return;
+            }
+            EarthConfig.layServiceMode = false;
+            EarthConfig.layServiceSelected = null;
+
             String vCompareString;
             for (Int32 vCon = 1; vCon <= 9; vCon++)
             {
@@ -1960,7 +2062,11 @@ namespace FSEarthTilesInternalDLL
         {
             String vService = "";
 
-            if (mServiceName[mSelectedService - 1].Length > 0)
+            if (EarthConfig.layServiceMode)
+            {
+                vService = EarthConfig.layServiceSelected;
+            }
+            else if (mServiceName[mSelectedService - 1].Length > 0)
             {
                 vService = mServiceName[mSelectedService - 1];
             }
@@ -2426,6 +2532,55 @@ namespace FSEarthTilesInternalDLL
             }
 
             return vWithSeasons;
+        }
+
+        public static void ParseLayFile(string filePath)
+        {
+            string rgstr = @"{switch:([^}]+)(,\s*[^}]+)*}";
+            Regex rg = new Regex(rgstr);
+            string[] fileContents = File.ReadAllLines(filePath);
+            bool inGui = true;
+            foreach (string line in fileContents)
+            {
+                if (line.Contains("in_GUI"))
+                {
+                    string[] toks = line.Split('=');
+                    string inGuiStr = toks[1].Trim();
+                    inGui = (inGuiStr == "True");
+                }
+            }
+            foreach (string line in fileContents)
+            {
+                string url = Regex.Replace(line, "url_template=", "");
+                if (url == line || url == "" || line[0] == '#')
+                {
+                    url = Regex.Replace(line, "url_prefix=", "");
+                }
+                if (url != line && url != "" && url[0] != '#')
+                {
+                    string switchStr = rg.Match(url).Value;
+                    switchStr = Regex.Replace(switchStr, @"{switch:", "");
+                    switchStr = Regex.Replace(switchStr, @"}", "");
+                    LayProvider lp = new LayProvider(Path.GetFileNameWithoutExtension(filePath));
+                    lp.inGui = inGui;
+                    if (switchStr == "")
+                    {
+                        lp.variations = new List<string>();
+                        lp.variations.Add(url);
+                    }
+                    else
+                    {
+                        string[] variationValues = switchStr.Split(',');
+                        List<string> variations = new List<string>();
+                        foreach (string s in variationValues)
+                        {
+                            variations.Add(Regex.Replace(url, rgstr, s));
+                        }
+                        lp.variations = variations;
+                    }
+                    layProviders.Add(lp.name, lp);
+                }
+            }
         }
 
     }

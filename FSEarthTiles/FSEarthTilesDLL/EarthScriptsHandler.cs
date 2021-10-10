@@ -598,35 +598,46 @@ namespace FSEarthTilesDLL
             String vServiceStringBegin;
             String vServiceStringEnd;
 
-            Random vServerVariationRandom = new Random();
-            Double vRandomNumber = vServerVariationRandom.NextDouble();
-            Int32 vServerVariantionSelection = 0;
+            if (EarthConfig.layServiceMode)
+            {
+                LayProvider lp = EarthConfig.layProviders[EarthConfig.layServiceSelected];
+                int variationIdx = lp.GetRandomVariationIdx();
+                // Not sure if all the ones that use quadkey like bing don't need EarthMath.cLevel0CodeDeep - level part
+                string potentialQuad = EarthScriptsHandler.MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, "0123");
+                vFullTileAddress = lp.getURL(variationIdx, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel, potentialQuad);
+            }
+            else
+            {
+                Random vServerVariationRandom = new Random();
+                Double vRandomNumber = vServerVariationRandom.NextDouble();
+                Int32 vServerVariantionSelection = 0;
 
-            if (vRandomNumber > 0.25)
-            {
-                vServerVariantionSelection = 1;
-            }
-            if (vRandomNumber > 0.50)
-            {
-                vServerVariantionSelection = 2;
-            }
-            if (vRandomNumber > 0.75)
-            {
-                vServerVariantionSelection = 3;
-            }
+                if (vRandomNumber > 0.25)
+                {
+                    vServerVariantionSelection = 1;
+                }
+                if (vRandomNumber > 0.50)
+                {
+                    vServerVariantionSelection = 2;
+                }
+                if (vRandomNumber > 0.75)
+                {
+                    vServerVariantionSelection = 3;
+                }
 
-            vTileCode = MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.mServiceCodeing[iService - 1]);
-            switch (vServerVariantionSelection)
-            {
-                case 0: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
-                case 1: vServiceStringBegin = EarthConfig.mServiceUrlBegin1[iService - 1]; break;
-                case 2: vServiceStringBegin = EarthConfig.mServiceUrlBegin2[iService - 1]; break;
-                case 3: vServiceStringBegin = EarthConfig.mServiceUrlBegin3[iService - 1]; break;
-                default: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                vTileCode = MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, EarthConfig.mServiceCodeing[iService - 1]);
+                switch (vServerVariantionSelection)
+                {
+                    case 0: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                    case 1: vServiceStringBegin = EarthConfig.mServiceUrlBegin1[iService - 1]; break;
+                    case 2: vServiceStringBegin = EarthConfig.mServiceUrlBegin2[iService - 1]; break;
+                    case 3: vServiceStringBegin = EarthConfig.mServiceUrlBegin3[iService - 1]; break;
+                    default: vServiceStringBegin = EarthConfig.mServiceUrlBegin0[iService - 1]; break;
+                }
+                vServiceStringEnd = EarthConfig.mServiceUrlEnd[iService - 1];
+                vServiceUserAgent = EarthConfig.mServiceCodeing[iService - 1];
+                vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
             }
-            vServiceStringEnd = EarthConfig.mServiceUrlEnd[iService - 1];
-            vServiceUserAgent = EarthConfig.mServiceCodeing[iService - 1];
-            vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
 
             return vFullTileAddress;
         }

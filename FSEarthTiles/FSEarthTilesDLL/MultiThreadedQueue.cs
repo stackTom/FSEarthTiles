@@ -16,8 +16,10 @@ namespace FSEarthTilesDLL
         private List<Thread> threads;
         private int threadsRunning = 0;
         private readonly object threadsRunningLock = new object();
+        private readonly object totalJobsLock = new object();
         private CancellationTokenSource stopFlag;
         private bool doneAdding = false;
+        private long totalJobsRan = 0;
 
         public MultiThreadedQueue(int numThreads)
         {
@@ -65,6 +67,25 @@ namespace FSEarthTilesDLL
             return running;
         }
 
+        public long GetTotalJobsDone()
+        {
+            long done = 0;
+            lock (totalJobsLock)
+            {
+                done = totalJobsRan;
+            }
+
+            return done;
+        }
+
+        public void SetTotalJobsDone(long done)
+        {
+            lock (totalJobsLock)
+            {
+                totalJobsRan = done;
+            }
+        }
+
         public bool AllThreadsDone()
         {
             return GetRunningThreads() == 0;
@@ -90,6 +111,7 @@ namespace FSEarthTilesDLL
             {
                 threadsRunning = 0;
             }
+            SetTotalJobsDone(0);
             CompleteAdding();
         }
 
@@ -112,6 +134,10 @@ namespace FSEarthTilesDLL
                     {
                         threadsRunning--;
                     }
+                    lock (totalJobsLock)
+                    {
+                        totalJobsRan++;
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -120,6 +146,7 @@ namespace FSEarthTilesDLL
                 {
                     threadsRunning = 0;
                 }
+                SetTotalJobsDone(0);
             }
         }
     }

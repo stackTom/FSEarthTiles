@@ -221,18 +221,50 @@ namespace FSEarthTilesDLL
                 //Do the Work
                 Tile vTile = new Tile(ea.mWorkTileInfoEngine);
 
-                //Engine1 uses ServiceVariation 0 fix
-                vServiceStringBegin = EarthConfig.mServiceUrlBegin0[ea.mWorkTileInfoEngine.mService - 1];
-                vServiceStringEnd = EarthConfig.mServiceUrlEnd[ea.mWorkTileInfoEngine.mService - 1];
-                vServiceReference = EarthConfig.mServiceReferer[ea.mWorkTileInfoEngine.mService - 1];
-                //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
-                vServiceUserAgent = EarthConfig.mServiceUserAgent[ea.mWorkTileInfoEngine.mService - 1];
+                if (EarthConfig.layServiceMode)
+                {
+                    vTile.mTileInfo.layService = EarthConfig.layServiceSelected;
+                    LayProvider lp = EarthConfig.layProviders[EarthConfig.layServiceSelected];
+                    int variationIdx = lp.MapIdxToVariationIdx(engineNumber);
+                    // Not sure if all the ones that use quadkey like bing don't need EarthMath.cLevel0CodeDeep - level part
+                    string potentialQuad = EarthScriptsHandler.MapAreaCoordToTileCode(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, "0123");
+                    vFullTileAddress = lp.getURL(variationIdx, ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, EarthMath.cLevel0CodeDeep - ea.mWorkTileInfoEngine.mLevel, potentialQuad);
+                }
+                else
+                {
+                    //Engine1 uses ServiceVariation 0 fix
+                    string[] variationArray = null;
+                    switch (engineNumber % 4)
+                    {
+                        case 0:
+                            variationArray = EarthConfig.mServiceUrlBegin0;
+                            break;
+                        case 1:
+                            variationArray = EarthConfig.mServiceUrlBegin1;
+                            break;
+                        case 2:
+                            variationArray = EarthConfig.mServiceUrlBegin2;
+                            break;
+                        case 3:
+                            variationArray = EarthConfig.mServiceUrlBegin3;
+                            break;
+                        default:
+                            variationArray = EarthConfig.mServiceUrlBegin0;
+                            break;
+                    }
+                    vServiceStringBegin = variationArray[ea.mWorkTileInfoEngine.mService - 1];
+                    vServiceStringEnd = EarthConfig.mServiceUrlEnd[ea.mWorkTileInfoEngine.mService - 1];
+                    vServiceReference = EarthConfig.mServiceReferer[ea.mWorkTileInfoEngine.mService - 1];
+                    //vServiceUserAgent = EarthConfig.mServiceCodeing[mWorkTileInfoEngine1.mService - 1];
+                    vServiceUserAgent = EarthConfig.mServiceUserAgent[ea.mWorkTileInfoEngine.mService - 1];
 
-                mExclusiveMutex.WaitOne();
-                vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
-                mExclusiveMutex.ReleaseMutex();
+                    mExclusiveMutex.WaitOne();
+                    vTileCode = MapAreaCoordToTileCodeForEnginesOnly(ea.mWorkTileInfoEngine.mAreaCodeX, ea.mWorkTileInfoEngine.mAreaCodeY, ea.mWorkTileInfoEngine.mLevel, ea.mWorkTileInfoEngine.mService);
+                    mExclusiveMutex.ReleaseMutex();
 
-                vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+                    vTile.mTileInfo.layService = null;
+                    vFullTileAddress = vServiceStringBegin + vTileCode + vServiceStringEnd;
+                }
 
                 Int64 vRetries = 0;
                 Boolean vTileReady = false;
@@ -250,9 +282,17 @@ namespace FSEarthTilesDLL
                         Boolean vTileCached = false;
 
 
-                        vTileProvider = EarthConfig.mServiceName[EarthConfig.mSelectedService - 1];
                         vTileFilename = EarthConfig.mWorkFolder + "\\cache\\";
-                        vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + vTileProvider + ".jpg";
+
+                        if (EarthConfig.layServiceMode)
+                        {
+                            vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + EarthConfig.layServiceSelected + ".jpg";
+                        }
+                        else
+                        {
+                            vTileProvider = EarthConfig.mServiceName[EarthConfig.mSelectedService - 1];
+                            vTileFilename += ea.mWorkTileInfoEngine.mAreaCodeX + "_" + ea.mWorkTileInfoEngine.mAreaCodeY + "_" + ea.mWorkTileInfoEngine.mLevel + "_" + vTileProvider + ".jpg";
+                        }
 
                         vTileCached = CheckForCachedFile(vTileFilename);
 
@@ -316,10 +356,29 @@ namespace FSEarthTilesDLL
                                 throw vError;
                             }
 
+                            // this old .net framework is missing some of the SecurityProcolType's
+                            // this is hack to get them. needed, otherwise certain https url's throw
+                            // exception and don't work
+                            const SecurityProtocolType tls13 = (SecurityProtocolType)12288;
+                            const SecurityProtocolType tls12 = (SecurityProtocolType)3072;
+                            const SecurityProtocolType tls11 = (SecurityProtocolType)768;
+                            const SecurityProtocolType tls = (SecurityProtocolType)192;
+                            const SecurityProtocolType ssl3 = (SecurityProtocolType)48;
+                            ServicePointManager.SecurityProtocol = tls13 | tls12 | tls11 | tls | ssl3;
+                            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
                             Uri myTileUri = new Uri(vFullTileAddress);
                             System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
-                            request.Referer = vServiceReference;
-                            request.UserAgent = vServiceUserAgent;
+                            if (EarthConfig.layServiceMode)
+                            {
+                                request.Referer = myTileUri.Scheme + "://" + request.Host;
+                                request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
+                            }
+                            else
+                            {
+                                request.Referer = vServiceReference;
+                                request.UserAgent = vServiceUserAgent;
+                            }
 
                             if (!EarthCommon.StringCompare(ea.mEngineProxy, "direct"))
                             {
@@ -327,7 +386,7 @@ namespace FSEarthTilesDLL
                                 request.Proxy = vProxy;
                             }
 
-                            if (ea.mEngineHandleCookies)
+                            if (ea.mEngineHandleCookies || EarthConfig.layServiceMode)
                             {
                                 request.CookieContainer = new CookieContainer();
                                 if (ea.mEngineCookies.Count > 0)
