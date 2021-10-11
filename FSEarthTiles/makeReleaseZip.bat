@@ -54,6 +54,9 @@ xcopy /I /s .\Providers .\FSET\Providers
 copy /Y .\FSEarthTilesDLL\AreaInfoFileCreationScript.cs .\FSET
 copy /Y .\FSEarthTilesDLL\TileCodeingScript.cs .\FSET
 
+:: copy over the readme
+copy /Y ..\README.md .\FSET
+
 :: create zip file
 powershell Compress-Archive .\FSET\* FSET.zip
 
