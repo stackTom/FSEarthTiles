@@ -283,9 +283,12 @@ namespace FSEarthTilesInternalDLL
         public static int mMaxDownloadThreads;
 
         // custom Lay files
-        public static Dictionary<string, LayProvider> layProviders = new Dictionary<string, LayProvider>();
-        public static bool layServiceMode = false;
-        public static string layServiceSelected = null;
+        public static Dictionary<string, LayProvider> layProviders;
+        public static bool layServiceMode;
+        public static string layServiceSelected;
+
+        // skip all black (all water) tiles
+        public static bool skipAllBlackTiles;
 
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
@@ -445,6 +448,12 @@ namespace FSEarthTilesInternalDLL
             mBlankTileColorRed=0;
             mBlankTileColorGreen=0;
             mBlankTileColorBlue=0;
+
+            layProviders = new Dictionary<string, LayProvider>();
+            layServiceMode = false;
+            layServiceSelected = null;
+
+            skipAllBlackTiles = false;
 
 
         }
@@ -843,6 +852,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex86 = vFocus.IndexOf("MaxResampleThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex88 = vFocus.IndexOf("MaxImageProcessingThreads", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex89 = vFocus.IndexOf("SkipAllBlackTiles", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1651,6 +1661,12 @@ namespace FSEarthTilesInternalDLL
                     {
                         //ignore if failed
                     }
+                }
+
+                if (vIndex89 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    EarthConfig.skipAllBlackTiles = GetBooleanFromString(vCutString);
                 }
             }
         }

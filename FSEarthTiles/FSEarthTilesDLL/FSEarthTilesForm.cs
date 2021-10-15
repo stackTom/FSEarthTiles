@@ -15,6 +15,7 @@ using FSEarthTilesInternalDLL;
 using TGASharpLib;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Drawing.Imaging;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -2304,13 +2305,63 @@ namespace FSEarthTilesDLL
             }
         }
 
+        static bool BitmapAllBlack(Bitmap bmp)
+        {
+            BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            int stride = data.Stride;
+            bool allBlack = true;
+            const uint BLACK_32BIT_VAL = 4278190080;
+            unsafe
+            {
+                byte* ptr = (byte*)data.Scan0;
+                for (int y = 0; y < bmp.Height && allBlack; y++)
+                {
+                    for (int x = 0; x < bmp.Width; x++)
+                    {
+                        uint c = *((uint*)&ptr[(x * 4) + y * stride]); // red value at this point (proxy for whiteness)
+
+                        if (c != BLACK_32BIT_VAL)
+                        {
+                            allBlack = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            bmp.UnlockBits(data);
+
+            return allBlack;
+        }
+
+
         private void RunMasksAndSceneryCompiler(MasksResampleWorker w)
         {
             if (!mStopProcess)
             {
                 ProcessMasks(w);
 
-                if (!mStopProcess)
+                bool shouldResample = true;
+                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllBlackTiles)
+                {
+                    string maskFileName = null;
+                    if (EarthConfig.mSelectedSceneryCompiler == "FSX/P3D")
+                    {
+                        maskFileName = EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp";
+                    }
+                    else if (EarthConfig.mSelectedSceneryCompiler == "FS2004")
+                    {
+                        maskFileName = EarthConfig.mWorkFolder + "\\" + "Area" + w.AreaFileString + ".bmp";
+                    }
+                    else
+                    {
+                        throw new Exception("Invalid compiler selected.");
+                    }
+
+                    Bitmap bmp = new Bitmap(maskFileName);
+                    shouldResample = !BitmapAllBlack(bmp);
+                }
+
+                if (!mStopProcess && shouldResample)
                 {
                     EarthScriptsHandler.DoBeforeFSCompilation(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
