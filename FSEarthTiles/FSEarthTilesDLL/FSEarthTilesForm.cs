@@ -2343,21 +2343,8 @@ namespace FSEarthTilesDLL
                 bool shouldResample = true;
                 if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllBlackTiles)
                 {
-                    string maskFileName = null;
-                    if (EarthConfig.mSelectedSceneryCompiler == "FSX/P3D")
-                    {
-                        maskFileName = EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp";
-                    }
-                    else if (EarthConfig.mSelectedSceneryCompiler == "FS2004")
-                    {
-                        maskFileName = EarthConfig.mWorkFolder + "\\" + "Area" + w.AreaFileString + ".bmp";
-                    }
-                    else
-                    {
-                        throw new Exception("Invalid compiler selected.");
-                    }
 
-                    Bitmap bmp = new Bitmap(maskFileName);
+                    Bitmap bmp = new Bitmap(EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp");
                     shouldResample = !BitmapAllBlack(bmp);
                 }
 

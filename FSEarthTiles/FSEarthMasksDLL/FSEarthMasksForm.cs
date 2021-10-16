@@ -405,6 +405,20 @@ namespace FSEarthMasksDLL
                     else
                     {
                         waterMaskBitmap = mMasksTexture.CreateWaterMaskBitmap(this);
+                        if (MasksConfig.skipAllBlackTiles)
+                        {
+                            // need to create the water mask bitmap whether fsx or fs2004 if we want to skip all black tiles
+                            // why? Because the .net Bitmap class doesn't support saving alpha channel into bitmaps, even if
+                            // use PixelFormat.Format32bppArgb... see here: https://docs.microsoft.com/en-us/dotnet/api/system.drawing.image.fromfile?redirectedfrom=MSDN&view=windowsdesktop-5.0#System_Drawing_Image_FromFile_System_String_
+                            // It nevertheless IS saving the alpha byte into the image. but when either reading the image into memory
+                            // or opening with a program like GIMP or IrfanView, there's no alpha value...
+                            // trying to read it using lockbits just gives 255 for the alpha no matter what I try.
+                            // creating a Tiff image first (which supposedly does have support for alpha channel in .net) just shows an all
+                            // white alpha. thankfully resample for fs2004 does see the alpha byte
+                            // So the easiest thing is just to make the water mask bitmap when we want to skip tiles
+                            SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
+                            mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);
+                        }
                     }
                 }
 
@@ -487,7 +501,7 @@ namespace FSEarthMasksDLL
                         SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
                         mMasksTexture.SaveAreaMaskBitmap();
                     }
-                    else
+                    else if (!MasksConfig.skipAllBlackTiles) // water mask bitmap will have already been made if skipAllBlackTiles were true
                     {
                         SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
                         mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);
