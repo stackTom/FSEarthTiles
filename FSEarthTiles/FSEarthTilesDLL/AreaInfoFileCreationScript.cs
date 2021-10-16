@@ -862,6 +862,14 @@ namespace FSEarthTilesDLL
                 }
 
                 vStream.WriteLine();
+                if (EarthConfig.skipAllWaterTiles)
+                {
+                    vStream.WriteLine("SkipAllWaterTiles     = Yes");
+                }
+                else
+                {
+                    vStream.WriteLine("SkipAllWaterTiles     = No");
+                }
 
                 if (EarthConfig.mCreateWaterMaskBitmap)
                 {
