@@ -288,7 +288,7 @@ namespace FSEarthTilesInternalDLL
         public static string layServiceSelected;
 
         // skip all black (all water) tiles
-        public static bool skipAllBlackTiles;
+        public static bool skipAllWaterTiles;
 
         public static void Initialize(String iFSEarthTilesApplicationFolder) //to call as first
         {
@@ -453,7 +453,7 @@ namespace FSEarthTilesInternalDLL
             layServiceMode = false;
             layServiceSelected = null;
 
-            skipAllBlackTiles = false;
+            skipAllWaterTiles = false;
 
 
         }
@@ -852,7 +852,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex86 = vFocus.IndexOf("MaxResampleThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex88 = vFocus.IndexOf("MaxImageProcessingThreads", StringComparison.CurrentCultureIgnoreCase);
-                Int32 vIndex89 = vFocus.IndexOf("SkipAllBlackTiles", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex89 = vFocus.IndexOf("SkipAllWaterTiles", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1666,7 +1666,7 @@ namespace FSEarthTilesInternalDLL
                 if (vIndex89 >= 0)
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
-                    EarthConfig.skipAllBlackTiles = GetBooleanFromString(vCutString);
+                    EarthConfig.skipAllWaterTiles = GetBooleanFromString(vCutString);
                 }
             }
         }

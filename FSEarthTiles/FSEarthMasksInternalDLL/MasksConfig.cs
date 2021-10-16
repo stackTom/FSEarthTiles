@@ -313,7 +313,7 @@ namespace FSEarthMasksInternalDLL
 
         public static Double mMasksWidth = 0.0f;
 
-        public static Boolean skipAllBlackTiles = false;
+        public static Boolean skipAllWaterTiles = false;
 
 
         public static void Initialize() //to call as first
@@ -3603,7 +3603,7 @@ namespace FSEarthMasksInternalDLL
                 Int32 vIndex29 = vFocus.IndexOf("BlendSouthBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex30 = vFocus.IndexOf("BlendWestBorder", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex31 = vFocus.IndexOf("WorkFolder", StringComparison.CurrentCultureIgnoreCase);
-                Int32 vIndex32 = vFocus.IndexOf("SkipAllBlackTiles", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex32 = vFocus.IndexOf("SkipAllWaterTiles", StringComparison.CurrentCultureIgnoreCase);
                 
                 if (vIndex1 >= 0)
                 {
@@ -3805,7 +3805,7 @@ namespace FSEarthMasksInternalDLL
                 if (vIndex32 >= 0)
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
-                    skipAllBlackTiles  = GetBooleanFromString(vCutString);
+                    skipAllWaterTiles  = GetBooleanFromString(vCutString);
                 }
             }
         }

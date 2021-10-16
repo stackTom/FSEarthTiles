@@ -405,7 +405,7 @@ namespace FSEarthMasksDLL
                     else
                     {
                         waterMaskBitmap = mMasksTexture.CreateWaterMaskBitmap(this);
-                        if (MasksConfig.skipAllBlackTiles)
+                        if (MasksConfig.skipAllWaterTiles)
                         {
                             // need to create the water mask bitmap whether fsx or fs2004 if we want to skip all black tiles
                             // why? Because the .net Bitmap class doesn't support saving alpha channel into bitmaps, even if
@@ -501,7 +501,7 @@ namespace FSEarthMasksDLL
                         SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
                         mMasksTexture.SaveAreaMaskBitmap();
                     }
-                    else if (!MasksConfig.skipAllBlackTiles) // water mask bitmap will have already been made if skipAllBlackTiles were true
+                    else if (!MasksConfig.skipAllWaterTiles) // water mask bitmap will have already been made if skipAllWaterTiles were true
                     {
                         SetStatusFromFriendThread(" Save Water-Mask Bitmap  ... ");
                         mMasksTexture.SaveAreaMaskBitmap(waterMaskBitmap);

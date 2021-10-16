@@ -2341,7 +2341,7 @@ namespace FSEarthTilesDLL
                 ProcessMasks(w);
 
                 bool shouldResample = true;
-                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllBlackTiles)
+                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllWaterTiles)
                 {
 
                     Bitmap bmp = new Bitmap(EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp");
