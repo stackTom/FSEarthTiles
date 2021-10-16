@@ -2340,7 +2340,7 @@ namespace FSEarthTilesDLL
             {
                 ProcessMasks(w);
 
-                bool bitmapAllWater = true;
+                bool bitmapAllWater = false;
                 string areaMaskBitmapPath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp";
                 if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllWaterTiles)
                 {
@@ -2363,6 +2363,11 @@ namespace FSEarthTilesDLL
                     else
                     {
                         CleanupFiles(w);
+                        String vAreaThumbnailFileName = "AreaThumbnail" + w.AreaFileString + ".bmp";
+                        if (File.Exists(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName))
+                        {
+                            File.Delete(EarthConfig.mWorkFolder + "\\" + vAreaThumbnailFileName);
+                        }
                     }
                 }
             }
