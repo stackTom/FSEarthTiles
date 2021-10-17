@@ -4813,6 +4813,8 @@ namespace FSEarthMasksInternalDLL
                 return f;
             }
 
+            iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Adding mask width...");
+
             return ApplyMaskWidthToPart(img, blurWidth);
         }
 
