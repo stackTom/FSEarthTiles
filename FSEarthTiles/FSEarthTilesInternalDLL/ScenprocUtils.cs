@@ -42,7 +42,7 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        private static string GetOverpassData(string[] query, string bbox, string serverCode)
+        private static void DownloadOverPassData(string[] query, string bbox, string serverCode, string filePath)
         {
             bool keepTrying = false;
             string contents = null;
@@ -80,14 +80,15 @@ namespace FSEarthTilesInternalDLL
 
                     if (shouldStop)
                     {
-                        return null;
+                        return;
                     }
 
                     using (var wc = new System.Net.WebClient())
                     {
                         try
                         {
-                            contents = wc.DownloadString(url);
+                            wc.DownloadFile(url, filePath);
+                            Console.WriteLine("Download successful");
                             keepTrying = false;
                             break;
                         }
@@ -95,7 +96,7 @@ namespace FSEarthTilesInternalDLL
                         {
                             if (shouldStop)
                             {
-                                return null;
+                                return;
                             }
                             Console.WriteLine("Download failed using " + server + "... trying new overpass server in " + sleepTime + " seconds");
                             keepTrying = true;
@@ -108,8 +109,6 @@ namespace FSEarthTilesInternalDLL
                     sleepTime *= 2;
                 }
             } while (keepTrying);
-
-            return contents;
         }
 
         private static string GetBbox(double endLat, double startLon, double startLat, double endLon, string serverCode)
@@ -152,11 +151,8 @@ namespace FSEarthTilesInternalDLL
                         {
                             return;
                         }
-                        string osm = GetOverpassData(buildingsAndTreesTags, bbox, "MAP");
-
                         Directory.CreateDirectory(scenprocDataDir);
-                        File.WriteAllText(osmFilePath, osm);
-                        Console.WriteLine("Download successful");
+                        DownloadOverPassData(buildingsAndTreesTags, bbox, "MAP", osmFilePath);
                     }
                 }
             }
