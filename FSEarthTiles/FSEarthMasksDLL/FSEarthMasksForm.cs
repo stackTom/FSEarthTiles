@@ -608,6 +608,10 @@ namespace FSEarthMasksDLL
                 }
 
                 mMasksTexture.FreeWorkTextureMemory();
+                if (waterMaskBitmap != null)
+                {
+                    waterMaskBitmap.Dispose();
+                }
 
                 SetProcessingStateFromFriendThread(tProcessingState.eProcFinish);
                 SetStatusFromFriendThread(" Done. ");
