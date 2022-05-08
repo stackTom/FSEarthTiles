@@ -2858,107 +2858,14 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
-        // TODO: try to refactor this into a clearer format. Also, use camel case
-        private List<PointF[]> readMeshFile(string meshFilePath)
-        {
-            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
-            string[] lineContents = f_mesh.ReadLine().Trim().Split();
-            float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
-            int has_water = mesh_version >= 1.3f ? 7 : 3;
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            int nbr_pt_in = Convert.ToInt32(f_mesh.ReadLine());
-            double[] pt_in = new double[5 * nbr_pt_in];
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i; j < 5 * i + 3; j++)
-                {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
-                }
-            }
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i + 3; j < 5 * i + 5; j++)
-                {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
-                }
-            }
-            // skip ahead 2
-            for (int i = 0; i < 2; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
-
-            List<PointF[]> tris = new List<PointF[]>();
-
-            for (int i = 0; i < nbr_tri_in; i++)
-            {
-                lineContents = f_mesh.ReadLine().Split();
-                int n1 = Convert.ToInt32(lineContents[0]) - 1;
-                int n2 = Convert.ToInt32(lineContents[1]) - 1;
-                int n3 = Convert.ToInt32(lineContents[2]) - 1;
-                int tri_type = Convert.ToInt32(lineContents[3]) - 1;
-                tri_type += 1;
-
-                bool use_masks_for_inland = true; // possibly allow for changing in the future?
-                if (tri_type == 0 || (tri_type & has_water) == 0 || ((tri_type & has_water) < 2 && !use_masks_for_inland))
-                {
-                    continue;
-                }
-                float lon1 = (float) pt_in[5 * n1];
-                float lat1 = (float) pt_in[5 * n1 + 1];
-                float lon2 = (float) pt_in[5 * n2];
-                float lat2 = (float) pt_in[5 * n2 + 1];
-                float lon3 = (float) pt_in[5 * n3];
-                float lat3 = (float) pt_in[5 * n3 + 1];
-
-                var tri = new PointF[] {
-                    new PointF(lon1, lat1),
-                    new PointF(lon2, lat2),
-                    new PointF(lon3, lat3),
-                    new PointF(lon1, lat1),
-                };
-
-                tris.Add(tri);
-            }
-
-            return tris;
-        }
-
         private List<PointF[]> ReadAllMeshFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude < MasksConfig.mAreaSECornerLongitude ? MasksConfig.mAreaNWCornerLongitude : MasksConfig.mAreaSECornerLongitude;
             double stopLong = startLong == MasksConfig.mAreaNWCornerLongitude ? MasksConfig.mAreaSECornerLongitude : MasksConfig.mAreaNWCornerLongitude;
             double startLat = MasksConfig.mAreaNWCornerLatitude < MasksConfig.mAreaSECornerLatitude ? MasksConfig.mAreaNWCornerLatitude : MasksConfig.mAreaSECornerLatitude;
             double stopLat = startLat == MasksConfig.mAreaNWCornerLatitude ? MasksConfig.mAreaSECornerLatitude : MasksConfig.mAreaNWCornerLatitude;
-            List<double[]> tilesDownloaded = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
-
-            List<PointF[]> allTris = new List<PointF[]>();
-            foreach (double[] tile in tilesDownloaded)
-            {
-                string meshPath = CommonFunctions.GetMeshFileFullPath(MasksConfig.mWorkFolder, tile);
-                List<PointF[]> tris = readMeshFile(meshPath);
-                allTris.AddRange(tris);
-            }
-
-            return allTris;
+            return CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }
 
         private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)
@@ -2972,19 +2879,6 @@ namespace FSEarthMasksInternalDLL
             vLatLongCoord.mY = MasksConfig.mAreaNWCornerLatitude - (iXYPixel.mY / vPixelPerLatitude);
 
             return vLatLongCoord;
-        }
-
-        private tXYCoord ConvertXYLatLongToPixel(tXYCoord iXYCoord)
-        {
-            tXYCoord vPixelXYCoord;
-
-            Double vPixelPerLongitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude);
-            Double vPixelPerLatitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude);
-
-            vPixelXYCoord.mX = vPixelPerLongitude * (iXYCoord.mX - MasksConfig.mAreaNWCornerLongitude);
-            vPixelXYCoord.mY = vPixelPerLatitude * (MasksConfig.mAreaNWCornerLatitude - iXYCoord.mY);
-
-            return vPixelXYCoord;
         }
 
         public tWaterRegionType CalculateWaterTransitionRegionType(Int32 iTrippleSType, Single iXp, Single iYp)
@@ -4466,14 +4360,12 @@ namespace FSEarthMasksInternalDLL
 
         private tXYCoord CoordToPixel(double lat, double longi)
         {
-            tXYCoord tempCoord;
-            tempCoord.mX = longi;
-            tempCoord.mY = lat;
-            tXYCoord pixel = ConvertXYLatLongToPixel(tempCoord);
-            pixel.mX -= 0.5f;
-            pixel.mY -= 0.5f;
+            Double vPixelPerLongitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude);
+            Double vPixelPerLatitude = Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude);
 
-            return pixel;
+            return CommonFunctions.CoordToPixel(lat, longi, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY,
+                            MasksConfig.mAreaNWCornerLatitude, MasksConfig.mAreaNWCornerLongitude, vPixelPerLongitude,
+                            vPixelPerLatitude);
         }
 
         private PointF[] CoordsToPixelRect(double startLat, double stopLat, double startLong, double stopLong)

@@ -75,6 +75,10 @@
       <Project>{7E76BFAB-CD68-4C47-B52F-8738CA2CB8E4}</Project>
       <Name>FSEarthMasksInternalDLL</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FSEarthTilesInternalDLL\FSEarthTilesInternalDLL.csproj">
+      <Project>{6EA9EBED-689A-40B1-9872-9E456458DFA0}</Project>
+      <Name>FSEarthTilesInternalDLL</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

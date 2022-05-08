@@ -10,6 +10,7 @@ using System.Threading;
 using System.Globalization;
 using System.IO;
 using FSEarthMasksInternalDLL;
+using FSEarthTilesInternalDLL;
 
 //----------------------------------------------------------------------------
 //            FS Earth Masks (v1.0)

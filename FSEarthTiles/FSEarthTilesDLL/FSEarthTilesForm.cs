@@ -2351,11 +2351,6 @@ namespace FSEarthTilesDLL
         {
             if (!mStopProcess)
             {
-                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
-                {
-                    createMeshFiles();
-                }
-
                 MasksResampleWorker w = new MasksResampleWorker();
                 w.AreaFileString = GetAreaFileString();
                 w.mEarthArea = mEarthArea.Clone();
@@ -9067,8 +9062,60 @@ namespace FSEarthTilesDLL
 
         }
 
+        private Boolean AreaAllWater()
+        {
+            double startLong = mEarthArea.AreaSnapStartLongitude;
+            double stopLong = mEarthArea.AreaSnapStopLongitude;
+            double startLat = mEarthArea.AreaSnapStartLatitude;
+            double stopLat = mEarthArea.AreaSnapStopLatitude;
+            int pixelsInX = (int) mEarthArea.AreaPixelsInX;
+            int pixelsInY = (int) mEarthArea.AreaPixelsInY;
+            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
+            {
+                startLong = mEarthArea.AreaFSResampledStartLongitude;
+                stopLong = mEarthArea.AreaFSResampledStopLongitude;
+                startLat = mEarthArea.AreaFSResampledStartLatitude;
+                stopLat = mEarthArea.AreaFSResampledStopLatitude;
+                pixelsInX = (int) mEarthArea.AreaFSResampledPixelsInX;
+                pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
+            }
+
+            Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
+            Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (startLat - stopLat);
+
+            var tris = CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, EarthConfig.mWorkFolder);
+            Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            Graphics g = Graphics.FromImage(bmp);
+            SolidBrush b = new SolidBrush(Color.Black);
+            g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+
+            foreach (var tri in tris)
+            {
+                PointF[] convertedTri = new PointF[3];
+                for (int i = 0; i < convertedTri.Length; i++)
+                {
+                    PointF toConvert = tri[i];
+                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, startLat, stopLong, vPixelPerLongitude, vPixelPerLatitude);
+                    convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                }
+
+                g.FillPolygon(b, convertedTri);
+            }
+
+            return CommonFunctions.BitmapAllBlack(bmp);
+        }
+
         private Boolean CheckIfAreaIsEnabled()
         {
+            if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
+            {
+                createMeshFiles();
+                if (AreaAllWater())
+                {
+                    return false;
+                }
+            }
+
             Boolean Result = false;
             int CurrentAreaIdx = 0;
 

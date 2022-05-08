@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 
 namespace FSEarthTilesInternalDLL
 {
+    public struct tXYCoord
+    {
+        public Double mX;
+        public Double mY;
+    }
+
     public class CommonFunctions
     {
         // probably clever way to do this with format strings to get same resutls as python, but I grew impatient
@@ -265,6 +271,128 @@ namespace FSEarthTilesInternalDLL
             return allBlack;
         }
 
+        public static tXYCoord ConvertXYLatLongToPixel( tXYCoord iXYCoord, Double startLat, Double startLong, Double vPixelPerLongitude, Double vPixelPerLatitude)
+        {
+            tXYCoord vPixelXYCoord;
+
+            vPixelXYCoord.mX = vPixelPerLongitude * (iXYCoord.mX - startLong);
+            vPixelXYCoord.mY = vPixelPerLatitude * (startLat - iXYCoord.mY);
+
+            return vPixelXYCoord;
+        }
+
+        public static tXYCoord CoordToPixel(double lat, double longi, int mAreaPixelCountInX, int mAreaPixelCountInY,
+                                     double mAreaNWCornerLatitude, double mAreaNWCornerLongitude, Double vPixelPerLongitude,
+                                     Double vPixelPerLatitude)
+        {
+            tXYCoord tempCoord;
+            tempCoord.mX = longi;
+            tempCoord.mY = lat;
+            tXYCoord pixel = CommonFunctions.ConvertXYLatLongToPixel(tempCoord, mAreaNWCornerLatitude, mAreaNWCornerLongitude, vPixelPerLongitude, vPixelPerLatitude);
+            pixel.mX -= 0.5f;
+            pixel.mY -= 0.5f;
+
+            return pixel;
+        }
+
+        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
+        // TODO: try to refactor this into a clearer format. Also, use camel case
+        private static List<PointF[]> readMeshFile(string meshFilePath)
+        {
+            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
+            string[] lineContents = f_mesh.ReadLine().Trim().Split();
+            float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
+            int has_water = mesh_version >= 1.3f ? 7 : 3;
+            // skip ahead 3
+            for (int i = 0; i < 3; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            int nbr_pt_in = Convert.ToInt32(f_mesh.ReadLine());
+            double[] pt_in = new double[5 * nbr_pt_in];
+            for (int i = 0; i < nbr_pt_in; i++)
+            {
+                int lc = 0;
+                lineContents = f_mesh.ReadLine().Split();
+                for (int j = 5 * i; j < 5 * i + 3; j++)
+                {
+                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
+                    lc++;
+                }
+            }
+            // skip ahead 3
+            for (int i = 0; i < 3; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            for (int i = 0; i < nbr_pt_in; i++)
+            {
+                int lc = 0;
+                lineContents = f_mesh.ReadLine().Split();
+                for (int j = 5 * i + 3; j < 5 * i + 5; j++)
+                {
+                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
+                    lc++;
+                }
+            }
+            // skip ahead 2
+            for (int i = 0; i < 2; i++)
+            {
+                f_mesh.ReadLine();
+            }
+            int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
+
+            List<PointF[]> tris = new List<PointF[]>();
+
+            for (int i = 0; i < nbr_tri_in; i++)
+            {
+                lineContents = f_mesh.ReadLine().Split();
+                int n1 = Convert.ToInt32(lineContents[0]) - 1;
+                int n2 = Convert.ToInt32(lineContents[1]) - 1;
+                int n3 = Convert.ToInt32(lineContents[2]) - 1;
+                int tri_type = Convert.ToInt32(lineContents[3]) - 1;
+                tri_type += 1;
+
+                bool use_masks_for_inland = true; // possibly allow for changing in the future?
+                if (tri_type == 0 || (tri_type & has_water) == 0 || ((tri_type & has_water) < 2 && !use_masks_for_inland))
+                {
+                    continue;
+                }
+                float lon1 = (float) pt_in[5 * n1];
+                float lat1 = (float) pt_in[5 * n1 + 1];
+                float lon2 = (float) pt_in[5 * n2];
+                float lat2 = (float) pt_in[5 * n2 + 1];
+                float lon3 = (float) pt_in[5 * n3];
+                float lat3 = (float) pt_in[5 * n3 + 1];
+
+                var tri = new PointF[] {
+                    new PointF(lon1, lat1),
+                    new PointF(lon2, lat2),
+                    new PointF(lon3, lat3),
+                    new PointF(lon1, lat1),
+                };
+
+                tris.Add(tri);
+            }
+
+            return tris;
+        }
+
+
+        public static List<PointF[]> ReadAllMeshFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
+        {
+            List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            List<PointF[]> allTris = new List<PointF[]>();
+
+            foreach (double[] tile in tilesDownloaded)
+            {
+                string meshPath = CommonFunctions.GetMeshFileFullPath(mWorkFolder, tile);
+                List<PointF[]> tris = readMeshFile(meshPath);
+                allTris.AddRange(tris);
+            }
+
+            return allTris;
+        }
     }
 }
 

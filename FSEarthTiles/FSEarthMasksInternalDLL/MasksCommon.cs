@@ -17,12 +17,6 @@ namespace FSEarthMasksInternalDLL
         eBlendPoolPolygon
     }
 
-    public struct tXYCoord
-    {
-        public Double mX;
-        public Double mY;
-    }
-
     public struct tLine
     {
         public Single mX1;
