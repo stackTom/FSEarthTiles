@@ -4864,7 +4864,8 @@ namespace FSEarthMasksInternalDLL
                 g.FillPolygon(b, convertedTri);
             }
 
-            if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks)
+            if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks
+                && !CommonFunctions.BitmapAllBlack(bmp))
             {
                 bmp = ApplyMaskWidth(bmp, iFSEarthMasksInternalInterface);
             }

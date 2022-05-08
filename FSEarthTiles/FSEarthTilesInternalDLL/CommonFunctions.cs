@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -235,6 +236,35 @@ namespace FSEarthTilesInternalDLL
 
             return pieces;
         }
+
+        public static bool BitmapAllBlack(Bitmap bmp)
+        {
+            BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            int stride = data.Stride;
+            bool allBlack = true;
+            const uint BLACK_32BIT_VAL = 4278190080;
+            unsafe
+            {
+                byte* ptr = (byte*)data.Scan0;
+                for (int y = 0; y < bmp.Height && allBlack; y++)
+                {
+                    for (int x = 0; x < bmp.Width; x++)
+                    {
+                        uint c = *((uint*)&ptr[(x * 4) + y * stride]); // red value at this point (proxy for whiteness)
+
+                        if (c != BLACK_32BIT_VAL)
+                        {
+                            allBlack = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            bmp.UnlockBits(data);
+
+            return allBlack;
+        }
+
     }
 }
 
