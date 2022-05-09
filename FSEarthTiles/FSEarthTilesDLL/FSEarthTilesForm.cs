@@ -201,6 +201,8 @@ namespace FSEarthTilesDLL
         EarthArea        mEarthArea;           //The complete snapped Area coords information. That's the description of the Area that will be downloaded
         EarthMultiArea   mEarthMultiArea;      //The complete snapped Multi Area coords information. That's the describtion of the MultiArea that will be downloaded in steps of single Areas
         EarthAreaTexture mEarthAreaTexture;    //The downloaded Texture of the Area
+        EarthArea mLastMeshCreatedEarthArea; // let's us see if we've created mesh for this area already
+        EarthArea mLastCheckedForAllWaterEarthArea; // let's us see if we've checked for AllWater() for this area already
 
         //(Backup Data) Single Reference Area Stored Datas. (Used for Single-Multi Mode change and as Reference Area for Multi)
         EarthInputArea   mEarthSingleReferenceInputArea; //The Reference Input Area. The MultiArea is build of this Areas
@@ -350,6 +352,7 @@ namespace FSEarthTilesDLL
         System.Windows.Forms.Timer mMainThreadTimer;  //Main Thread Timer
 
         private bool scenProcWasRunning = false;
+        private bool creatingMeshFile = false;
 
 
         public FSEarthTilesForm(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
@@ -2070,6 +2073,8 @@ namespace FSEarthTilesDLL
 
                 //That's right we override the Main EarthArea so we don't have to care about a special separate object handling
                 //The information can be restored at the end of all download processes
+                mLastMeshCreatedEarthArea = mEarthArea;
+                mLastCheckedForAllWaterEarthArea = mEarthArea;
                 mEarthArea = mEarthMultiArea.CalculateSingleAreaFormMultiArea(mCurrentAreaInfo, mEarthSingleReferenceArea, EarthConfig.mAreaSnapMode, EarthConfig.mFetchLevel);
 
                 mEarthArea.mBlendNorthBorder = false;
@@ -7108,6 +7113,84 @@ namespace FSEarthTilesDLL
                 || ((mImageToolThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
         }
 
+        private void CreateMeshFiles()
+        {
+            Console.WriteLine("creating it");
+            creatingMeshFile = true;
+            createMeshFiles();
+            creatingMeshFile = false;
+            Console.WriteLine("we didnt wait");
+        }
+
+        private void FinishProcessingArea()
+        {
+            mAreaInfoAreaQueue.DoEmpty();
+
+            SetVisibilityForIdle();
+
+            mAreaProcessRunning = false; //Do here else HandleInput doesnt do anything
+            mSkipAreaProcessFlag = true;
+            HandleInputChange();
+            DisplayWhereYouJustAreAgain();
+
+            String vExitStatusFeedback = GetExitStatusFromFriendThread();
+
+            if (vExitStatusFeedback.Length > 0)
+            {
+                SetStatus(vExitStatusFeedback);
+            }
+
+            mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
+            mStopProcess = false;
+
+            mMasksCompilerMultithreadedQueue.CompleteAdding();
+            mImageProcessingMultithreadedQueue.CompleteAdding();
+            if (!mMasksCompilerMultithreadedQueue.AllDone())
+            {
+                SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
+            }
+            else if (!mImageProcessingMultithreadedQueue.AllDone())
+            {
+                SetStatus("Waiting on image processing threads to finish.");
+            }
+            else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
+            {
+                SetStatus("Waiting on Scenproc to finish");
+                scenProcWasRunning = true;
+            }
+            EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
+        }
+
+        private void TryAdvancingToOtherArea()
+        {
+            Boolean CarryOn=false;
+
+            while (!CarryOn )
+            {
+                if (!mAreaInfoAreaQueue.IsEmpty())
+                {
+                    CreateNextSingleAreaFromMultiArea();
+                    //if (AreaHasTilesToDownload(mEarthArea))
+                    if (CalculateTilesToDownload() > 0 && (CheckIfAreaIsEnabled()))
+                    {
+                        QueueAreaTiles();
+                        CarryOn = true;
+
+                    }
+                    else
+                    {
+                        mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY);
+                    }
+
+                }
+                else
+                {
+                    CarryOn = true;
+
+                }
+            }
+        }
+
         void MainThreadTimerEventProcessor(Object myObject, EventArgs myEventArgs)
         {
 
@@ -7215,6 +7298,40 @@ namespace FSEarthTilesDLL
                 }
             }
 
+            bool shouldCreateMesh = EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask
+                    && mAreaProcessRunning && !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
+            if (shouldCreateMesh)
+            {
+                ThreadStart ts = new ThreadStart(CreateMeshFiles);
+                Thread t = new Thread(ts);
+                creatingMeshFile = true;
+                mLastMeshCreatedEarthArea = mEarthArea;
+                t.Start();
+            }
+
+            if (creatingMeshFile)
+            {
+                Console.WriteLine("return " + Environment.TickCount);
+                return;
+            }
+
+            if (mAreaProcessRunning && EarthConfig.skipAllWaterTiles && mLastCheckedForAllWaterEarthArea != mEarthArea)
+            {
+                mLastCheckedForAllWaterEarthArea = mEarthArea;
+                if (AreaAllWater())
+                {
+                    Console.WriteLine("checked allwater");
+                    if (mAreaInfoAreaQueue.IsEmpty())
+                    {
+                        FinishProcessingArea();
+                    }
+                    else
+                    {
+                        TryAdvancingToOtherArea();
+                    }
+                    return;
+                }
+            }
 
             HarvestThreadEnginesOutput();
             FeedThreadEnginesWithNewWork();
@@ -7283,74 +7400,12 @@ namespace FSEarthTilesDLL
 
                         if (mMultiAreaMode && !mStopProcess)
                         {
-                                Boolean CarryOn=false;
-
-                                while (!CarryOn )
-                                {
-
-                                    if (!mAreaInfoAreaQueue.IsEmpty())
-                                    {
-                                       
-                                        CreateNextSingleAreaFromMultiArea();
-                                        //if (AreaHasTilesToDownload(mEarthArea))
-                                        if (CalculateTilesToDownload() > 0 && (CheckIfAreaIsEnabled()))
-                                        {
-                                            vReallyFinish = false;
-                                            QueueAreaTiles();
-                                            CarryOn = true;
-
-                                        }
-                                        else
-                                        {
-                                            mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY); 
-                                        }
-
-                                    }
-                                    else
-                                    {
-                                        CarryOn = true;
-                                        
-                                    }
-                                }
+                            TryAdvancingToOtherArea();
                         }
 
                         if (vReallyFinish)
                         {
-                            mAreaInfoAreaQueue.DoEmpty();
-
-                            SetVisibilityForIdle();
-
-                            mAreaProcessRunning = false; //Do here else HandleInput doesnt do anything
-                            mSkipAreaProcessFlag = true;
-                            HandleInputChange();
-                            DisplayWhereYouJustAreAgain();
-
-                            String vExitStatusFeedback = GetExitStatusFromFriendThread();
-
-                            if (vExitStatusFeedback.Length > 0)
-                            {
-                                SetStatus(vExitStatusFeedback);
-                            }
-
-                            mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
-                            mStopProcess = false;
-
-                            mMasksCompilerMultithreadedQueue.CompleteAdding();
-                            mImageProcessingMultithreadedQueue.CompleteAdding();
-                            if (!mMasksCompilerMultithreadedQueue.AllDone())
-                            {
-                                SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
-                            }
-                            else if (!mImageProcessingMultithreadedQueue.AllDone())
-                            {
-                                SetStatus("Waiting on image processing threads to finish.");
-                            }
-                            else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
-                            {
-                                SetStatus("Waiting on Scenproc to finish");
-                                scenProcWasRunning = true;
-                            }
-                            EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
+                            FinishProcessingArea();
 
                         }
 
@@ -9064,6 +9119,7 @@ namespace FSEarthTilesDLL
 
         private Boolean AreaAllWater()
         {
+            Console.WriteLine("CHECKING WATER");
             double startLong = mEarthArea.AreaSnapStartLongitude;
             double stopLong = mEarthArea.AreaSnapStopLongitude;
             double startLat = mEarthArea.AreaSnapStartLatitude;
@@ -9101,21 +9157,13 @@ namespace FSEarthTilesDLL
 
                 g.FillPolygon(b, convertedTri);
             }
+            bmp.Save(@"c:\Users\fery2\Desktop\test.bmp");
 
             return CommonFunctions.BitmapAllBlack(bmp);
         }
 
         private Boolean CheckIfAreaIsEnabled()
         {
-            if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask)
-            {
-                createMeshFiles();
-                if (AreaAllWater())
-                {
-                    return false;
-                }
-            }
-
             Boolean Result = false;
             int CurrentAreaIdx = 0;
 
