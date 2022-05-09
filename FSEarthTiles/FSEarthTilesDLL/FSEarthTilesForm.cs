@@ -7355,6 +7355,8 @@ namespace FSEarthTilesDLL
                     {
                         TryAdvancingToOtherArea();
                         mImageProcessingMultithreadedQueue.IncremenntTotalJobsDoneBy(1);
+                        mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY);
+                        UpdateAreaAndTileCountStatusLabel();
                     }
                     return;
                 }
