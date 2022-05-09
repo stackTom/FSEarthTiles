@@ -2323,9 +2323,10 @@ namespace FSEarthTilesDLL
                 if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllWaterTiles)
                 {
 
-                    Bitmap bmp = new Bitmap(areaMaskBitmapPath);
-                    bitmapAllWater = CommonFunctions.BitmapAllBlack(bmp);
-                    bmp.Dispose();
+                    using (Bitmap bmp = new Bitmap(areaMaskBitmapPath))
+                    {
+                        bitmapAllWater = CommonFunctions.BitmapAllBlack(bmp);
+                    }
                 }
 
                 if (!mStopProcess)
@@ -7116,11 +7117,9 @@ namespace FSEarthTilesDLL
 
         private void CreateMeshFiles()
         {
-            Console.WriteLine("creating it");
             creatingMeshFile = true;
             createMeshFiles();
             creatingMeshFile = false;
-            Console.WriteLine("we didnt wait");
         }
 
         private void FinishProcessingArea()
@@ -7312,7 +7311,6 @@ namespace FSEarthTilesDLL
 
             if (creatingMeshFile)
             {
-                Console.WriteLine("return " + Environment.TickCount);
                 return;
             }
 
@@ -7321,7 +7319,6 @@ namespace FSEarthTilesDLL
                 mLastCheckedForAllWaterEarthArea = mEarthArea;
                 if (AreaAllWater())
                 {
-                    Console.WriteLine("checked allwater");
                     if (mAreaInfoAreaQueue.IsEmpty())
                     {
                         FinishProcessingArea();
@@ -9120,7 +9117,6 @@ namespace FSEarthTilesDLL
 
         private Boolean AreaAllWater()
         {
-            Console.WriteLine("CHECKING WATER");
             double startLong = mEarthArea.AreaSnapStartLongitude;
             double stopLong = mEarthArea.AreaSnapStopLongitude;
             double startLat = mEarthArea.AreaSnapStartLatitude;
@@ -9145,26 +9141,32 @@ namespace FSEarthTilesDLL
             Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
 
             var tris = CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, EarthConfig.mWorkFolder);
-            Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-            Graphics g = Graphics.FromImage(bmp);
-            SolidBrush b = new SolidBrush(Color.Black);
-            g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
-
-            foreach (var tri in tris)
+            bool allWater = false;
+            using (Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
             {
-                PointF[] convertedTri = new PointF[3];
-                for (int i = 0; i < convertedTri.Length; i++)
+                using (Graphics g = Graphics.FromImage(bmp))
                 {
-                    PointF toConvert = tri[i];
-                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
-                    convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                    SolidBrush b = new SolidBrush(Color.Black);
+                    g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+
+                    foreach (var tri in tris)
+                    {
+                        PointF[] convertedTri = new PointF[3];
+                        for (int i = 0; i < convertedTri.Length; i++)
+                        {
+                            PointF toConvert = tri[i];
+                            tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
+                            convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                        }
+
+                        g.FillPolygon(b, convertedTri);
+                    }
+
+                    allWater = CommonFunctions.BitmapAllBlack(bmp);
                 }
-
-                g.FillPolygon(b, convertedTri);
             }
-            bmp.Save(@"c:\Users\fery2\Desktop\test.bmp");
 
-            return CommonFunctions.BitmapAllBlack(bmp);
+            return allWater;
         }
 
         private Boolean CheckIfAreaIsEnabled()

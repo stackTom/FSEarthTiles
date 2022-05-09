@@ -4715,46 +4715,48 @@ namespace FSEarthMasksInternalDLL
         {
             var tris = ReadAllMeshFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-            Graphics g = Graphics.FromImage(bmp);
-            SolidBrush b = new SolidBrush(Color.Black);
-            g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                SolidBrush b = new SolidBrush(Color.Black);
+                g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
 
-            // borders
-            double NWLat = MasksConfig.mAreaNWCornerLatitude;
-            double NWLon = MasksConfig.mAreaNWCornerLongitude;
-            double SELat = MasksConfig.mAreaSECornerLatitude;
-            double SELon = MasksConfig.mAreaSECornerLongitude;
-            double pixWidth = MasksConfig.mBlendBorderDistance;
-            double LON_BLEND_WIDTH = ((SELon - NWLon) / MasksConfig.mAreaPixelCountInX) * pixWidth;
-            double LAT_BLEND_WIDTH = ((NWLat - SELat) / MasksConfig.mAreaPixelCountInY) * pixWidth;
-            if (MasksConfig.mBlendNorthBorder)
-            {
-                Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
-            }
-            if (MasksConfig.mBlendEastBorder)
-            {
-                Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
-            }
-            if (MasksConfig.mBlendSouthBorder)
-            {
-                Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
-            }
-            if (MasksConfig.mBlendWestBorder)
-            {
-                Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
-            }
-
-            foreach (var tri in tris)
-            {
-                PointF[] convertedTri = new PointF[3];
-                for (int i = 0; i < convertedTri.Length; i++)
+                // borders
+                double NWLat = MasksConfig.mAreaNWCornerLatitude;
+                double NWLon = MasksConfig.mAreaNWCornerLongitude;
+                double SELat = MasksConfig.mAreaSECornerLatitude;
+                double SELon = MasksConfig.mAreaSECornerLongitude;
+                double pixWidth = MasksConfig.mBlendBorderDistance;
+                double LON_BLEND_WIDTH = ((SELon - NWLon) / MasksConfig.mAreaPixelCountInX) * pixWidth;
+                double LAT_BLEND_WIDTH = ((NWLat - SELat) / MasksConfig.mAreaPixelCountInY) * pixWidth;
+                if (MasksConfig.mBlendNorthBorder)
                 {
-                    PointF toConvert = tri[i];
-                    tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
-                    convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                    Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
+                }
+                if (MasksConfig.mBlendEastBorder)
+                {
+                    Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
+                }
+                if (MasksConfig.mBlendSouthBorder)
+                {
+                    Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
+                }
+                if (MasksConfig.mBlendWestBorder)
+                {
+                    Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
                 }
 
-                g.FillPolygon(b, convertedTri);
+                foreach (var tri in tris)
+                {
+                    PointF[] convertedTri = new PointF[3];
+                    for (int i = 0; i < convertedTri.Length; i++)
+                    {
+                        PointF toConvert = tri[i];
+                        tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
+                        convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                    }
+
+                    g.FillPolygon(b, convertedTri);
+                }
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks
