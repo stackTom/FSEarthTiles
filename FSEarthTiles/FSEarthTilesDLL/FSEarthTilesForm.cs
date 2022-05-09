@@ -355,6 +355,7 @@ namespace FSEarthTilesDLL
 
         private bool scenProcWasRunning = false;
         private bool creatingMeshFile = false;
+        private Dictionary<string, List<PointF[]>> meshCache;
 
 
         public FSEarthTilesForm(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
@@ -527,6 +528,7 @@ namespace FSEarthTilesDLL
             mNoTileFound   = vEmptyDummyTileBitmap;
             mTileRequested = vEmptyDummyTileBitmap;
             mTileSkipped   = vEmptyDummyTileBitmap;
+            meshCache = new Dictionary<string, List<PointF[]>>();
 
 
 
@@ -7179,6 +7181,7 @@ namespace FSEarthTilesDLL
                 SetStatus("Waiting on Scenproc to finish");
                 scenProcWasRunning = true;
             }
+            meshCache = new Dictionary<string, List<PointF[]>>();
             EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
         }
 
@@ -9146,6 +9149,21 @@ namespace FSEarthTilesDLL
 
         }
 
+        private void GetTris(double startLong, double stopLong, double startLat, double stopLat)
+        {
+            List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            string key = null;
+            foreach (double[] meshTile in meshTilesForArea)
+            {
+                key = meshTile[0] + "," + meshTile[1];
+                if (!meshCache.ContainsKey(key))
+                {
+                    string meshPath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, meshTile);
+                    meshCache[key] = CommonFunctions.ReadMeshFile(meshPath);
+                }
+            }
+        }
+
         private Boolean AreaAllWater()
         {
             double startLong = mEarthArea.AreaSnapStartLongitude;
@@ -9171,7 +9189,7 @@ namespace FSEarthTilesDLL
             Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
             Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
 
-            var tris = CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, EarthConfig.mWorkFolder);
+            GetTris(startLong, stopLong, startLat, stopLat);
             bool allWater = false;
             using (Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
             {
@@ -9180,18 +9198,25 @@ namespace FSEarthTilesDLL
                     SolidBrush b = new SolidBrush(Color.Black);
                     g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
 
-                    foreach (var tri in tris)
+                    List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+                    foreach (double[] meshTile in meshTilesForArea)
                     {
-                        PointF[] convertedTri = new PointF[3];
-                        for (int i = 0; i < convertedTri.Length; i++)
+                        string key = meshTile[0] + "," + meshTile[1];
+                        List<PointF[]> tris = meshCache[key];
+                        foreach (var tri in tris)
                         {
-                            PointF toConvert = tri[i];
-                            tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
-                            convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
-                        }
+                            PointF[] convertedTri = new PointF[3];
+                            for (int i = 0; i < convertedTri.Length; i++)
+                            {
+                                PointF toConvert = tri[i];
+                                tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
+                                convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                            }
 
-                        g.FillPolygon(b, convertedTri);
+                            g.FillPolygon(b, convertedTri);
+                        }
                     }
+                    bmp.Save(@"c:\Users\fery2\Desktop\test.bmp");
 
                     allWater = CommonFunctions.BitmapAllBlack(bmp);
                 }
