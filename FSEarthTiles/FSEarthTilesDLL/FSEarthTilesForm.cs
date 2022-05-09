@@ -325,6 +325,8 @@ namespace FSEarthTilesDLL
 
         // Imagetool thread
         Thread mImageToolThread;
+        // CreateMesh thread
+        Thread mCreateMeshThread;
 
         // Producer/consumer to run resample processes
         MultiThreadedQueue mMasksCompilerMultithreadedQueue;
@@ -2259,41 +2261,55 @@ namespace FSEarthTilesDLL
 
         private void createMeshFiles()
         {
-            double startLong = mEarthArea.AreaSnapStartLongitude;
-            double stopLong = mEarthArea.AreaSnapStopLongitude;
-            double startLat = mEarthArea.AreaSnapStartLatitude;
-            double stopLat = mEarthArea.AreaSnapStopLatitude;
-
-            if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
+            try
             {
-                startLong = mEarthArea.AreaFSResampledStartLongitude;
-                stopLong = mEarthArea.AreaFSResampledStopLongitude;
-                startLat = mEarthArea.AreaFSResampledStartLatitude;
-                stopLat = mEarthArea.AreaFSResampledStopLatitude;
-            }
+                double startLong = mEarthArea.AreaSnapStartLongitude;
+                double stopLong = mEarthArea.AreaSnapStopLongitude;
+                double startLat = mEarthArea.AreaSnapStartLatitude;
+                double stopLat = mEarthArea.AreaSnapStopLatitude;
 
-            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
-
-            List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-
-            foreach (double[] tile in tilesToDownload)
-            {
-                string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
-                if (!File.Exists(meshFilePath))
+                if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
                 {
-                    string tileName = CommonFunctions.GetTileName(tile);
-                    SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
-                    System.Diagnostics.Process proc = new System.Diagnostics.Process();
-                    proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
-                    proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
-                    proc.Start();
-                    Thread.Sleep(500);
-                    proc.WaitForExit();
-                    if (!proc.HasExited)
+                    startLong = mEarthArea.AreaFSResampledStartLongitude;
+                    stopLong = mEarthArea.AreaFSResampledStopLongitude;
+                    startLat = mEarthArea.AreaFSResampledStartLatitude;
+                    stopLat = mEarthArea.AreaFSResampledStopLatitude;
+                }
+
+                CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
+
+                List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+
+                foreach (double[] tile in tilesToDownload)
+                {
+                    string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
+                    if (!File.Exists(meshFilePath))
                     {
-                        proc.Kill();
+                        string tileName = CommonFunctions.GetTileName(tile);
+                        SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
+                        System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                        proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
+                        proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
+                        proc.Start();
+                        Thread.Sleep(500);
+                        proc.WaitForExit();
+                        if (!proc.HasExited)
+                        {
+                            proc.Kill();
+                        }
                     }
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                // need to do it this way. guess it's call pyinstaller programs spawn subprocesses?
+                // just calling proc.Kill() keeps createMesh.exe running
+                foreach (var p in System.Diagnostics.Process.GetProcessesByName("createMesh"))
+                {
+                    p.Kill();
+                }
+                mAreaProcessRunning = false;
+                creatingMeshFile = false;
             }
         }
 
@@ -5573,6 +5589,11 @@ namespace FSEarthTilesDLL
             {
                 mImageToolThread.Abort();
             }
+            if (mCreateMeshThread != null)
+            {
+                mCreateMeshThread.Abort();
+                mCreateMeshThread = null;
+            }
         }
 
         private void LatGradBox_TextChanged(object sender, EventArgs e)
@@ -7303,10 +7324,10 @@ namespace FSEarthTilesDLL
             if (shouldCreateMesh)
             {
                 ThreadStart ts = new ThreadStart(CreateMeshFiles);
-                Thread t = new Thread(ts);
+                mCreateMeshThread = new Thread(ts);
                 creatingMeshFile = true;
                 mLastMeshCreatedEarthArea = mEarthArea;
-                t.Start();
+                mCreateMeshThread.Start();
             }
 
             if (creatingMeshFile)
@@ -7717,6 +7738,11 @@ namespace FSEarthTilesDLL
             if (mImageToolThread != null && mImageToolThread.IsAlive)
             {
                 mImageToolThread.Abort();
+            }
+            if (mCreateMeshThread != null)
+            {
+                mCreateMeshThread.Abort();
+                mCreateMeshThread = null;
             }
             EarthScriptsHandler.CleanUp();
         }
