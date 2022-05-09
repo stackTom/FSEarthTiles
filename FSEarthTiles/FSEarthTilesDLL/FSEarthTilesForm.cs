@@ -7182,9 +7182,10 @@ namespace FSEarthTilesDLL
             EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
         }
 
-        private void TryAdvancingToOtherArea()
+        private Boolean TryAdvancingToOtherArea()
         {
             Boolean CarryOn=false;
+            Boolean vReallyFinish = true;
 
             while (!CarryOn )
             {
@@ -7194,6 +7195,7 @@ namespace FSEarthTilesDLL
                     //if (AreaHasTilesToDownload(mEarthArea))
                     if (CalculateTilesToDownload() > 0 && (CheckIfAreaIsEnabled()))
                     {
+                        vReallyFinish = false;
                         QueueAreaTiles();
                         CarryOn = true;
 
@@ -7210,6 +7212,8 @@ namespace FSEarthTilesDLL
 
                 }
             }
+
+            return vReallyFinish;
         }
 
         void MainThreadTimerEventProcessor(Object myObject, EventArgs myEventArgs)
@@ -7419,7 +7423,7 @@ namespace FSEarthTilesDLL
 
                         if (mMultiAreaMode && !mStopProcess)
                         {
-                            TryAdvancingToOtherArea();
+                            vReallyFinish = TryAdvancingToOtherArea();
                         }
 
                         if (vReallyFinish)
