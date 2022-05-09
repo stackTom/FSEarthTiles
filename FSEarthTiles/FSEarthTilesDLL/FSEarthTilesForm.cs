@@ -9137,10 +9137,12 @@ namespace FSEarthTilesDLL
                 pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
             }
 
+            double NWCornerLat = startLat;
+            double NWCornerLong = startLong;
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
             Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
-            Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (startLat - stopLat);
+            Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
 
             var tris = CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, EarthConfig.mWorkFolder);
             Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
@@ -9154,7 +9156,7 @@ namespace FSEarthTilesDLL
                 for (int i = 0; i < convertedTri.Length; i++)
                 {
                     PointF toConvert = tri[i];
-                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, startLat, startLong, vPixelPerLongitude, vPixelPerLatitude);
+                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
                     convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
                 }
 
