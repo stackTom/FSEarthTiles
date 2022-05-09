@@ -2860,10 +2860,11 @@ namespace FSEarthMasksInternalDLL
 
         private List<PointF[]> ReadAllMeshFiles()
         {
-            double startLong = MasksConfig.mAreaNWCornerLongitude < MasksConfig.mAreaSECornerLongitude ? MasksConfig.mAreaNWCornerLongitude : MasksConfig.mAreaSECornerLongitude;
-            double stopLong = startLong == MasksConfig.mAreaNWCornerLongitude ? MasksConfig.mAreaSECornerLongitude : MasksConfig.mAreaNWCornerLongitude;
-            double startLat = MasksConfig.mAreaNWCornerLatitude < MasksConfig.mAreaSECornerLatitude ? MasksConfig.mAreaNWCornerLatitude : MasksConfig.mAreaSECornerLatitude;
-            double stopLat = startLat == MasksConfig.mAreaNWCornerLatitude ? MasksConfig.mAreaSECornerLatitude : MasksConfig.mAreaNWCornerLatitude;
+            double startLong = MasksConfig.mAreaNWCornerLongitude;
+            double stopLong = MasksConfig.mAreaSECornerLongitude;
+            double startLat = MasksConfig.mAreaNWCornerLatitude;
+            double stopLat = MasksConfig.mAreaSECornerLatitude;
+            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
             return CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }

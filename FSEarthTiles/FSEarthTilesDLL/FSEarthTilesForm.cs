@@ -2259,19 +2259,20 @@ namespace FSEarthTilesDLL
 
         private void createMeshFiles()
         {
-            double startLong = mEarthArea.AreaSnapStartLongitude < mEarthArea.AreaSnapStopLongitude ? mEarthArea.AreaSnapStartLongitude : mEarthArea.AreaSnapStopLongitude;
-            double stopLong = startLong == mEarthArea.AreaSnapStartLongitude ? mEarthArea.AreaSnapStopLongitude : mEarthArea.AreaSnapStartLongitude;
-            double startLat = mEarthArea.AreaSnapStartLatitude < mEarthArea.AreaSnapStopLatitude ? mEarthArea.AreaSnapStartLatitude : mEarthArea.AreaSnapStopLatitude;
-            double stopLat = startLat == mEarthArea.AreaSnapStartLatitude ? mEarthArea.AreaSnapStopLatitude : mEarthArea.AreaSnapStartLatitude;
+            double startLong = mEarthArea.AreaSnapStartLongitude;
+            double stopLong = mEarthArea.AreaSnapStopLongitude;
+            double startLat = mEarthArea.AreaSnapStartLatitude;
+            double stopLat = mEarthArea.AreaSnapStopLatitude;
 
             if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
             {
-                startLong = mEarthArea.AreaFSResampledStartLongitude < mEarthArea.AreaFSResampledStopLongitude ? mEarthArea.AreaFSResampledStartLongitude : mEarthArea.AreaFSResampledStopLongitude;
-                stopLong = startLong == mEarthArea.AreaFSResampledStartLongitude ? mEarthArea.AreaFSResampledStopLongitude : mEarthArea.AreaFSResampledStartLongitude;
-                startLat = mEarthArea.AreaFSResampledStartLatitude < mEarthArea.AreaFSResampledStopLatitude ? mEarthArea.AreaFSResampledStartLatitude : mEarthArea.AreaFSResampledStopLatitude;
-                stopLat = startLat == mEarthArea.AreaFSResampledStartLatitude ? mEarthArea.AreaFSResampledStopLatitude : mEarthArea.AreaFSResampledStartLatitude;
+                startLong = mEarthArea.AreaFSResampledStartLongitude;
+                stopLong = mEarthArea.AreaFSResampledStopLongitude;
+                startLat = mEarthArea.AreaFSResampledStartLatitude;
+                stopLat = mEarthArea.AreaFSResampledStopLatitude;
             }
 
+            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
             List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
@@ -9136,6 +9137,8 @@ namespace FSEarthTilesDLL
                 pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
             }
 
+            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
+
             Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
             Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (startLat - stopLat);
 
@@ -9151,7 +9154,7 @@ namespace FSEarthTilesDLL
                 for (int i = 0; i < convertedTri.Length; i++)
                 {
                     PointF toConvert = tri[i];
-                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, startLat, stopLong, vPixelPerLongitude, vPixelPerLatitude);
+                    tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, startLat, startLong, vPixelPerLongitude, vPixelPerLatitude);
                     convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
                 }
 

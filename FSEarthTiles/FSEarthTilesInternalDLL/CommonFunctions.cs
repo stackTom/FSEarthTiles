@@ -271,6 +271,24 @@ namespace FSEarthTilesInternalDLL
             return allBlack;
         }
 
+        // other code is based on the fact that startLat < stopLong and
+        // startLong < stopLong. This function takes care of that
+        public static void SetStartAndStopCoords(ref double startLat, ref double startLong, ref double stopLat, ref double stopLong)
+        {
+            if (startLat > stopLat)
+            {
+                double temp = startLat;
+                startLat = stopLat;
+                stopLat = temp;
+            }
+            if (startLong > stopLong)
+            {
+                double temp = startLong;
+                startLong = stopLong;
+                stopLong = temp;
+            }
+        }
+
         public static tXYCoord ConvertXYLatLongToPixel( tXYCoord iXYCoord, Double startLat, Double startLong, Double vPixelPerLongitude, Double vPixelPerLatitude)
         {
             tXYCoord vPixelXYCoord;
