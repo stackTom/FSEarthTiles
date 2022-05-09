@@ -86,6 +86,14 @@ namespace FSEarthTilesDLL
             }
         }
 
+        public void IncremenntTotalJobsDoneBy(long increment)
+        {
+            lock (totalJobsLock)
+            {
+                totalJobsRan += increment;
+            }
+        }
+
         public bool AllThreadsDone()
         {
             return GetRunningThreads() == 0;

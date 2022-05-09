@@ -7351,6 +7351,7 @@ namespace FSEarthTilesDLL
                     else
                     {
                         TryAdvancingToOtherArea();
+                        mImageProcessingMultithreadedQueue.IncremenntTotalJobsDoneBy(1);
                     }
                     return;
                 }
