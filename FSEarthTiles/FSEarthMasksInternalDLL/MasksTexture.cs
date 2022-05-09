@@ -4675,7 +4675,7 @@ namespace FSEarthMasksInternalDLL
             }
 
             const int IMG_DIM_LIM = 4096;
-            if (img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM)
+            if ((img.Height > IMG_DIM_LIM || img.Width > IMG_DIM_LIM) && MasksConfig.splitImageForMasksWidth)
             {
                 // split big images into pieces
                 iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Splitting image for reduced memory usage");
