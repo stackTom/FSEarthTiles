@@ -7339,12 +7339,14 @@ namespace FSEarthTilesDLL
 
             if (creatingMeshFile)
             {
+                SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
                 return;
             }
 
             if (mAreaProcessRunning && EarthConfig.skipAllWaterTiles && mLastCheckedForAllWaterEarthArea != mEarthArea)
             {
                 mLastCheckedForAllWaterEarthArea = mEarthArea;
+                SetStatus("Checking if area " + mCurrentActiveAreaNr + " is all water");
                 if (AreaAllWater())
                 {
                     if (mAreaInfoAreaQueue.IsEmpty())
@@ -7353,6 +7355,7 @@ namespace FSEarthTilesDLL
                     }
                     else
                     {
+                        SetStatus("Skipping area " + mCurrentActiveAreaNr + " as it's all water...");
                         TryAdvancingToOtherArea();
                         mImageProcessingMultithreadedQueue.IncremenntTotalJobsDoneBy(1);
                         mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY);
@@ -7435,7 +7438,6 @@ namespace FSEarthTilesDLL
                         if (vReallyFinish)
                         {
                             FinishProcessingArea();
-
                         }
 
                     }
