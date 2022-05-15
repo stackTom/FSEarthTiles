@@ -5798,7 +5798,8 @@ namespace FSEarthTilesDLL
 
             return true;
         }
-        public static void ensureTGAsNotAllBlack(string directoryToCheck)
+
+        public static void EnsureTGAsNotAllBlack(string directoryToCheck)
         {
             string[] tgas = Directory.GetFiles(directoryToCheck, "*.tga");
             foreach (string f in tgas)
@@ -5836,7 +5837,7 @@ namespace FSEarthTilesDLL
                         // difference for humans, but it makes imagetool happy so it doesn't drop the alpha channel and image is properly masked
                         // I could have taken the work of editing the dxt bmp's directly etc etc. But I had a hard time finding .Net libraries to do this
                         // and I don't want to write my own when this simpler solution gets the job done
-                        ensureTGAsNotAllBlack(EarthConfig.mWorkFolder);
+                        EnsureTGAsNotAllBlack(EarthConfig.mWorkFolder);
 
                         SetStatusFromFriendThread("Starting FS2004 Imagetool..");
                         Thread.Sleep(1000);
@@ -7145,7 +7146,7 @@ namespace FSEarthTilesDLL
             creatingMeshFile = false;
         }
 
-        private void FinishProcessingArea()
+        private void FinishProcessingAreas()
         {
             mAreaInfoAreaQueue.DoEmpty();
 
@@ -7351,7 +7352,7 @@ namespace FSEarthTilesDLL
                 {
                     if (mAreaInfoAreaQueue.IsEmpty())
                     {
-                        FinishProcessingArea();
+                        FinishProcessingAreas();
                     }
                     else
                     {
@@ -7437,7 +7438,7 @@ namespace FSEarthTilesDLL
 
                         if (vReallyFinish)
                         {
-                            FinishProcessingArea();
+                            FinishProcessingAreas();
                         }
 
                     }
