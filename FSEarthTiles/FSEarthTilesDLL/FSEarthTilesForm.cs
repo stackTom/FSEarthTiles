@@ -9220,7 +9220,6 @@ namespace FSEarthTilesDLL
                             g.FillPolygon(b, convertedTri);
                         }
                     }
-                    bmp.Save(@"c:\Users\fery2\Desktop\test.bmp");
 
                     allWater = CommonFunctions.BitmapAllBlack(bmp);
                 }
