@@ -31,5 +31,5 @@ exe = EXE(pyz,
           strip=False,
           upx=True,
           upx_exclude=[],
-          runtime_tmpdir=None,
+          runtime_tmpdir='./Pyinstaller_temp/',
           console=True )
