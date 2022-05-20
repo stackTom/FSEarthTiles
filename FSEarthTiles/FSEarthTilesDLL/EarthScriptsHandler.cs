@@ -61,6 +61,8 @@ namespace FSEarthTilesDLL
                         vArgument = vArgument + "\"" + vFileToDelete + "\" ";
                     }
 
+                    vArgument += @"./Pyinstaller_temp";
+
                     mTempFilesToDelete.Clear();
 
                     System.Diagnostics.Process proc = new System.Diagnostics.Process();

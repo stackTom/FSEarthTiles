@@ -25,7 +25,16 @@ namespace FSETScriptsTempFilesCleanUp
                     {
                         try
                         {
-                            File.Delete(vFile);
+                            FileAttributes attr = File.GetAttributes(vFile);
+
+                            if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
+                            {
+                                Directory.Delete(vFile, true);
+                            }
+                            else
+                            {
+                                File.Delete(vFile);
+                            }
                         }
                         catch
                         {
