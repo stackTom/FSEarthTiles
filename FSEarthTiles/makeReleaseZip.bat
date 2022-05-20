@@ -19,6 +19,8 @@ copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesDLL.pdb .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.dll .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.pdb .\FSET
 copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.exe .\FSET
+copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.exe.config .\FSET
+copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.pdb .\FSET
 
 :: copy over new FSEarthMasks binaries
 copy /Y .\FSEarthMasks\bin\Release\CSScriptLibrary.dll .\FSET
