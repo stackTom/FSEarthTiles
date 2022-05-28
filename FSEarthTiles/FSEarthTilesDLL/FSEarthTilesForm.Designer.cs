@@ -1395,7 +1395,8 @@
             this.CompilerSelectorBox.FormattingEnabled = true;
             this.CompilerSelectorBox.Items.AddRange(new object[] {
             "FSX/P3D",
-            "FS2004"});
+            "FS2004",
+            "MSFS2020"});
             this.CompilerSelectorBox.Location = new System.Drawing.Point(84, 114);
             this.CompilerSelectorBox.Margin = new System.Windows.Forms.Padding(2);
             this.CompilerSelectorBox.Name = "CompilerSelectorBox";

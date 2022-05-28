@@ -2625,10 +2625,15 @@ namespace FSEarthTilesDLL
                         EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                         EarthConfig.mSceneryImageTool = "";
                     }
-                    if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FS2004"))
+                    else if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FS2004"))
                     {
                         EarthConfig.mSceneryCompiler = EarthConfig.mFS2004SceneryCompiler;
                         EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
+                    }
+                    else if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "MSFS2020"))
+                    {
+                        EarthConfig.mSceneryCompiler = EarthConfig.msfs2020SceneryCompiler;
+                        EarthConfig.mSceneryImageTool = "";
                     }
 
                     if (vContinue)
@@ -5432,10 +5437,15 @@ namespace FSEarthTilesDLL
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFSXSceneryCompiler;
                                     EarthConfig.mSceneryImageTool = "";
                                 }
-                                if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FS2004"))
+                                else if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "FS2004"))
                                 {
                                     EarthConfig.mSceneryCompiler = EarthConfig.mFS2004SceneryCompiler;
                                     EarthConfig.mSceneryImageTool = EarthConfig.mFS2004SceneryImageTool;
+                                }
+                                else if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "MSFS2020"))
+                                {
+                                    EarthConfig.mSceneryCompiler = EarthConfig.msfs2020SceneryCompiler;
+                                    EarthConfig.mSceneryImageTool = "";
                                 }
 
                                 if (EarthConfig.mCreateScenproc)
@@ -5746,7 +5756,12 @@ namespace FSEarthTilesDLL
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eLOD13;
                 }
                 //Auto set Off if FS2004 is selected
-                if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX/P3D"))
+                else if (EarthCommon.StringCompare(CompilerSelectorBox.Text, "FSX/P3D"))
+                {
+                    AreaSnapBox.Text = "Off";
+                    EarthConfig.mAreaSnapMode = tAreaSnapMode.eOff;
+                }
+                else if (EarthCommon.StringCompare(EarthConfig.mSelectedSceneryCompiler, "MSFS2020"))
                 {
                     AreaSnapBox.Text = "Off";
                     EarthConfig.mAreaSnapMode = tAreaSnapMode.eOff;
