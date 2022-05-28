@@ -7327,8 +7327,10 @@ namespace FSEarthTilesDLL
                 }
             }
 
-            bool shouldCreateMesh = EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask
-                    && mAreaProcessRunning && !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
+            // TODO: this is a nightmare. should really be refactored into a function
+            bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
+                                    EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
+                                    !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
             if (shouldCreateMesh)
             {
                 ThreadStart ts = new ThreadStart(CreateMeshFiles);
