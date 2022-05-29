@@ -5449,14 +5449,35 @@ namespace FSEarthTilesDLL
             }
         }
 
+        bool ShouldStartDownload()
+        {
+            if (mAreaProcessRunning || ScenprocUtils.ScenProcRunning)
+            {
+                return false;
+            }
+
+            if ((mMasksCompilerMultithreadedQueue != null || mImageProcessingMultithreadedQueue != null)
+                && !MultiThreadedQueuesFinished())
+            {
+                return false;
+            }
+
+            if (mImageToolThread != null && !ImageToolThreadUnstarted() && !ImageToolThreadFinished())
+            {
+                return false;
+            }
+
+            if (mMSFSCompilerThread != null && !MSFSCompilingThreadUnstarted() && !MSFSThreadFinished())
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private void StartDownload()
         {
-            bool shouldStart = !mAreaProcessRunning && !ScenprocUtils.ScenProcRunning
-                && ((mMasksCompilerMultithreadedQueue == null && mImageProcessingMultithreadedQueue == null)
-                || MultiThreadedQueuesFinished()) && (mImageToolThread == null
-                || ImageToolThreadUnstarted() || ImageToolThreadFinished());
-
-            if (shouldStart)
+            if (ShouldStartDownload())
             {
                 if (mInputCoordsValidity)
                 {
@@ -5500,17 +5521,30 @@ namespace FSEarthTilesDLL
                                 }
                                 if (SceneryCompilerReady())
                                 {
-                                    
-                                    mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
-                                    mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
 
-                                    mImageProcessingMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxImageProcessingThreads);
-                                    mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
+                                    // we only need these queues for fsx/p3d/fs9. also, not initializing them
+                                    // is a signal that they aren't up and working
+                                    mMasksCompilerMultithreadedQueue = null;
+                                    mImageProcessingMultithreadedQueue = null;
+                                    if (!BuildingForMSFS2020())
+                                    {
+                                        mMasksCompilerMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxResampleThreads);
+                                        mMasksCompilerMultithreadedQueue.jobHandler = RunMasksAndSceneryCompiler;
+
+                                        mImageProcessingMultithreadedQueue = new MultiThreadedQueue(EarthConfig.mMaxImageProcessingThreads);
+                                        mImageProcessingMultithreadedQueue.jobHandler = RunImageProcessing;
+                                    }
                                     if (EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler)
                                     {
                                         // reset image tool thread
                                         ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
                                         mImageToolThread = new Thread(vImageToolThreadDelegate);
+                                    }
+                                    else if (BuildingForMSFS2020())
+                                    {
+                                        // reset MSFS compiler thread
+                                        ThreadStart vMSFSCompilerThreadDelegate = new ThreadStart(RunMSFSCompilerThread);
+                                        mMSFSCompilerThread = new Thread(vMSFSCompilerThreadDelegate);
                                     }
 
                                     mCurrentAreaInfo = new AreaInfo(0, 0);
@@ -5629,8 +5663,14 @@ namespace FSEarthTilesDLL
             {
                 ScenprocUtils.TellScenprocToTerminate();
             }
-            mMasksCompilerMultithreadedQueue.Stop();
-            mImageProcessingMultithreadedQueue.Stop();
+            if (mMasksCompilerMultithreadedQueue != null)
+            {
+                mMasksCompilerMultithreadedQueue.Stop();
+            }
+            if (mImageProcessingMultithreadedQueue != null)
+            {
+                mImageProcessingMultithreadedQueue.Stop();
+            }
             if (mImageToolThread != null && mImageToolThread.IsAlive)
             {
                 mImageToolThread.Abort();
@@ -5639,6 +5679,10 @@ namespace FSEarthTilesDLL
             {
                 mCreateMeshThread.Abort();
                 mCreateMeshThread = null;
+            }
+            if (mMSFSCompilerThread != null && mMSFSCompilerThread.IsAlive)
+            {
+                mMSFSCompilerThread.Abort();
             }
         }
 
@@ -7216,6 +7260,13 @@ namespace FSEarthTilesDLL
                 || ((mImageToolThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
         }
 
+        bool MSFSThreadFinished()
+        {
+            return mMSFSCompilerThread != null
+                && ((mMSFSCompilerThread.ThreadState & ThreadState.Stopped) == ThreadState.Stopped)
+                || ((mMSFSCompilerThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
+        }
+
         private void CreateMeshFiles()
         {
             creatingMeshFile = true;
@@ -7499,6 +7550,16 @@ namespace FSEarthTilesDLL
                     }
                 }
             }
+            else
+            {
+                if (multithreadedQueuesFinished && !mAreaProcessRunning)
+                {
+                    if (mMSFSCompilerThread != null && mMSFSCompilerThread.IsAlive)
+                    {
+                        SetStatus("Waiting on MSFS compiler to finish");
+                    }
+                }
+            }
 
             if (mStopProcess)
             {
@@ -7515,31 +7576,34 @@ namespace FSEarthTilesDLL
                     SetStatus(vStatusFeedback);
                 }
 
-                // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
-                // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
-                // also frees up cpu time to resample etc as a minor side effect
-                long deficit =  mCurrentActiveAreaNr - mImageProcessingMultithreadedQueue.GetTotalJobsDone();
-                //Finish work is when thread exited
-                if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
+                if (!BuildingForMSFS2020())
                 {
-                    if (mAreaAftermathThread.ThreadState == ThreadState.Stopped)
+                    // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
+                    // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
+                    // also frees up cpu time to resample etc as a minor side effect
+                    long deficit =  mCurrentActiveAreaNr - mImageProcessingMultithreadedQueue.GetTotalJobsDone();
+                    //Finish work is when thread exited
+                    if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
                     {
-                        //Thread exited create new one to reset status to unstarted
-                        ThreadStart vAreaAftermathDelegate = new ThreadStart(AreaAfterDownloadProcessing);
-                        mAreaAftermathThread = new Thread(vAreaAftermathDelegate);
-
-                        Boolean vReallyFinish = true;
-
-                        if (mMultiAreaMode && !mStopProcess)
+                        if (mAreaAftermathThread.ThreadState == ThreadState.Stopped)
                         {
-                            vReallyFinish = TryAdvancingToOtherArea();
-                        }
+                            //Thread exited create new one to reset status to unstarted
+                            ThreadStart vAreaAftermathDelegate = new ThreadStart(AreaAfterDownloadProcessing);
+                            mAreaAftermathThread = new Thread(vAreaAftermathDelegate);
 
-                        if (vReallyFinish)
-                        {
-                            FinishProcessingAreas();
-                        }
+                            Boolean vReallyFinish = true;
 
+                            if (mMultiAreaMode && !mStopProcess)
+                            {
+                                vReallyFinish = TryAdvancingToOtherArea();
+                            }
+
+                            if (vReallyFinish)
+                            {
+                                FinishProcessingAreas();
+                            }
+
+                        }
                     }
                 }
             }
