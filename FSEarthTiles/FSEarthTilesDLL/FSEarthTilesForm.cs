@@ -327,6 +327,8 @@ namespace FSEarthTilesDLL
         Thread mImageToolThread;
         // CreateMesh thread
         Thread mCreateMeshThread;
+        // MSFS compiler thread
+        Thread mMSFSCompilerThread;
 
         // Producer/consumer to run resample processes
         MultiThreadedQueue mMasksCompilerMultithreadedQueue;
@@ -889,6 +891,9 @@ namespace FSEarthTilesDLL
             ThreadStart vImageToolThreadDelegate = new ThreadStart(RunImageToolProcessing);
             mImageToolThread = new Thread(vImageToolThreadDelegate);
 
+            ThreadStart vMSFSCompilerThreadDelegate = new ThreadStart(RunMSFSCompilerThread);
+            mMSFSCompilerThread = new Thread(vMSFSCompilerThreadDelegate);
+
         }
 
 
@@ -1121,6 +1126,11 @@ namespace FSEarthTilesDLL
            
  
 
+        bool BuildingForMSFS2020()
+        {
+            return EarthConfig.mSelectedSceneryCompiler == "MSFS2020";
+        }
+
         void HandleHarvestedAreaTile(Tile iTile)
         {
             if (mAreaTilesInfoDownloadCheckList.Exists(iTile.mTileInfo.Equals)) //We can still get double and foreign Tiles from the Display request that are just processed in the Engines also when we emptied the queues
@@ -1191,7 +1201,17 @@ namespace FSEarthTilesDLL
                     mTileInfoAreaQueue.AddTileInfo(iTile.mTileInfo); //Queue again
                 }
 
-                mEarthAreaTexture.DrawTile(iTile, (Int32)vCountX * 256 - (Int32)mEarthArea.XPixelPosAreaStart, (Int32)vCountY * 256 - (Int32)mEarthArea.YPixelPosAreaStart);
+                if (!BuildingForMSFS2020())
+                {
+                    mEarthAreaTexture.DrawTile(iTile, (Int32)vCountX * 256 - (Int32)mEarthArea.XPixelPosAreaStart, (Int32)vCountY * 256 - (Int32)mEarthArea.YPixelPosAreaStart);
+                }
+                else
+                {
+                    String VMapCode = EarthScriptsHandler.MapAreaCoordToTileCode(vAreaCodeX, vAreaCodeY, EarthConfig.mFetchLevel, "0123");
+                    String vAreaBmpFileName = VMapCode + ".jpg";
+                    String vTextureDestination = EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName;
+                    iTile.GetBitmapReference().Save(vTextureDestination);
+                }
 
                 if (iTile.IsGoodBitmap())
                 {
@@ -1209,16 +1229,27 @@ namespace FSEarthTilesDLL
                         mEarthWeb.ResetPanicMode(); //Always Reset The Panic Mode
                     }
 
-                    //Start Area after Download processing (Texture undistortion / Scenery compiling etc)
-                    if (mDebugMode)
+                    if (!BuildingForMSFS2020())
                     {
-                        //!!! For debug we do not start the after work thread but call the methode direct. 
-                        //He will block at the end of that processind. (waits for ever on the thread exit of the thread that was never started) 
-                        AreaAfterDownloadProcessing();
+                        //Start Area after Download processing (Texture undistortion / Scenery compiling etc)
+                        if (mDebugMode)
+                        {
+                            //!!! For debug we do not start the after work thread but call the methode direct. 
+                            //He will block at the end of that processind. (waits for ever on the thread exit of the thread that was never started) 
+                            AreaAfterDownloadProcessing();
+                        }
+                        else
+                        {
+                            mAreaAftermathThread.Start();
+                        }
                     }
                     else
                     {
-                        mAreaAftermathThread.Start();
+                        bool vReallyFinish = TryAdvancingToOtherArea();
+                        if (vReallyFinish)
+                        {
+                            FinishProcessingAreas();
+                        }
                     }
 
 
@@ -2323,7 +2354,7 @@ namespace FSEarthTilesDLL
 
             EarthScriptsHandler.DoAfterDownload(w.mEarthArea, w.AreaFileString, w.mEarthMultiArea, w.mCurrentAreaInfo, w.mCurrentActiveAreaNr, w.mCurrentDownloadedTilesTotal, w.mMultiAreaMode);
 
-            if (!mStopProcess)
+            if (!mStopProcess && !BuildingForMSFS2020())
             {
                 mMasksCompilerMultithreadedQueue.Enqueue(w);
             }
@@ -2376,16 +2407,19 @@ namespace FSEarthTilesDLL
         {
             if (!mStopProcess)
             {
-                MasksResampleWorker w = new MasksResampleWorker();
-                w.AreaFileString = GetAreaFileString();
-                w.mEarthArea = mEarthArea.Clone();
-                w.mEarthMultiArea = mEarthMultiArea.Clone();
-                w.mCurrentAreaInfo = mCurrentAreaInfo.Clone();
-                w.mCurrentActiveAreaNr = mCurrentActiveAreaNr;
-                w.mCurrentDownloadedTilesTotal = mCurrentDownloadedTilesTotal;
-                w.mMultiAreaMode = mMultiAreaMode;
-                w.mEarthAreaTexture = mEarthAreaTexture.Clone();
-                mImageProcessingMultithreadedQueue.Enqueue(w);
+                if (!BuildingForMSFS2020())
+                {
+                    MasksResampleWorker w = new MasksResampleWorker();
+                    w.AreaFileString = GetAreaFileString();
+                    w.mEarthArea = mEarthArea.Clone();
+                    w.mEarthMultiArea = mEarthMultiArea.Clone();
+                    w.mCurrentAreaInfo = mCurrentAreaInfo.Clone();
+                    w.mCurrentActiveAreaNr = mCurrentActiveAreaNr;
+                    w.mCurrentDownloadedTilesTotal = mCurrentDownloadedTilesTotal;
+                    w.mMultiAreaMode = mMultiAreaMode;
+                    w.mEarthAreaTexture = mEarthAreaTexture.Clone();
+                    mImageProcessingMultithreadedQueue.Enqueue(w);
+                }
             }
             else
             {
@@ -5954,6 +5988,22 @@ namespace FSEarthTilesDLL
             }
         }
 
+        void RunMSFSCompilerThread()
+        {
+            System.Diagnostics.Process proc = new System.Diagnostics.Process();
+            proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler;
+            // TODO: FILL ME
+            //proc.StartInfo.Arguments = "\"" + EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName + "\"";
+            proc.Start();
+            SetStatusFromFriendThread("MSFS Scenery Compiler active. Waiting for completion.");
+            Thread.Sleep(500);
+            proc.WaitForExit();
+            if (!proc.HasExited)
+            {
+                proc.Kill();
+            };
+        }
+
 
         Boolean StartSceneryCompiler(MasksResampleWorker w)
         {
@@ -7136,6 +7186,13 @@ namespace FSEarthTilesDLL
 
         bool MultiThreadedQueuesFinished()
         {
+            // this is a lazy hack. The real solution is to not even start the multithreaded queues in the first place
+            // if building for msfs2020. But that takes more work and don't want to invest time in that now
+            if (BuildingForMSFS2020())
+            {
+                return true;
+            }
+
             bool multithreadedQueuesFinished = mMasksCompilerMultithreadedQueue != null && mImageProcessingMultithreadedQueue != null
                                     && mMasksCompilerMultithreadedQueue.AllDone() && mImageProcessingMultithreadedQueue.AllDone();
 
@@ -7145,6 +7202,11 @@ namespace FSEarthTilesDLL
         bool ImageToolThreadUnstarted()
         {
             return (mImageToolThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
+        }
+
+        bool MSFSCompilingThreadUnstarted()
+        {
+            return (mMSFSCompilerThread.ThreadState & ThreadState.Unstarted) == ThreadState.Unstarted;
         }
 
         bool ImageToolThreadFinished()
@@ -7182,22 +7244,33 @@ namespace FSEarthTilesDLL
             mAllowDisplayToSetStatus = false; //Block Display from overwriting the Final Status
             mStopProcess = false;
 
-            mMasksCompilerMultithreadedQueue.CompleteAdding();
-            mImageProcessingMultithreadedQueue.CompleteAdding();
-            if (!mMasksCompilerMultithreadedQueue.AllDone())
+
+            if (!BuildingForMSFS2020())
             {
-                SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
+                mMasksCompilerMultithreadedQueue.CompleteAdding();
+                mImageProcessingMultithreadedQueue.CompleteAdding();
+                if (!mMasksCompilerMultithreadedQueue.AllDone())
+                {
+                    SetStatus("Waiting on FSEarthMasks, Undistortion, and FS Scenery Compiler threads to finish.");
+                }
+                else if (!mImageProcessingMultithreadedQueue.AllDone())
+                {
+                    SetStatus("Waiting on image processing threads to finish.");
+                }
+                else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
+                {
+                    SetStatus("Waiting on Scenproc to finish");
+                    scenProcWasRunning = true;
+                }
+                meshCache = new Dictionary<string, List<PointF[]>>();
             }
-            else if (!mImageProcessingMultithreadedQueue.AllDone())
+            else
             {
-                SetStatus("Waiting on image processing threads to finish.");
+                ThreadStart vMSFSCompilerThreadDelegate = new ThreadStart(RunMSFSCompilerThread);
+                mMSFSCompilerThread = new Thread(vMSFSCompilerThreadDelegate);
+                mMSFSCompilerThread.Start();
             }
-            else if (EarthConfig.mCreateScenproc && ScenprocUtils.ScenProcRunning)
-            {
-                SetStatus("Waiting on Scenproc to finish");
-                scenProcWasRunning = true;
-            }
-            meshCache = new Dictionary<string, List<PointF[]>>();
+
             EarthScriptsHandler.DoWhenEverthingIsDone(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
         }
 
@@ -7342,44 +7415,50 @@ namespace FSEarthTilesDLL
                 }
             }
 
-            // TODO: this is a nightmare. should really be refactored into a function
-            bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
-                                    EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
-                                    !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
-            if (shouldCreateMesh)
-            {
-                ThreadStart ts = new ThreadStart(CreateMeshFiles);
-                mCreateMeshThread = new Thread(ts);
-                creatingMeshFile = true;
-                mLastMeshCreatedEarthArea = mEarthArea;
-                mCreateMeshThread.Start();
-            }
 
-            if (creatingMeshFile)
+            if (!BuildingForMSFS2020())
             {
-                SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
-                return;
-            }
-
-            if (mAreaProcessRunning && EarthConfig.skipAllWaterTiles && mLastCheckedForAllWaterEarthArea != mEarthArea)
-            {
-                mLastCheckedForAllWaterEarthArea = mEarthArea;
-                SetStatus("Checking if area " + mCurrentActiveAreaNr + " is all water");
-                if (AreaAllWater())
+                // TODO: this is a nightmare. should really be refactored into a function
+                bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
+                                        EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
+                                        !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
+                if (shouldCreateMesh)
                 {
-                    if (mAreaInfoAreaQueue.IsEmpty())
-                    {
-                        FinishProcessingAreas();
-                    }
-                    else
-                    {
-                        SetStatus("Skipping area " + mCurrentActiveAreaNr + " as it's all water...");
-                        TryAdvancingToOtherArea();
-                        mImageProcessingMultithreadedQueue.IncremenntTotalJobsDoneBy(1);
-                        mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY);
-                        UpdateAreaAndTileCountStatusLabel();
-                    }
+                    ThreadStart ts = new ThreadStart(CreateMeshFiles);
+                    mCreateMeshThread = new Thread(ts);
+                    creatingMeshFile = true;
+                    mLastMeshCreatedEarthArea = mEarthArea;
+                    mCreateMeshThread.Start();
+                }
+
+                if (creatingMeshFile)
+                {
+                    SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
                     return;
+                }
+
+                bool shouldCheckForAllWater = mAreaProcessRunning && EarthConfig.skipAllWaterTiles &&
+                                              mLastCheckedForAllWaterEarthArea != mEarthArea;
+                if (shouldCheckForAllWater)
+                {
+                    mLastCheckedForAllWaterEarthArea = mEarthArea;
+                    SetStatus("Checking if area " + mCurrentActiveAreaNr + " is all water");
+                    if (AreaAllWater())
+                    {
+                        if (mAreaInfoAreaQueue.IsEmpty())
+                        {
+                            FinishProcessingAreas();
+                        }
+                        else
+                        {
+                            SetStatus("Skipping area " + mCurrentActiveAreaNr + " as it's all water...");
+                            TryAdvancingToOtherArea();
+                            mImageProcessingMultithreadedQueue.IncremenntTotalJobsDoneBy(1);
+                            mCurrentDownloadedTilesTotal += (mEarthArea.AreaTilesInX * mEarthArea.AreaTilesInY);
+                            UpdateAreaAndTileCountStatusLabel();
+                        }
+                        return;
+                    }
                 }
             }
 
@@ -7387,34 +7466,37 @@ namespace FSEarthTilesDLL
             FeedThreadEnginesWithNewWork();
 
 
-            // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
             bool multithreadedQueuesFinished = MultiThreadedQueuesFinished();
-            bool shouldStartImageTool = multithreadedQueuesFinished && EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler
-                                        && mImageToolThread != null
-                                        && ImageToolThreadUnstarted();
-            if (shouldStartImageTool)
+            if (!BuildingForMSFS2020())
             {
-                mImageToolThread.Start();
-            }
-            if (multithreadedQueuesFinished && !mAreaProcessRunning)
-            {
-                if (mImageToolThread != null && mImageToolThread.IsAlive)
+                // scenproc wasn't done when the area process was done. but now it is. so inform user so they aren't confused
+                bool shouldStartImageTool = multithreadedQueuesFinished && EarthConfig.mSceneryCompiler == EarthConfig.mFS2004SceneryCompiler
+                                            && mImageToolThread != null
+                                            && ImageToolThreadUnstarted();
+                if (shouldStartImageTool)
                 {
-                    SetStatus("Waiting on ImageTool to finish.");
+                    mImageToolThread.Start();
                 }
-                // the below else if and else can be refactored into 1 else block, but I think how it is now is more
-                // readable
-                else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
+                if (multithreadedQueuesFinished && !mAreaProcessRunning)
                 {
-                    // scenproc wasn't running, or it was but now it's not
-                    SetStatus("Done.");
-                    scenProcWasRunning = false;
-                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
-                }
-                else
-                {
-                    SetStatus("Done.");
-                    mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    if (mImageToolThread != null && mImageToolThread.IsAlive)
+                    {
+                        SetStatus("Waiting on ImageTool to finish.");
+                    }
+                    // the below else if and else can be refactored into 1 else block, but I think how it is now is more
+                    // readable
+                    else if (!scenProcWasRunning || !ScenprocUtils.ScenProcRunning)
+                    {
+                        // scenproc wasn't running, or it was but now it's not
+                        SetStatus("Done.");
+                        scenProcWasRunning = false;
+                        mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    }
+                    else
+                    {
+                        SetStatus("Done.");
+                        mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
+                    }
                 }
             }
 
