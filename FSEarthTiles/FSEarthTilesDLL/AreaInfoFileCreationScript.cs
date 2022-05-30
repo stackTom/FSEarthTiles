@@ -1065,7 +1065,7 @@ namespace FSEarthTilesDLL
         {
             StreamWriter vStream;
 
-            String vFilename = EarthConfig.mSceneryFolder + "\\project.xml";
+            String vFilename = EarthConfig.mMSFSTempWorkFolder + "\\project.xml";
 
             vStream = new StreamWriter(vFilename);
 

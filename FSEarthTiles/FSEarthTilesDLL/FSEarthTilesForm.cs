@@ -358,6 +358,7 @@ namespace FSEarthTilesDLL
         private bool scenProcWasRunning = false;
         private bool creatingMeshFile = false;
         private Dictionary<string, List<PointF[]>> meshCache;
+        private bool MSFSCompilerWasRunning = false;
 
 
         public FSEarthTilesForm(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
@@ -5684,6 +5685,10 @@ namespace FSEarthTilesDLL
             {
                 mMSFSCompilerThread.Abort();
             }
+            if (Directory.Exists(EarthConfig.mMSFSTempWorkFolder))
+            {
+                Directory.Delete(EarthConfig.mMSFSTempWorkFolder, true);
+            }
         }
 
         private void LatGradBox_TextChanged(object sender, EventArgs e)
@@ -6041,8 +6046,8 @@ namespace FSEarthTilesDLL
         {
             System.Diagnostics.Process proc = new System.Diagnostics.Process();
             proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler;
-            // TODO: FILL ME
-            //proc.StartInfo.Arguments = "\"" + EarthConfig.mWorkFolder + "\\" + vAreaInfoFileName + "\"";
+            proc.StartInfo.Arguments = "\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder +
+                                        "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\"";
             proc.Start();
             SetStatusFromFriendThread("MSFS Scenery Compiler active. Waiting for completion.");
             Thread.Sleep(500);
@@ -6241,16 +6246,17 @@ namespace FSEarthTilesDLL
                 }
                 else
                 {
-                    EarthConfig.mPackageDefinitionsFolder = EarthConfig.mSceneryFolder + "\\PackageDefinitions";
-                    EarthConfig.mPackageSourcesFolder = EarthConfig.mSceneryFolder + "\\PackageSources";
+                    EarthConfig.mMSFSTempWorkFolder = EarthConfig.mWorkFolder + "\\MSFSWORK";
+                    EarthConfig.mPackageDefinitionsFolder = EarthConfig.mMSFSTempWorkFolder + "\\PackageDefinitions";
+                    EarthConfig.mPackageSourcesFolder = EarthConfig.mMSFSTempWorkFolder + "\\PackageSources";
                     EarthConfig.mCGLFolder = EarthConfig.mPackageSourcesFolder + "\\CGL";
                     EarthConfig.mCGLImagesFolder = EarthConfig.mCGLFolder + "\\aerial_images";
                     EarthConfig.mContentInfoFolder = EarthConfig.mPackageDefinitionsFolder + "\\FSET Scenery\\ContentInfo";
                     EarthConfig.mMarketPlaceDataFolder = EarthConfig.mPackageDefinitionsFolder + "\\FSET Scenery\\MarketplaceData"; 
 
-                    string[] foldersForMSFSPackage = { EarthConfig.mPackageDefinitionsFolder, EarthConfig.mPackageSourcesFolder,
-                                                     EarthConfig.mCGLFolder, EarthConfig.mCGLImagesFolder,
-                                                     EarthConfig.mContentInfoFolder, EarthConfig.mMarketPlaceDataFolder};
+                    string[] foldersForMSFSPackage = { EarthConfig.mMSFSTempWorkFolder, EarthConfig.mPackageDefinitionsFolder,
+                                                       EarthConfig.mPackageSourcesFolder, EarthConfig.mCGLFolder, EarthConfig.mCGLImagesFolder,
+                                                       EarthConfig.mContentInfoFolder, EarthConfig.mMarketPlaceDataFolder };
                     foreach (string f in foldersForMSFSPackage)
                     {
                         if (!Directory.Exists(f))
@@ -7348,6 +7354,7 @@ namespace FSEarthTilesDLL
                 ThreadStart vMSFSCompilerThreadDelegate = new ThreadStart(RunMSFSCompilerThread);
                 mMSFSCompilerThread = new Thread(vMSFSCompilerThreadDelegate);
                 SaveMSFSCGL();
+                MSFSCompilerWasRunning = true;
                 mMSFSCompilerThread.Start();
             }
 
@@ -7586,6 +7593,12 @@ namespace FSEarthTilesDLL
                     if (mMSFSCompilerThread != null && mMSFSCompilerThread.IsAlive)
                     {
                         SetStatus("Waiting on MSFS compiler to finish");
+                    }
+                    else if (MSFSCompilerWasRunning)
+                    {
+                        SetStatus("Done.");
+                        MSFSCompilerWasRunning = false;
+                        Directory.Delete(EarthConfig.mMSFSTempWorkFolder, true);
                     }
                 }
             }

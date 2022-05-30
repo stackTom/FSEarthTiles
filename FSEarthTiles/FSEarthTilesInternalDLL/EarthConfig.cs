@@ -199,6 +199,7 @@ namespace FSEarthTilesInternalDLL
         public static String mCGLImagesFolder;
         public static String mContentInfoFolder;
         public static String mMarketPlaceDataFolder;
+        public static String mMSFSTempWorkFolder;
 
 
         //FSEarthMasks
