@@ -1061,10 +1061,35 @@ namespace FSEarthTilesDLL
             }
         }
 
+        private void SaveMainProjectXML()
+        {
+            StreamWriter vStream;
+
+            String vFilename = EarthConfig.mSceneryFolder + "\\project.xml";
+
+            vStream = new StreamWriter(vFilename);
+
+            if (vStream != null)
+            {
+                string xml = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<Project Version=""2"" Name=""SimpleAerialProject"" FolderName=""Packages"" MetadataFolderName=""PackagesMetadata"">
+    <OutputDirectory>.</OutputDirectory>
+    <TemporaryOutputDirectory>_PackageInt</TemporaryOutputDirectory>
+    <Packages>
+        <Package>PackageDefinitions\package_definitions.xml</Package>
+    </Packages>
+</Project>
+            ";
+                vStream.Write(xml);
+                vStream.Close();
+            }
+        }
+
         public void SaveMSFSCGL()
         {
             SavePackageDefinitionsXML();
             SaveCGLConfigXML();
+            SaveMainProjectXML();
         }
 
 
