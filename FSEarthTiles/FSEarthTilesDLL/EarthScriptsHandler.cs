@@ -325,6 +325,29 @@ namespace FSEarthTilesDLL
             }
         }
 
+        static public void SaveMSFSCGL()
+        {
+            try
+            {
+                if (mCSAreaInfoFileCreationScriptLoaded)
+                {
+                    mAsmAreaInfoFileCreationScriptHelper.InvokeInst(mCSAreaInfoFileCreationScriptObject, "SaveMSFSCGL");
+                }
+                else
+                {
+                    mAreaInfoFileCreationScript.SaveMSFSCGL();
+                }
+
+            }
+            catch (System.Exception e)
+            {
+                //Call went wrong
+                String vError = e.ToString();
+                MessageBox.Show(vError, "Script Error in AreaInfoFileCreationScript.cs,  Method SaveMSFSCGL ");
+                Thread.Sleep(2000); //Give User Enough Reaction Time to close the Appl after click away before a next Box Pops up
+            }
+        }
+
         static public void DoOneTimeOnlyWhenFSEarthTilesIsFiredUpAndReady(EarthArea iEarthArea, String iAreaFileNameMiddlePart, EarthMultiArea iEarthMultiArea, AreaInfo iAreaInfo, Int64 iAreaNr, Int64 iDownloadedTilesTotal, Boolean iMultiAreaMode)
         {
             try

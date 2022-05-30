@@ -193,6 +193,12 @@ namespace FSEarthTilesInternalDLL
         public static String mSceneryFolder;
         public static String mSceneryFolderScenery;
         public static String mSceneryFolderTexture;
+        public static String mPackageDefinitionsFolder;
+        public static String mPackageSourcesFolder;
+        public static String mCGLFolder;
+        public static String mCGLImagesFolder;
+        public static String mContentInfoFolder;
+        public static String mMarketPlaceDataFolder;
 
 
         //FSEarthMasks

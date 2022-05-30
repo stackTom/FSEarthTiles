@@ -988,6 +988,85 @@ namespace FSEarthTilesDLL
             }
         }
 
+        private void SavePackageDefinitionsXML()
+        {
+            StreamWriter vStream;
+
+            String vFilename = EarthConfig.mPackageDefinitionsFolder + "\\package_definitions.xml";
+
+            vStream = new StreamWriter(vFilename);
+
+            if (vStream != null)
+            {
+                string xml = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<AssetPackage Version = ""0.1.0"">
+    <ItemSettings>
+       <ContentType>MISC</ContentType>
+       <Title>FSET Scenery</Title>
+       <Manufacturer/>
+       <Creator>FSEarthTiles</Creator>
+    </ItemSettings>
+    <Flags>
+       <VisibleInStore>false</VisibleInStore>
+       <CanBeReferenced>false</CanBeReferenced>
+    </Flags>
+    <AssetGroups>
+        <AssetGroup Name = ""ContentInfo"">
+        <Type>ContentInfo</Type>
+        <Flags>
+           <FSXCompatibility>false</FSXCompatibility>
+        </Flags>
+        <AssetDir>" + EarthConfig.mContentInfoFolder + @"</AssetDir>
+        <OutputDir>" + EarthConfig.mContentInfoFolder + @"</OutputDir>
+        </AssetGroup>
+        <AssetGroup Name = ""MarketplaceData"">
+            <Type>MarketplaceData</Type>
+            <Flags>
+                <FSXCompatibility>false</FSXCompatibility>
+            </Flags>
+                <AssetDir>" + EarthConfig.mMarketPlaceDataFolder + @"</AssetDir>
+                <OutputDir>" + EarthConfig.mMarketPlaceDataFolder + @"</OutputDir>
+            </AssetGroup>
+            <AssetGroup Name = ""Secondary aerial"">
+                <Type>CGL</Type>
+                <Flags>
+                    <FSXCompatibility>false</FSXCompatibility>
+                </Flags>
+                <AssetDir>" + EarthConfig.mCGLFolder + @"</AssetDir>
+                <OutputDir>CGL\</OutputDir>
+            </AssetGroup>
+        </AssetGroups>
+</AssetPackage>";
+
+                vStream.Write(xml);
+                vStream.Close();
+            }
+        }
+
+        private void SaveCGLConfigXML()
+        {
+            StreamWriter vStream;
+
+            String vFilename = EarthConfig.mCGLFolder + "\\CGLBuilderConfig.xml";
+
+            vStream = new StreamWriter(vFilename);
+
+            if (vStream != null)
+            {
+                string xml = @"<CGLBuilder>
+    <CGL type=""SecondaryAerialImage"" input = ""Tiles"" directory = ""aerial_images""/>
+</CGLBuilder>";
+                vStream.Write(xml);
+                vStream.Close();
+            }
+        }
+
+        public void SaveMSFSCGL()
+        {
+            SavePackageDefinitionsXML();
+            SaveCGLConfigXML();
+        }
+
 
     }
 }

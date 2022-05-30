@@ -1208,8 +1208,8 @@ namespace FSEarthTilesDLL
                 else
                 {
                     String VMapCode = EarthScriptsHandler.MapAreaCoordToTileCode(vAreaCodeX, vAreaCodeY, EarthConfig.mFetchLevel, "0123");
-                    String vAreaBmpFileName = VMapCode + ".jpg";
-                    String vTextureDestination = EarthConfig.mWorkFolder + "\\" + vAreaBmpFileName;
+                    String vAreaBmpFileName = VMapCode + ".png";
+                    String vTextureDestination = EarthConfig.mCGLImagesFolder + "\\" + vAreaBmpFileName;
                     iTile.GetBitmapReference().Save(vTextureDestination);
                 }
 
@@ -5858,6 +5858,11 @@ namespace FSEarthTilesDLL
             EarthScriptsHandler.SaveAreaInfo(vEarthArea, vAreaFileNameMiddlePart);
         }
 
+        private void SaveMSFSCGL()
+        {
+            EarthScriptsHandler.SaveMSFSCGL();
+        }
+
 
 
 
@@ -6223,13 +6228,36 @@ namespace FSEarthTilesDLL
                 {
                     Directory.CreateDirectory(EarthConfig.mSceneryFolder);
                 }
-                if (!Directory.Exists(EarthConfig.mSceneryFolderScenery))
+                if (!BuildingForMSFS2020())
                 {
-                    Directory.CreateDirectory(EarthConfig.mSceneryFolderScenery);
+                    if (!Directory.Exists(EarthConfig.mSceneryFolderScenery))
+                    {
+                        Directory.CreateDirectory(EarthConfig.mSceneryFolderScenery);
+                    }
+                    if (!Directory.Exists(EarthConfig.mSceneryFolderTexture))
+                    {
+                        Directory.CreateDirectory(EarthConfig.mSceneryFolderTexture);
+                    }
                 }
-                if (!Directory.Exists(EarthConfig.mSceneryFolderTexture))
+                else
                 {
-                    Directory.CreateDirectory(EarthConfig.mSceneryFolderTexture);
+                    EarthConfig.mPackageDefinitionsFolder = EarthConfig.mSceneryFolder + "\\PackageDefinitions";
+                    EarthConfig.mPackageSourcesFolder = EarthConfig.mSceneryFolder + "\\PackageSources";
+                    EarthConfig.mCGLFolder = EarthConfig.mPackageSourcesFolder + "\\CGL";
+                    EarthConfig.mCGLImagesFolder = EarthConfig.mCGLFolder + "\\aerial_images";
+                    EarthConfig.mContentInfoFolder = EarthConfig.mPackageDefinitionsFolder + "\\FSET Scenery\\ContentInfo";
+                    EarthConfig.mMarketPlaceDataFolder = EarthConfig.mPackageDefinitionsFolder + "\\FSET Scenery\\MarketplaceData"; 
+
+                    string[] foldersForMSFSPackage = { EarthConfig.mPackageDefinitionsFolder, EarthConfig.mPackageSourcesFolder,
+                                                     EarthConfig.mCGLFolder, EarthConfig.mCGLImagesFolder,
+                                                     EarthConfig.mContentInfoFolder, EarthConfig.mMarketPlaceDataFolder};
+                    foreach (string f in foldersForMSFSPackage)
+                    {
+                        if (!Directory.Exists(f))
+                        {
+                            Directory.CreateDirectory(f);
+                        }
+                    }
                 }
                 return true;
             }
@@ -7319,6 +7347,7 @@ namespace FSEarthTilesDLL
             {
                 ThreadStart vMSFSCompilerThreadDelegate = new ThreadStart(RunMSFSCompilerThread);
                 mMSFSCompilerThread = new Thread(vMSFSCompilerThreadDelegate);
+                SaveMSFSCGL();
                 mMSFSCompilerThread.Start();
             }
 
