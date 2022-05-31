@@ -1211,7 +1211,15 @@ namespace FSEarthTilesDLL
                     String VMapCode = EarthScriptsHandler.MapAreaCoordToTileCode(vAreaCodeX, vAreaCodeY, EarthConfig.mFetchLevel, "0123");
                     String vAreaBmpFileName = VMapCode + ".png";
                     String vTextureDestination = EarthConfig.mCGLImagesFolder + "\\" + vAreaBmpFileName;
-                    iTile.GetBitmapReference().Save(vTextureDestination);
+                    // this is a cheap way to avoid race condition when user clicks stop
+                    // but there is an iTile about to be saved (causes GDI exception)
+                    // TODO: real solution is to make saving of tiles to disk in a thread or
+                    // multithreaded queue
+                    try
+                    {
+                        iTile.GetBitmapReference().Save(vTextureDestination);
+                    }
+                    catch (Exception e) {}
                 }
 
                 if (iTile.IsGoodBitmap())
@@ -6046,8 +6054,6 @@ namespace FSEarthTilesDLL
         {
             System.Diagnostics.Process proc = new System.Diagnostics.Process();
             proc.StartInfo.FileName = "\"" + EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler + "\"";
-            Console.WriteLine(EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler);
-            Console.WriteLine("\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder + "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\"");
             proc.StartInfo.Arguments = "\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder +
                                         "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\" -nopause";
             proc.Start();
