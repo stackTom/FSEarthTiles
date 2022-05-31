@@ -6045,9 +6045,11 @@ namespace FSEarthTilesDLL
         void RunMSFSCompilerThread()
         {
             System.Diagnostics.Process proc = new System.Diagnostics.Process();
-            proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler;
+            proc.StartInfo.FileName = "\"" + EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler + "\"";
+            Console.WriteLine(EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler);
+            Console.WriteLine("\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder + "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\"");
             proc.StartInfo.Arguments = "\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder +
-                                        "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\"";
+                                        "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\" -nopause";
             proc.Start();
             SetStatusFromFriendThread("MSFS Scenery Compiler active. Waiting for completion.");
             Thread.Sleep(500);
@@ -6262,6 +6264,15 @@ namespace FSEarthTilesDLL
                         if (!Directory.Exists(f))
                         {
                             Directory.CreateDirectory(f);
+                        }
+                    }
+                    // Required to save a Thumbnail.jpg (just a black image for now). TODO: Maybe save a better thumbnail in the future
+                    using (Bitmap b = new Bitmap(1, 1))
+                    {
+                        b.SetPixel(0, 0, Color.White);
+                        using (Bitmap scaled = new Bitmap(b, 256, 256))
+                        {
+                            scaled.Save(EarthConfig.mContentInfoFolder + "\\Thumbnail.jpg");
                         }
                     }
                 }

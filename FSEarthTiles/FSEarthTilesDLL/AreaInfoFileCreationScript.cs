@@ -992,7 +992,7 @@ namespace FSEarthTilesDLL
         {
             StreamWriter vStream;
 
-            String vFilename = EarthConfig.mPackageDefinitionsFolder + "\\package_definitions.xml";
+            String vFilename = EarthConfig.mPackageDefinitionsFolder + "\\FSET-aerial.xml";
 
             vStream = new StreamWriter(vFilename);
 
@@ -1076,7 +1076,7 @@ namespace FSEarthTilesDLL
     <OutputDirectory>.</OutputDirectory>
     <TemporaryOutputDirectory>_PackageInt</TemporaryOutputDirectory>
     <Packages>
-        <Package>PackageDefinitions\package_definitions.xml</Package>
+        <Package>PackageDefinitions\FSET-aerial.xml</Package>
     </Packages>
 </Project>
             ";
