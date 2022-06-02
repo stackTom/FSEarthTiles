@@ -1132,6 +1132,18 @@ namespace FSEarthTilesDLL
             return EarthConfig.mSelectedSceneryCompiler == "MSFS2020";
         }
 
+        Bitmap ConvertBitmapTo32BPP(Bitmap orig)
+        {
+            Bitmap copy = new Bitmap(orig.Width, orig.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+            using (Graphics gr = Graphics.FromImage(copy))
+            {
+                gr.DrawImage(orig, new Rectangle(0, 0, copy.Width, copy.Height));
+            }
+
+            return copy;
+        }
+
         void HandleHarvestedAreaTile(Tile iTile)
         {
             if (mAreaTilesInfoDownloadCheckList.Exists(iTile.mTileInfo.Equals)) //We can still get double and foreign Tiles from the Display request that are just processed in the Engines also when we emptied the queues
@@ -1217,7 +1229,10 @@ namespace FSEarthTilesDLL
                     // multithreaded queue
                     try
                     {
-                        iTile.GetBitmapReference().Save(vTextureDestination);
+                        using (Bitmap argbBMP = ConvertBitmapTo32BPP(iTile.GetBitmapReference()))
+                        {
+                            argbBMP.Save(vTextureDestination);
+                        }
                     }
                     catch (Exception e) {}
                 }
