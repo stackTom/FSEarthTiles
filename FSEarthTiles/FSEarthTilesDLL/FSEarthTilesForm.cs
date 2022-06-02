@@ -6067,18 +6067,29 @@ namespace FSEarthTilesDLL
 
         void RunMSFSCompilerThread()
         {
-            System.Diagnostics.Process proc = new System.Diagnostics.Process();
-            proc.StartInfo.FileName = "\"" + EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler + "\"";
-            proc.StartInfo.Arguments = "\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder +
-                                        "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\" -nopause";
-            proc.Start();
-            SetStatusFromFriendThread("MSFS Scenery Compiler active. Waiting for completion.");
-            Thread.Sleep(500);
-            proc.WaitForExit();
-            if (!proc.HasExited)
+            System.Diagnostics.Process proc = null;
+            try
             {
-                proc.Kill();
-            };
+                proc = new System.Diagnostics.Process();
+                proc.StartInfo.FileName = "\"" + EarthConfig.mStartExeFolder + "\\" + EarthConfig.msfs2020SceneryCompiler + "\"";
+                proc.StartInfo.Arguments = "\"" + EarthConfig.mMSFSTempWorkFolder + "\\project.xml\" -outputdir \"" + EarthConfig.mSceneryFolder +
+                                            "\" -tempdir \"" + EarthConfig.mMSFSTempWorkFolder + "\\TEMP\" -nopause";
+                proc.Start();
+                SetStatusFromFriendThread("MSFS Scenery Compiler active. Waiting for completion.");
+                Thread.Sleep(500);
+                proc.WaitForExit();
+                if (!proc.HasExited)
+                {
+                    proc.Kill();
+                };
+            }
+            catch (ThreadAbortException)
+            {
+                if (proc != null)
+                {
+                    proc.Kill();
+                }
+            }
         }
 
 
@@ -7630,7 +7641,11 @@ namespace FSEarthTilesDLL
                     {
                         SetStatus("Done.");
                         MSFSCompilerWasRunning = false;
-                        Directory.Delete(EarthConfig.mMSFSTempWorkFolder, true);
+                        try
+                        {
+                            Directory.Delete(EarthConfig.mMSFSTempWorkFolder, true);
+                        }
+                        catch { }
                     }
                 }
             }
