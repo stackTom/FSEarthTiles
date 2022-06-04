@@ -149,6 +149,7 @@ namespace FSEarthTilesInternalDLL
         public static String mFSXSceneryCompiler;
         public static String mFS2004SceneryCompiler;
         public static String mFS2004SceneryImageTool;
+        public static String msfs2020SceneryCompiler;
         public static Boolean mFS2004KeepTGAs;
         public static Boolean mKeepAreaInfFile;
         public static Boolean mKeepAreaMaskInfFile;
@@ -192,6 +193,13 @@ namespace FSEarthTilesInternalDLL
         public static String mSceneryFolder;
         public static String mSceneryFolderScenery;
         public static String mSceneryFolderTexture;
+        public static String mPackageDefinitionsFolder;
+        public static String mPackageSourcesFolder;
+        public static String mCGLFolder;
+        public static String mCGLImagesFolder;
+        public static String mContentInfoFolder;
+        public static String mMarketPlaceDataFolder;
+        public static String mMSFSTempWorkFolder;
 
 
         //FSEarthMasks
@@ -353,6 +361,7 @@ namespace FSEarthTilesInternalDLL
             mFSXSceneryCompiler = "resampleFSX.exe";
             mFS2004SceneryCompiler = "resampleFS2004.exe";
             mFS2004SceneryImageTool = "imagetoolFS2004.exe";
+            msfs2020SceneryCompiler = "fspackagetool.exe";
 
             mFS2004KeepTGAs = true;
 
@@ -853,6 +862,7 @@ namespace FSEarthTilesInternalDLL
                 Int32 vIndex87 = vFocus.IndexOf("MaxDownloadThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex88 = vFocus.IndexOf("MaxImageProcessingThreads", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex89 = vFocus.IndexOf("SkipAllWaterTiles", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex90 = vFocus.IndexOf("MSFS2020SceneryCompiler", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -1667,6 +1677,12 @@ namespace FSEarthTilesInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     EarthConfig.skipAllWaterTiles = GetBooleanFromString(vCutString);
+                }
+
+                if (vIndex90 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    EarthConfig.msfs2020SceneryCompiler = vCutString;
                 }
             }
         }

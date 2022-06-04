@@ -1395,7 +1395,8 @@
             this.CompilerSelectorBox.FormattingEnabled = true;
             this.CompilerSelectorBox.Items.AddRange(new object[] {
             "FSX/P3D",
-            "FS2004"});
+            "FS2004",
+            "MSFS2020"});
             this.CompilerSelectorBox.Location = new System.Drawing.Point(84, 114);
             this.CompilerSelectorBox.Margin = new System.Windows.Forms.Padding(2);
             this.CompilerSelectorBox.Name = "CompilerSelectorBox";
@@ -2411,7 +2412,7 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.MinimumSize = new System.Drawing.Size(656, 543);
             this.Name = "FSEarthTilesForm";
-            this.Text = "FS Earth Tiles   v1.32";
+            this.Text = "FS Earth Tiles   v1.40";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FSEarthTilesForm_FormClosing);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragEnter);
