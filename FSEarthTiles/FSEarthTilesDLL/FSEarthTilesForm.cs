@@ -373,6 +373,41 @@ namespace FSEarthTilesDLL
             AbortAllOpenThreads();
         }
 
+        void CheckForAppUpdate()
+        {
+            // always minimum 3 digits
+            const long CURRENT_VERSION = 140;
+            CommonFunctions.FixTLS();
+            const string URL = "https://github.com/stackTom/FSEarthTiles/releases/latest";
+            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(URL);
+            req.Method = "GET";
+            req.AllowAutoRedirect = true;
+
+            try
+            {
+                using (HttpWebResponse myResp = (HttpWebResponse)req.GetResponse())
+                {
+                    string[] urlParts = myResp.ResponseUri.ToString().Split('/');
+                    string latestTag = urlParts[urlParts.Length - 1];
+                    long newVersion = long.Parse(latestTag.Replace(".", "").Remove(0, 1).PadRight(3, '0'));
+
+                    if (newVersion > CURRENT_VERSION &&
+                        MessageBox.Show("Update available. Download update?", "Download", MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk) == DialogResult.Yes)
+                    {
+                        System.Diagnostics.Process.Start(URL);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if (MessageBox.Show("Unable to check for update!\nWould you like to visit https://github.com/stackTom/FSEarthTiles/releases to see if there's a new version?", "Download",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk) == DialogResult.Yes)
+                {
+                    System.Diagnostics.Process.Start("https://github.com/stackTom/FSEarthTiles/releases");
+                }
+            }
+        }
+
         void InitializeFSEarthTiles(String[] iApplicationStartArguments, List<String> iDirectConfigurationList, String iFSEarthTilesApplicationFolder)
         {
 
@@ -628,6 +663,7 @@ namespace FSEarthTilesDLL
                     }
 
                     ScenprocUtils.scriptsDir = Path.GetFullPath(@".\Scenproc_scripts");
+                    CheckForAppUpdate();
                 }
                 catch
                 {

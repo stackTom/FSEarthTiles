@@ -356,16 +356,7 @@ namespace FSEarthTilesDLL
                                 throw vError;
                             }
 
-                            // this old .net framework is missing some of the SecurityProcolType's
-                            // this is hack to get them. needed, otherwise certain https url's throw
-                            // exception and don't work
-                            const SecurityProtocolType tls13 = (SecurityProtocolType)12288;
-                            const SecurityProtocolType tls12 = (SecurityProtocolType)3072;
-                            const SecurityProtocolType tls11 = (SecurityProtocolType)768;
-                            const SecurityProtocolType tls = (SecurityProtocolType)192;
-                            const SecurityProtocolType ssl3 = (SecurityProtocolType)48;
-                            ServicePointManager.SecurityProtocol = tls13 | tls12 | tls11 | tls | ssl3;
-                            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+                            CommonFunctions.FixTLS();
 
                             Uri myTileUri = new Uri(vFullTileAddress);
                             System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(myTileUri);
