@@ -4387,8 +4387,8 @@ namespace FSEarthMasksInternalDLL
 
         private enum BlendGradientStartStopMode
         {
-            WhiteToBlack,
-            BlackToWhite
+            WhiteToBlue,
+            BlueToWhite
         }
 
         private void Blend(Graphics g, PointF[] rect, LinearGradientMode lgMode, BlendGradientStartStopMode bgMode)
@@ -4398,11 +4398,11 @@ namespace FSEarthMasksInternalDLL
 
             RectangleF r = new RectangleF(rect[0].X, rect[0].Y, width, height);
             LinearGradientBrush b = null;
-            if (bgMode == BlendGradientStartStopMode.BlackToWhite)
+            if (bgMode == BlendGradientStartStopMode.BlueToWhite)
             {
                 b = new LinearGradientBrush(
                     r,
-                    Color.Black,
+                    Color.Blue,
                     Color.White,
                     lgMode
                 );
@@ -4412,7 +4412,7 @@ namespace FSEarthMasksInternalDLL
                 b = new LinearGradientBrush(
                     r,
                     Color.White,
-                    Color.Black,
+                    Color.Blue,
                     lgMode
                 );
             }
@@ -4730,19 +4730,19 @@ namespace FSEarthMasksInternalDLL
                 double LAT_BLEND_WIDTH = ((NWLat - SELat) / MasksConfig.mAreaPixelCountInY) * pixWidth;
                 if (MasksConfig.mBlendNorthBorder)
                 {
-                    Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlackToWhite);
+                    Blend(g, CoordsToPixelRect(NWLat, NWLat - LAT_BLEND_WIDTH, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.BlueToWhite);
                 }
                 if (MasksConfig.mBlendEastBorder)
                 {
-                    Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlack);
+                    Blend(g, CoordsToPixelRect(NWLat, SELat, SELon - LON_BLEND_WIDTH, SELon), LinearGradientMode.Horizontal, BlendGradientStartStopMode.WhiteToBlue);
                 }
                 if (MasksConfig.mBlendSouthBorder)
                 {
-                    Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlack);
+                    Blend(g, CoordsToPixelRect(SELat + LAT_BLEND_WIDTH, SELat, NWLon, SELon), LinearGradientMode.Vertical, BlendGradientStartStopMode.WhiteToBlue);
                 }
                 if (MasksConfig.mBlendWestBorder)
                 {
-                    Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlackToWhite);
+                    Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlueToWhite);
                 }
 
                 foreach (var tri in tris)
