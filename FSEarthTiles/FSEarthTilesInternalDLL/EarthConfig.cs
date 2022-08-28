@@ -65,7 +65,7 @@ namespace FSEarthTilesInternalDLL
             this.name = name;
         }
 
-        public string getURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
+        public virtual string GetURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
         {
             // TODO: make this function (or class) worry about the EarthMath.cLevel0CodeDeep stuff?
             string variation = null;
@@ -77,11 +77,6 @@ namespace FSEarthTilesInternalDLL
             {
                 variation = variations[variationIdx];
             }
-            variation = Regex.Replace(variation, "{x}", x.ToString());
-            variation = Regex.Replace(variation, "{y}", y.ToString());
-            variation = Regex.Replace(variation, "{z}", zoom.ToString());
-            variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
-            variation = Regex.Replace(variation, "{quadkey}", potentialQuad);
 
             return variation;
         }
@@ -96,6 +91,96 @@ namespace FSEarthTilesInternalDLL
             Random random = new Random();
 
             return random.Next(0, variations.Count);
+        }
+    }
+
+    public class WebMercatorProvider : LayProvider
+    {
+        public Dictionary<string, string> urlVals;
+
+        public WebMercatorProvider(string name) : base(name)
+        {
+            this.urlVals = new Dictionary<string, string>();
+        }
+
+        public WebMercatorProvider(string name, Dictionary<string, string> urlVals) : base(name)
+        {
+            this.urlVals = urlVals;
+        }
+
+        // thanks to: https://gis.stackexchange.com/questions/142866/converting-latitude-longitude-epsg4326-into-epsg3857/142871#142871
+        private void WPSG84LatLongToEPSG387(double lat, double lon, out double outY, out double outX)
+        {
+            double smRadius = 6378136.98;
+            double smRange = smRadius * Math.PI * 2.0;
+            double smLonToX = smRange / 360.0;
+            double smRadiansOverDegrees = Math.PI / 180.0;
+
+            // compute x-map-unit
+            outX = lon * smLonToX;
+
+            double y = lat;
+
+            // compute y-map-unit
+            if (y > 86.0)
+            {
+                outY = smRange;
+            }
+            else if (y < -86.0)
+            {
+                outY = -smRange;
+            }
+            else
+            {
+                y *= smRadiansOverDegrees;
+                y = Math.Log(Math.Tan(y) + (1.0 / Math.Cos(y)), Math.E);
+                outY = y * smRadius;
+            }
+        }
+
+        public override string GetURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
+        {
+            string variation = base.GetURL(variationIdx, x, y, zoom, potentialQuad);
+            string rs = this.urlVals["wms_version"].Split('.')[1] == "3" ? "CRS" : "SRS";
+            double n, s, e, w;
+            int tx, ty;
+
+            // get the bbox of the image
+            TileSystem.TileXYToPixelXY((int) x, (int) y, out tx, out ty);
+            TileSystem.PixelXYToLatLong(tx, ty, (int) zoom, out n, out w);
+            TileSystem.TileXYToPixelXY((int) (x + 1), (int) (y + 1), out tx, out ty);
+            TileSystem.PixelXYToLatLong(tx, ty, (int) zoom, out s, out e);
+            double en, es, ee, ew;
+
+            // now convert it to EPSG3875
+            // TODO: add support for other EPSG formats later
+            WPSG84LatLongToEPSG387(n, w, out en, out ew);
+            WPSG84LatLongToEPSG387(s, e, out es, out ee);
+            string bbox = ew.ToString() + "," + es.ToString() + "," + ee.ToString() + "," + en.ToString();
+
+            return variation + "SERVICE=WMS&VERSION=" + this.urlVals["wms_version"] + "&FORMAT=image/" + this.urlVals["image_type"] +
+                "&REQUEST=GetMap&LAYERS=" + this.urlVals["layers"] + "&STYLES=&" + rs + "=EPSG:" + this.urlVals["epsg_code"] +
+                "&WIDTH=" + this.urlVals["width"] + "&HEIGHT=" + this.urlVals["height"] + "&BBOX=" + bbox;
+        }
+    }
+
+    public class TMSProvider : LayProvider
+    {
+        public TMSProvider(string name) : base(name)
+        {
+        }
+
+        public override string GetURL(int variationIdx, long x, long y, long zoom, string potentialQuad)
+        {
+            string variation = base.GetURL(variationIdx, x, y, zoom, potentialQuad);
+
+            variation = Regex.Replace(variation, "{x}", x.ToString());
+            variation = Regex.Replace(variation, "{y}", y.ToString());
+            variation = Regex.Replace(variation, "{z}", zoom.ToString());
+            variation = Regex.Replace(variation, "{zoom}", zoom.ToString());
+            variation = Regex.Replace(variation, "{quadkey}", potentialQuad);
+
+            return variation;
         }
     }
 
@@ -2566,52 +2651,132 @@ namespace FSEarthTilesInternalDLL
             return vWithSeasons;
         }
 
+        private static Dictionary<string, string> GetWMSURLVals(Dictionary<string, string> lines)
+        {
+            Dictionary<string, string> urlVals = new Dictionary<string, string>();
+            string[] neededKeys = { "wms_version", "image_type", "layers", "epsg_code", "width", "height"};
+
+            foreach (string key in neededKeys)
+            {
+                if (lines.ContainsKey(key))
+                {
+                    urlVals[key] = lines[key];
+                }
+                else if (key == "image_type")
+                {
+                    urlVals[key] = "jpeg";
+                }
+                else if (key == "width" || key == "height")
+                {
+                    if (urlVals.ContainsKey("wms_size"))
+                    {
+                        urlVals[key] = urlVals["wms_size"];
+                    }
+                    else if (urlVals.ContainsKey("tile_size"))
+                    {
+                        urlVals[key] = urlVals["tile_size"];
+                    }
+                    else
+                    {
+                        urlVals[key] = "256";
+                    }
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            return urlVals;
+        }
+
         public static void ParseLayFile(string filePath)
         {
             string rgstr = @"{switch:([^}]+)(,\s*[^}]+)*}";
             Regex rg = new Regex(rgstr);
             string[] fileContents = File.ReadAllLines(filePath);
             bool inGui = true;
+            bool wms = false;
+            Dictionary<string, string> lines = new Dictionary<string, string>();
             foreach (string line in fileContents)
             {
+                if (line == "" || line[0] == '#')
+                {
+                    continue;
+                }
+                string[] toks = line.Split('=');
+                if (toks.Length == 1)
+                {
+                    continue;
+                }
+                if (toks.Length > 2)
+                {
+                    string[] otherToks = new String[toks.Length - 1];
+                    for (int i = 1; i < toks.Length; i++)
+                    {
+                        otherToks[i - 1] = toks[i];
+                    }
+                    string s = String.Join("=", otherToks);
+                    lines[toks[0]] = s;
+                }
+                else
+                {
+                    lines[toks[0]] = toks[1];
+                }
                 if (line.Contains("in_GUI"))
                 {
-                    string[] toks = line.Split('=');
                     string inGuiStr = toks[1].Trim();
                     inGui = (inGuiStr == "True");
                 }
+                else if (toks[0] == "request_type" && toks[1] == "wms")
+                {
+                    wms = true;
+                }
             }
-            foreach (string line in fileContents)
+
+            string url = null;
+            if (lines.ContainsKey("url_template"))
             {
-                string url = Regex.Replace(line, "url_template=", "");
-                if (url == line || url == "" || line[0] == '#')
+                url = lines["url_template"];
+            }
+            else if (lines.ContainsKey("url_prefix"))
+            {
+                url = lines["url_prefix"];
+            }
+
+            if (url != null && url != "" && url[0] != '#')
+            {
+                // parse url switch
+                string switchStr = rg.Match(url).Value;
+                switchStr = Regex.Replace(switchStr, @"{switch:", "");
+                switchStr = Regex.Replace(switchStr, @"}", "");
+                LayProvider lp = null;
+                if (wms)
                 {
-                    url = Regex.Replace(line, "url_prefix=", "");
+                    Dictionary<string, string> urlVals = GetWMSURLVals(lines);
+                    lp = new WebMercatorProvider(Path.GetFileNameWithoutExtension(filePath), urlVals);
                 }
-                if (url != line && url != "" && url[0] != '#')
+                else
                 {
-                    string switchStr = rg.Match(url).Value;
-                    switchStr = Regex.Replace(switchStr, @"{switch:", "");
-                    switchStr = Regex.Replace(switchStr, @"}", "");
-                    LayProvider lp = new LayProvider(Path.GetFileNameWithoutExtension(filePath));
-                    lp.inGui = inGui;
-                    if (switchStr == "")
-                    {
-                        lp.variations = new List<string>();
-                        lp.variations.Add(url);
-                    }
-                    else
-                    {
-                        string[] variationValues = switchStr.Split(',');
-                        List<string> variations = new List<string>();
-                        foreach (string s in variationValues)
-                        {
-                            variations.Add(Regex.Replace(url, rgstr, s));
-                        }
-                        lp.variations = variations;
-                    }
-                    layProviders.Add(lp.name, lp);
+                    lp = new TMSProvider(Path.GetFileNameWithoutExtension(filePath));
                 }
+                lp.inGui = inGui;
+                if (switchStr == "")
+                {
+                    lp.variations = new List<string>();
+                    lp.variations.Add(url);
+                }
+                else
+                {
+                    string[] variationValues = switchStr.Split(',');
+                    List<string> variations = new List<string>();
+                    foreach (string s in variationValues)
+                    {
+                        variations.Add(Regex.Replace(url, rgstr, s));
+                    }
+                    lp.variations = variations;
+                }
+                layProviders.Add(lp.name, lp);
             }
         }
 

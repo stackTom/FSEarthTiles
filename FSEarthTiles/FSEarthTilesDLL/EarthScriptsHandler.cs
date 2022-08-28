@@ -629,7 +629,7 @@ namespace FSEarthTilesDLL
                 int variationIdx = lp.GetRandomVariationIdx();
                 // Not sure if all the ones that use quadkey like bing don't need EarthMath.cLevel0CodeDeep - level part
                 string potentialQuad = EarthScriptsHandler.MapAreaCoordToTileCode(iAreaCodeX, iAreaCodeY, iLevel, "0123");
-                vFullTileAddress = lp.getURL(variationIdx, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel, potentialQuad);
+                vFullTileAddress = lp.GetURL(variationIdx, iAreaCodeX, iAreaCodeY, EarthMath.cLevel0CodeDeep - iLevel, potentialQuad);
             }
             else
             {
