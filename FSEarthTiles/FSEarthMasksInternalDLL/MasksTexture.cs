@@ -2866,7 +2866,7 @@ namespace FSEarthMasksInternalDLL
             double stopLat = MasksConfig.mAreaSECornerLatitude;
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
-            return CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
+            return CommonFunctions.ReadWaterPolyFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }
 
         private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)

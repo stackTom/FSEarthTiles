@@ -316,7 +316,7 @@ namespace FSEarthTilesInternalDLL
 
         // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
         // TODO: try to refactor this into a clearer format. Also, use camel case
-        public static List<PointF[]> ReadMeshFile(string meshFilePath)
+        public static List<PointF[]> ReadPolyFile(string meshFilePath)
         {
             System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
             string[] lineContents = f_mesh.ReadLine().Trim().Split();
@@ -398,19 +398,19 @@ namespace FSEarthTilesInternalDLL
         }
 
 
-        public static List<PointF[]> ReadAllMeshFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
+        public static List<PointF[]> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
             List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-            List<PointF[]> allTris = new List<PointF[]>();
+            List<PointF[]> allPolys = new List<PointF[]>();
 
             foreach (double[] tile in tilesDownloaded)
             {
                 string meshPath = CommonFunctions.GetMeshFileFullPath(mWorkFolder, tile);
-                List<PointF[]> tris = ReadMeshFile(meshPath);
-                allTris.AddRange(tris);
+                List<PointF[]> tris = ReadPolyFile(meshPath);
+                allPolys.AddRange(tris);
             }
 
-            return allTris;
+            return allPolys;
         }
 
         public static void FixTLS()

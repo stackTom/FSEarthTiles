@@ -201,7 +201,7 @@ namespace FSEarthTilesDLL
         EarthArea        mEarthArea;           //The complete snapped Area coords information. That's the description of the Area that will be downloaded
         EarthMultiArea   mEarthMultiArea;      //The complete snapped Multi Area coords information. That's the describtion of the MultiArea that will be downloaded in steps of single Areas
         EarthAreaTexture mEarthAreaTexture;    //The downloaded Texture of the Area
-        EarthArea mLastMeshCreatedEarthArea; // let's us see if we've created mesh for this area already
+        EarthArea mLastWaterPolyCreatedEarthArea; // let's us see if we've created mesh for this area already
         EarthArea mLastCheckedForAllWaterEarthArea; // let's us see if we've checked for AllWater() for this area already
 
         //(Backup Data) Single Reference Area Stored Datas. (Used for Single-Multi Mode change and as Reference Area for Multi)
@@ -326,7 +326,7 @@ namespace FSEarthTilesDLL
         // Imagetool thread
         Thread mImageToolThread;
         // CreateMesh thread
-        Thread mCreateMeshThread;
+        Thread mCreateWaterPolyThread;
         // MSFS compiler thread
         Thread mMSFSCompilerThread;
 
@@ -356,7 +356,7 @@ namespace FSEarthTilesDLL
         System.Windows.Forms.Timer mMainThreadTimer;  //Main Thread Timer
 
         private bool scenProcWasRunning = false;
-        private bool creatingMeshFile = false;
+        private bool creatingWaterPolyFile = false;
         private Dictionary<string, List<PointF[]>> meshCache;
         private bool MSFSCompilerWasRunning = false;
 
@@ -2168,7 +2168,7 @@ namespace FSEarthTilesDLL
 
                 //That's right we override the Main EarthArea so we don't have to care about a special separate object handling
                 //The information can be restored at the end of all download processes
-                mLastMeshCreatedEarthArea = mEarthArea;
+                mLastWaterPolyCreatedEarthArea = mEarthArea;
                 mLastCheckedForAllWaterEarthArea = mEarthArea;
                 mEarthArea = mEarthMultiArea.CalculateSingleAreaFormMultiArea(mCurrentAreaInfo, mEarthSingleReferenceArea, EarthConfig.mAreaSnapMode, EarthConfig.mFetchLevel);
 
@@ -2352,59 +2352,10 @@ namespace FSEarthTilesDLL
 
         }
 
-        private void createMeshFiles()
+        private void _CreatePolyFiles()
         {
-            try
-            {
-                double startLong = mEarthArea.AreaSnapStartLongitude;
-                double stopLong = mEarthArea.AreaSnapStopLongitude;
-                double startLat = mEarthArea.AreaSnapStartLatitude;
-                double stopLat = mEarthArea.AreaSnapStopLatitude;
-
-                if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
-                {
-                    startLong = mEarthArea.AreaFSResampledStartLongitude;
-                    stopLong = mEarthArea.AreaFSResampledStopLongitude;
-                    startLat = mEarthArea.AreaFSResampledStartLatitude;
-                    stopLat = mEarthArea.AreaFSResampledStopLatitude;
-                }
-
-                CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
-
-                List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-
-                foreach (double[] tile in tilesToDownload)
-                {
-                    string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
-                    if (!File.Exists(meshFilePath))
-                    {
-                        string tileName = CommonFunctions.GetTileName(tile);
-                        SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
-                        System.Diagnostics.Process proc = new System.Diagnostics.Process();
-                        proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
-                        proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
-                        proc.Start();
-                        Thread.Sleep(500);
-                        proc.WaitForExit();
-                        if (!proc.HasExited)
-                        {
-                            proc.Kill();
-                        }
-                    }
-                }
-            }
-            catch (ThreadAbortException)
-            {
-                // need to do it this way. guess it's call pyinstaller programs spawn subprocesses?
-                // just calling proc.Kill() keeps createMesh.exe running
-                foreach (var p in System.Diagnostics.Process.GetProcessesByName("createMesh"))
-                {
-                    p.Kill();
-                }
-                mAreaProcessRunning = false;
-                creatingMeshFile = false;
-            }
         }
+
 
         private void RunImageProcessing(MasksResampleWorker w)
         {
@@ -5735,10 +5686,10 @@ namespace FSEarthTilesDLL
             {
                 mImageToolThread.Abort();
             }
-            if (mCreateMeshThread != null)
+            if (mCreateWaterPolyThread != null)
             {
-                mCreateMeshThread.Abort();
-                mCreateMeshThread = null;
+                mCreateWaterPolyThread.Abort();
+                mCreateWaterPolyThread = null;
             }
             if (mMSFSCompilerThread != null && mMSFSCompilerThread.IsAlive)
             {
@@ -7380,11 +7331,11 @@ namespace FSEarthTilesDLL
                 || ((mMSFSCompilerThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
         }
 
-        private void CreateMeshFiles()
+        private void CreatePolygonFiles()
         {
-            creatingMeshFile = true;
-            createMeshFiles();
-            creatingMeshFile = false;
+            creatingWaterPolyFile = true;
+            _CreatePolyFiles();
+            creatingWaterPolyFile = false;
         }
 
         private void FinishProcessingAreas()
@@ -7587,17 +7538,17 @@ namespace FSEarthTilesDLL
                 // TODO: this is a nightmare. should really be refactored into a function
                 bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
                                         EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
-                                        !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
+                                        !creatingWaterPolyFile && mLastWaterPolyCreatedEarthArea != mEarthArea;
                 if (shouldCreateMesh)
                 {
-                    ThreadStart ts = new ThreadStart(CreateMeshFiles);
-                    mCreateMeshThread = new Thread(ts);
-                    creatingMeshFile = true;
-                    mLastMeshCreatedEarthArea = mEarthArea;
-                    mCreateMeshThread.Start();
+                    ThreadStart ts = new ThreadStart(CreatePolygonFiles);
+                    mCreateWaterPolyThread = new Thread(ts);
+                    creatingWaterPolyFile = true;
+                    mLastWaterPolyCreatedEarthArea = mEarthArea;
+                    mCreateWaterPolyThread.Start();
                 }
 
-                if (creatingMeshFile)
+                if (creatingWaterPolyFile)
                 {
                     SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
                     return;
@@ -8040,10 +7991,10 @@ namespace FSEarthTilesDLL
             {
                 mImageToolThread.Abort();
             }
-            if (mCreateMeshThread != null)
+            if (mCreateWaterPolyThread != null)
             {
-                mCreateMeshThread.Abort();
-                mCreateMeshThread = null;
+                mCreateWaterPolyThread.Abort();
+                mCreateWaterPolyThread = null;
             }
             EarthScriptsHandler.CleanUp();
         }
@@ -9452,7 +9403,7 @@ namespace FSEarthTilesDLL
                 if (!meshCache.ContainsKey(key))
                 {
                     string meshPath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, meshTile);
-                    meshCache[key] = CommonFunctions.ReadMeshFile(meshPath);
+                    meshCache[key] = CommonFunctions.ReadPolyFile(meshPath);
                 }
             }
         }
