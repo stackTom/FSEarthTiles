@@ -1,0 +1,3 @@
+[submodule "FSEarthTiles/AutomaticWaterMasking"]
+	path = FSEarthTiles/AutomaticWaterMasking
+	url = https://github.com/stackTom/AutomaticWaterMasking.git
