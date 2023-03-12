@@ -16,6 +16,7 @@ using TGASharpLib;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Drawing.Imaging;
+using AutomaticWaterMasking;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
