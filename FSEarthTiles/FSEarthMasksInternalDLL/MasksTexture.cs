@@ -2858,13 +2858,12 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private List<PointF[]> ReadAllMeshFiles()
+        private List<MaskingPolys> ReadAllPolyFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude;
             double stopLong = MasksConfig.mAreaSECornerLongitude;
             double startLat = MasksConfig.mAreaNWCornerLatitude;
             double stopLat = MasksConfig.mAreaSECornerLatitude;
-            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
             return CommonFunctions.ReadWaterPolyFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }
@@ -4713,7 +4712,7 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
-            var tris = ReadAllMeshFiles();
+            List<MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -4745,17 +4744,16 @@ namespace FSEarthMasksInternalDLL
                     Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlueToWhite);
                 }
 
-                foreach (var tri in tris)
+                foreach (MaskingPolys polys in allMaskingPolys)
                 {
-                    PointF[] convertedTri = new PointF[3];
-                    for (int i = 0; i < convertedTri.Length; i++)
-                    {
-                        PointF toConvert = tri[i];
-                        tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
-                        convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
-                    }
-
-                    g.FillPolygon(b, convertedTri);
+                    decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
+                    decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
+                    AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
+                    b = new SolidBrush(Color.White);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons);
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandWater);
                 }
             }
 

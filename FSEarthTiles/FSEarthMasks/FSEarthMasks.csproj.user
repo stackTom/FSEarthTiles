@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="Current">
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <StartArguments>"G:\My FSX Photoreal\working\AreaEarthInfo_Lp0_SnapOff_N024341804_N024331397_W081441002_W081423608.txt"</StartArguments>
+    <StartArguments>"F:\ortho4xpvm\fset-103\FSET\working\AreaEarthInfo_Lp5_SnapOff_N026062746_N026062720_W080072573_W080071028.txt"</StartArguments>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
   </PropertyGroup>

@@ -17,6 +17,14 @@ namespace FSEarthTilesInternalDLL
         public Double mY;
     }
 
+    public struct MaskingPolys
+    {
+        public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
+        public List<Way<AutomaticWaterMasking.Point>> inlandPolygons;
+        public List<Way<AutomaticWaterMasking.Point>> inlandWater;
+    }
+
+
     public class CommonFunctions
     {
         // probably clever way to do this with format strings to get same resutls as python, but I grew impatient
@@ -58,7 +66,7 @@ namespace FSEarthTilesInternalDLL
             string dataPath = GetTilePath(workFolder, tile) + @"\";
             string[] paths = new string[]
             {
-                dataPath + "CoastPolys.OSM",
+                dataPath + "CoastWaterPolys.OSM",
                 dataPath + "InlandWaterPolys.OSM",
                 dataPath + "InlandPolys.OSM",
             };
@@ -253,6 +261,25 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
+        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
+        {
+            foreach (Way<AutomaticWaterMasking.Point> way in polygons)
+            {
+
+                List<PointF> l = new List<PointF>();
+                for (int i = 0; i < way.Count - 1; i++) // FillPolygon polygons don't need last AutomaticWaterMasking.Point, hence - 1
+                {
+                    AutomaticWaterMasking.Point p = way[i];
+                    AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel(p.Y, p.X, NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+
+                    l.Add(new PointF((float)pixel.X, (float)pixel.Y));
+                }
+                PointF[] pf = l.ToArray();
+                g.FillPolygon(b, pf);
+
+            }
+        }
+
         public static bool BitmapAllBlack(Bitmap bmp)
         {
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
@@ -330,40 +357,29 @@ namespace FSEarthTilesInternalDLL
             return ret;
         }
 
-        public static List<PointF[]> ReadPolyFile(string polyFilePath)
+        public static List<Way<AutomaticWaterMasking.Point>> ReadPolyFile(string polyFilePath)
         {
-            List<PointF[]> polys = new List<PointF[]>();
+            List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
             string OSMXML = File.ReadAllText(polyFilePath);
             Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = AreaKMLFromOSMDataCreator.GetWays(OSMXML, true);
-            foreach (KeyValuePair<string, Way<AutomaticWaterMasking.Point>> kv in wayIDsToWays)
-            {
-                Way<AutomaticWaterMasking.Point> way = kv.Value;
-                PointF[] points = new PointF[way.Count];
-                int i = 0;
-                foreach (AutomaticWaterMasking.Point p in way)
-                {
-                    points[i] = PointToPointF(p);
-                    i++;
-                }
-            }
 
-            return polys;
+            return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
         }
 
 
-        public static List<PointF[]> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
+        public static List<MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
             List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-            List<PointF[]> allPolys = new List<PointF[]>();
+            List<MaskingPolys> allPolys = new List<MaskingPolys>();
 
             foreach (double[] tile in tilesDownloaded)
             {
                 string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
-                foreach (string polyPath in polyPaths)
-                {
-                    List<PointF[]> polys = ReadPolyFile(polyPath);
-                    allPolys.AddRange(polys);
-                }
+                MaskingPolys mp;
+                mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
+                mp.inlandWater = CommonFunctions.ReadPolyFile(polyPaths[1]);
+                mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
+                allPolys.Add(mp);
             }
 
             return allPolys;

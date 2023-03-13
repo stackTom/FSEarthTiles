@@ -99,13 +99,6 @@ namespace FSEarthTilesDLL
         public EarthAreaTexture mEarthAreaTexture;
     }
 
-    struct MaskingPolys
-    {
-        public List<PointF[]> coastPolygons;
-        public List<PointF[]> inlandPolygons;
-        public List<PointF[]> inlandWater;
-    }
-
     public partial class FSEarthTilesForm : Form, FSEarthTilesInternalInterface, FSEarthTilesInterface
     {
 
@@ -9464,7 +9457,7 @@ namespace FSEarthTilesDLL
                 {
                     string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, meshTile);
                     MaskingPolys mp;
-                    mp.coastPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
+                    mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                     mp.inlandWater = CommonFunctions.ReadPolyFile(polyPaths[1]);
                     mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
                     meshCache[key] = mp;
@@ -9490,12 +9483,13 @@ namespace FSEarthTilesDLL
                 pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
             }
 
-            double NWCornerLat = startLat;
-            double NWCornerLong = startLong;
+            decimal NWCornerLat = (decimal)startLat;
+            decimal NWCornerLong = (decimal)startLong;
+            AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat);
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
-            Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
-            Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
+            decimal vPixelPerLongitude = (decimal)(Convert.ToDouble(pixelsInX) / (stopLong - startLong));
+            decimal vPixelPerLatitude = (decimal)(Convert.ToDouble(pixelsInY) / (stopLat - startLat));
 
             GetPolys(startLong, stopLong, startLat, stopLat);
             bool allWater = false;
@@ -9506,24 +9500,17 @@ namespace FSEarthTilesDLL
                     SolidBrush b = new SolidBrush(Color.Black);
                     g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
 
-                    List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-                    foreach (double[] meshTile in meshTilesForArea)
+                    List<double[]> polyTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+                    foreach (double[] meshTile in polyTilesForArea)
                     {
                         string key = meshTile[0] + "," + meshTile[1];
                         MaskingPolys mp = meshCache[key];
-/*                        foreach (var poly in mp)
-                        {
-                            PointF[] convertedPoly = new PointF[3];
-                            for (int i = 0; i < convertedPoly.Length; i++)
-                            {
-                                PointF toConvert = poly[i];
-                                tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
-                                convertedPoly[i] = new PointF((float)pixel.mX, (float)pixel.mY);
-                            }
-
-                            g.FillPolygon(b, convertedPoly);
-                        }
-*/                    }
+                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.coastWaterPolygons);
+                        b = new SolidBrush(Color.White);
+                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons);
+                        b = new SolidBrush(Color.Black);
+                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandWater);
+                    }
 
                     allWater = CommonFunctions.BitmapAllBlack(bmp);
                 }
