@@ -99,6 +99,13 @@ namespace FSEarthTilesDLL
         public EarthAreaTexture mEarthAreaTexture;
     }
 
+    struct MaskingPolys
+    {
+        public List<PointF[]> coastPolygons;
+        public List<PointF[]> inlandPolygons;
+        public List<PointF[]> inlandWater;
+    }
+
     public partial class FSEarthTilesForm : Form, FSEarthTilesInternalInterface, FSEarthTilesInterface
     {
 
@@ -358,7 +365,7 @@ namespace FSEarthTilesDLL
 
         private bool scenProcWasRunning = false;
         private bool creatingWaterPolyFile = false;
-        private Dictionary<string, List<PointF[]>> meshCache;
+        private Dictionary<string, MaskingPolys> meshCache;
         private bool MSFSCompilerWasRunning = false;
 
 
@@ -567,7 +574,7 @@ namespace FSEarthTilesDLL
             mNoTileFound   = vEmptyDummyTileBitmap;
             mTileRequested = vEmptyDummyTileBitmap;
             mTileSkipped   = vEmptyDummyTileBitmap;
-            meshCache = new Dictionary<string, List<PointF[]>>();
+            meshCache = new Dictionary<string, MaskingPolys>();
 
 
 
@@ -2353,8 +2360,60 @@ namespace FSEarthTilesDLL
 
         }
 
+        private void WritePolysToFile(List<Way<AutomaticWaterMasking.Point>> polys, string fileName)
+        {
+            string OSMXML = AreaKMLFromOSMDataCreator.WaysToOSMXML(polys);
+            File.WriteAllText(fileName, OSMXML);
+        }
+
         private void _CreatePolyFiles()
         {
+            try
+            {
+                double startLong = mEarthArea.AreaSnapStartLongitude;
+                double stopLong = mEarthArea.AreaSnapStopLongitude;
+                double startLat = mEarthArea.AreaSnapStartLatitude;
+                double stopLat = mEarthArea.AreaSnapStopLatitude;
+
+                if (EarthConfig.mUndistortionMode == tUndistortionMode.ePerfectHighQualityFSPreResampling)
+                {
+                    startLong = mEarthArea.AreaFSResampledStartLongitude;
+                    stopLong = mEarthArea.AreaFSResampledStopLongitude;
+                    startLat = mEarthArea.AreaFSResampledStartLatitude;
+                    stopLat = mEarthArea.AreaFSResampledStopLatitude;
+                }
+
+                DownloadArea d = new DownloadArea((decimal)startLong, (decimal)stopLong, (decimal)startLat, (decimal)stopLat);
+
+                List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+
+                foreach (double[] tile in tilesToDownload)
+                {
+                    string[] polyFilesPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
+                    foreach (string polyFile in polyFilesPaths)
+                    {
+                        if (!File.Exists(polyFile))
+                        {
+                            string tileName = CommonFunctions.GetTileName(tile);
+                            SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
+                            List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
+                            List<Way<AutomaticWaterMasking.Point>> inlandWaterPolys = new List<Way<AutomaticWaterMasking.Point>>();
+                            List<Way<AutomaticWaterMasking.Point>> inlandPolys = new List<Way<AutomaticWaterMasking.Point>>();
+                            WaterMasking.GetPolygons(coastPolys, inlandPolys, inlandWaterPolys, d, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
+
+                            WritePolysToFile(coastPolys, polyFilesPaths[0]);
+                            WritePolysToFile(inlandWaterPolys, polyFilesPaths[1]);
+                            WritePolysToFile(inlandPolys, polyFilesPaths[2]);
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (ThreadAbortException)
+            {
+                mAreaProcessRunning = false;
+                creatingWaterPolyFile = false;
+            }
         }
 
 
@@ -7378,7 +7437,7 @@ namespace FSEarthTilesDLL
                     SetStatus("Waiting on Scenproc to finish");
                     scenProcWasRunning = true;
                 }
-                meshCache = new Dictionary<string, List<PointF[]>>();
+                meshCache = new Dictionary<string, MaskingPolys>();
             }
             else
             {
@@ -7551,7 +7610,7 @@ namespace FSEarthTilesDLL
 
                 if (creatingWaterPolyFile)
                 {
-                    SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
+                    SetStatus("Creating polygon file(s) for area " + mCurrentActiveAreaNr);
                     return;
                 }
 
@@ -9394,7 +9453,7 @@ namespace FSEarthTilesDLL
 
         }
 
-        private void GetTris(double startLong, double stopLong, double startLat, double stopLat)
+        private void GetPolys(double startLong, double stopLong, double startLat, double stopLat)
         {
             List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
             string key = null;
@@ -9403,8 +9462,12 @@ namespace FSEarthTilesDLL
                 key = meshTile[0] + "," + meshTile[1];
                 if (!meshCache.ContainsKey(key))
                 {
-                    string meshPath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, meshTile);
-                    meshCache[key] = CommonFunctions.ReadPolyFile(meshPath);
+                    string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, meshTile);
+                    MaskingPolys mp;
+                    mp.coastPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
+                    mp.inlandWater = CommonFunctions.ReadPolyFile(polyPaths[1]);
+                    mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
+                    meshCache[key] = mp;
                 }
             }
         }
@@ -9434,7 +9497,7 @@ namespace FSEarthTilesDLL
             Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
             Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
 
-            GetTris(startLong, stopLong, startLat, stopLat);
+            GetPolys(startLong, stopLong, startLat, stopLat);
             bool allWater = false;
             using (Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
             {
@@ -9447,20 +9510,20 @@ namespace FSEarthTilesDLL
                     foreach (double[] meshTile in meshTilesForArea)
                     {
                         string key = meshTile[0] + "," + meshTile[1];
-                        List<PointF[]> tris = meshCache[key];
-                        foreach (var tri in tris)
+                        MaskingPolys mp = meshCache[key];
+/*                        foreach (var poly in mp)
                         {
-                            PointF[] convertedTri = new PointF[3];
-                            for (int i = 0; i < convertedTri.Length; i++)
+                            PointF[] convertedPoly = new PointF[3];
+                            for (int i = 0; i < convertedPoly.Length; i++)
                             {
-                                PointF toConvert = tri[i];
+                                PointF toConvert = poly[i];
                                 tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
-                                convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
+                                convertedPoly[i] = new PointF((float)pixel.mX, (float)pixel.mY);
                             }
 
-                            g.FillPolygon(b, convertedTri);
+                            g.FillPolygon(b, convertedPoly);
                         }
-                    }
+*/                    }
 
                     allWater = CommonFunctions.BitmapAllBlack(bmp);
                 }

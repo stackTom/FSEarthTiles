@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using AutomaticWaterMasking;
 
 namespace FSEarthTilesInternalDLL
 {
@@ -50,11 +52,18 @@ namespace FSEarthTilesInternalDLL
             return GetTilesPath(workFolder) + @"\" + tileName;
         }
 
-        public static string GetMeshFileFullPath(string workFolder, double[] tile)
+        public static string[] GetPolyFilesFullPath(string workFolder, double[] tile)
         {
             string tileName = CommonFunctions.GetTileName(tile);
+            string dataPath = GetTilePath(workFolder, tile) + @"\";
+            string[] paths = new string[]
+            {
+                dataPath + "CoastPolys.OSM",
+                dataPath + "InlandWaterPolys.OSM",
+                dataPath + "InlandPolys.OSM",
+            };
 
-            return GetTilePath(workFolder, tile) + @"\Data" + tileName + ".mesh";
+            return paths;
         }
 
         public static List<double[]> GetTilesToDownload(double startLong, double stopLong, double startLat, double stopLat)
@@ -314,87 +323,31 @@ namespace FSEarthTilesInternalDLL
             return pixel;
         }
 
-        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
-        // TODO: try to refactor this into a clearer format. Also, use camel case
-        public static List<PointF[]> ReadPolyFile(string meshFilePath)
+        private static PointF PointToPointF(AutomaticWaterMasking.Point p)
         {
-            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
-            string[] lineContents = f_mesh.ReadLine().Trim().Split();
-            float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
-            int has_water = mesh_version >= 1.3f ? 7 : 3;
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
+            PointF ret = new PointF((float)p.X, (float)p.Y);
+
+            return ret;
+        }
+
+        public static List<PointF[]> ReadPolyFile(string polyFilePath)
+        {
+            List<PointF[]> polys = new List<PointF[]>();
+            string OSMXML = File.ReadAllText(polyFilePath);
+            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = AreaKMLFromOSMDataCreator.GetWays(OSMXML, true);
+            foreach (KeyValuePair<string, Way<AutomaticWaterMasking.Point>> kv in wayIDsToWays)
             {
-                f_mesh.ReadLine();
-            }
-            int nbr_pt_in = Convert.ToInt32(f_mesh.ReadLine());
-            double[] pt_in = new double[5 * nbr_pt_in];
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i; j < 5 * i + 3; j++)
+                Way<AutomaticWaterMasking.Point> way = kv.Value;
+                PointF[] points = new PointF[way.Count];
+                int i = 0;
+                foreach (AutomaticWaterMasking.Point p in way)
                 {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
+                    points[i] = PointToPointF(p);
+                    i++;
                 }
             }
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i + 3; j < 5 * i + 5; j++)
-                {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
-                }
-            }
-            // skip ahead 2
-            for (int i = 0; i < 2; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
 
-            List<PointF[]> tris = new List<PointF[]>();
-
-            for (int i = 0; i < nbr_tri_in; i++)
-            {
-                lineContents = f_mesh.ReadLine().Split();
-                int n1 = Convert.ToInt32(lineContents[0]) - 1;
-                int n2 = Convert.ToInt32(lineContents[1]) - 1;
-                int n3 = Convert.ToInt32(lineContents[2]) - 1;
-                int tri_type = Convert.ToInt32(lineContents[3]) - 1;
-                tri_type += 1;
-
-                bool use_masks_for_inland = true; // possibly allow for changing in the future?
-                if (tri_type == 0 || (tri_type & has_water) == 0 || ((tri_type & has_water) < 2 && !use_masks_for_inland))
-                {
-                    continue;
-                }
-                float lon1 = (float) pt_in[5 * n1];
-                float lat1 = (float) pt_in[5 * n1 + 1];
-                float lon2 = (float) pt_in[5 * n2];
-                float lat2 = (float) pt_in[5 * n2 + 1];
-                float lon3 = (float) pt_in[5 * n3];
-                float lat3 = (float) pt_in[5 * n3 + 1];
-
-                var tri = new PointF[] {
-                    new PointF(lon1, lat1),
-                    new PointF(lon2, lat2),
-                    new PointF(lon3, lat3),
-                    new PointF(lon1, lat1),
-                };
-
-                tris.Add(tri);
-            }
-
-            return tris;
+            return polys;
         }
 
 
@@ -405,9 +358,12 @@ namespace FSEarthTilesInternalDLL
 
             foreach (double[] tile in tilesDownloaded)
             {
-                string meshPath = CommonFunctions.GetMeshFileFullPath(mWorkFolder, tile);
-                List<PointF[]> tris = ReadPolyFile(meshPath);
-                allPolys.AddRange(tris);
+                string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
+                foreach (string polyPath in polyPaths)
+                {
+                    List<PointF[]> polys = ReadPolyFile(polyPath);
+                    allPolys.AddRange(polys);
+                }
             }
 
             return allPolys;
