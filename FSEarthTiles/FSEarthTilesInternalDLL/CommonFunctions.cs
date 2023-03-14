@@ -20,8 +20,7 @@ namespace FSEarthTilesInternalDLL
     public struct MaskingPolys
     {
         public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
-        public List<Way<AutomaticWaterMasking.Point>> inlandPolygons;
-        public List<Way<AutomaticWaterMasking.Point>> inlandWater;
+        public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
     }
 
 
@@ -67,7 +66,6 @@ namespace FSEarthTilesInternalDLL
             string[] paths = new string[]
             {
                 dataPath + "CoastWaterPolys.OSM",
-                dataPath + "InlandWaterPolys.OSM",
                 dataPath + "InlandPolys.OSM",
             };
 
@@ -366,6 +364,22 @@ namespace FSEarthTilesInternalDLL
             return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
         }
 
+        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
+        public static List<Way<AutomaticWaterMasking.Point>>[] ReadLayeredPolyFile(string polyFilePath)
+        {
+            List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
+            int i = 0;
+            List<List<Way<AutomaticWaterMasking.Point>>> inlandPolys = new List<List<Way<AutomaticWaterMasking.Point>>>();
+            while (File.Exists(polyFilePath + "[" + i + "]"))
+            {
+                string OSMXML = File.ReadAllText(polyFilePath + "[" + i + "]");
+                Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = AreaKMLFromOSMDataCreator.GetWays(OSMXML, true);
+                inlandPolys.Add(new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray()));
+                i++;
+            }
+
+            return inlandPolys.ToArray();
+        }
 
         public static List<MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
@@ -377,8 +391,7 @@ namespace FSEarthTilesInternalDLL
                 string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
                 MaskingPolys mp;
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
-                mp.inlandWater = CommonFunctions.ReadPolyFile(polyPaths[1]);
-                mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
+                mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
                 allPolys.Add(mp);
             }
 

@@ -2359,6 +2359,16 @@ namespace FSEarthTilesDLL
             File.WriteAllText(fileName, OSMXML);
         }
 
+        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
+        private void WriteLayeredPolysToFile(List<Way<AutomaticWaterMasking.Point>>[] polys, string fileName)
+        {
+            for (int i = 0; i < polys.Length; i++)
+            {
+                string OSMXML = AreaKMLFromOSMDataCreator.WaysToOSMXML(polys[i]);
+                File.WriteAllText(fileName + "[" + i.ToString() + "]", OSMXML);
+            }
+        }
+
         private void _CreatePolyFiles()
         {
             try
@@ -2376,7 +2386,7 @@ namespace FSEarthTilesDLL
                     stopLat = mEarthArea.AreaFSResampledStopLatitude;
                 }
 
-                DownloadArea d = new DownloadArea((decimal)startLong, (decimal)stopLong, (decimal)startLat, (decimal)stopLat);
+                CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
                 List<double[]> tilesToDownload = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
 
@@ -2390,13 +2400,20 @@ namespace FSEarthTilesDLL
                             string tileName = CommonFunctions.GetTileName(tile);
                             SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
                             List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
-                            List<Way<AutomaticWaterMasking.Point>> inlandWaterPolys = new List<Way<AutomaticWaterMasking.Point>>();
-                            List<Way<AutomaticWaterMasking.Point>> inlandPolys = new List<Way<AutomaticWaterMasking.Point>>();
-                            WaterMasking.GetPolygons(coastPolys, inlandPolys, inlandWaterPolys, d, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
+                            List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
+                                new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
+                            };
+                            DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
+                            Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)startLat));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)stopLat));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)stopLong, (decimal)stopLat));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)stopLong, (decimal)startLat));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)startLat));
+                            WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
 
                             WritePolysToFile(coastPolys, polyFilesPaths[0]);
-                            WritePolysToFile(inlandWaterPolys, polyFilesPaths[1]);
-                            WritePolysToFile(inlandPolys, polyFilesPaths[2]);
+                            WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
                             break;
                         }
                     }
@@ -9458,8 +9475,7 @@ namespace FSEarthTilesDLL
                     string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, meshTile);
                     MaskingPolys mp;
                     mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
-                    mp.inlandWater = CommonFunctions.ReadPolyFile(polyPaths[1]);
-                    mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
+                    mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
                     meshCache[key] = mp;
                 }
             }
@@ -9506,10 +9522,19 @@ namespace FSEarthTilesDLL
                         string key = meshTile[0] + "," + meshTile[1];
                         MaskingPolys mp = meshCache[key];
                         CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.coastWaterPolygons);
-                        b = new SolidBrush(Color.White);
-                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons);
-                        b = new SolidBrush(Color.Black);
-                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandWater);
+                        for (int i = 0; i < mp.inlandPolygons.Length; i++)
+                        {
+                            if (i % 2 == 0)
+                            {
+                                b = new SolidBrush(Color.Black);
+                                CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons[i]);
+                            }
+                            else
+                            {
+                                b = new SolidBrush(Color.White);
+                                CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons[i]);
+                            }
+                        }
                     }
 
                     allWater = CommonFunctions.BitmapAllBlack(bmp);
