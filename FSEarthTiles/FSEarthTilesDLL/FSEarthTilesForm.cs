@@ -2393,6 +2393,11 @@ namespace FSEarthTilesDLL
                 foreach (double[] tile in tilesToDownload)
                 {
                     string[] polyFilesPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
+                    string directory = CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
                     foreach (string polyFile in polyFilesPaths)
                     {
                         if (!File.Exists(polyFile))
