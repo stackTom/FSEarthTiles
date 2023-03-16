@@ -398,6 +398,7 @@ namespace FSEarthTilesInternalDLL
                 MaskingPolys mp;
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                 mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
+                mp.tileName = CommonFunctions.GetTileName(tile);
                 allPolys.Add(mp);
             }
 
