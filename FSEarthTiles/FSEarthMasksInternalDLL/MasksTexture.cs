@@ -4751,6 +4751,7 @@ namespace FSEarthMasksInternalDLL
                     decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
                     decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
                     AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
+                    b = new SolidBrush(Color.Black);
                     CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
                     for (int i = 0; i < polys.inlandPolygons.Length; i++)
                     {

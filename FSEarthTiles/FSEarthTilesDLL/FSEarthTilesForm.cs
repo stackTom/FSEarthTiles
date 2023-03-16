@@ -9526,6 +9526,7 @@ namespace FSEarthTilesDLL
                     {
                         string key = meshTile[0] + "," + meshTile[1];
                         MaskingPolys mp = meshCache[key];
+                        b = new SolidBrush(Color.Black);
                         CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.coastWaterPolygons);
                         for (int i = 0; i < mp.inlandPolygons.Length; i++)
                         {
