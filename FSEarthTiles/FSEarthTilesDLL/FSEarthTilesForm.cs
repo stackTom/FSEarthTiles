@@ -2410,11 +2410,11 @@ namespace FSEarthTilesDLL
                             };
                             DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
                             Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)startLat));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)stopLat));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)stopLong, (decimal)stopLat));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)stopLong, (decimal)startLat));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)startLong, (decimal)startLat));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
                             WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
 
                             WritePolysToFile(coastPolys, polyFilesPaths[0]);

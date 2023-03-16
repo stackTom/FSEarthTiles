@@ -2865,6 +2865,8 @@ namespace FSEarthMasksInternalDLL
             double startLat = MasksConfig.mAreaNWCornerLatitude;
             double stopLat = MasksConfig.mAreaSECornerLatitude;
 
+            CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
+
             return CommonFunctions.ReadWaterPolyFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }
 
