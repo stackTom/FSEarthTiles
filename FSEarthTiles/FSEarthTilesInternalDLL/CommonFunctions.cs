@@ -21,6 +21,12 @@ namespace FSEarthTilesInternalDLL
     {
         public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
         public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
+        public string tileName;
+
+        public override string ToString()
+        {
+            return tileName;
+        }
     }
 
 

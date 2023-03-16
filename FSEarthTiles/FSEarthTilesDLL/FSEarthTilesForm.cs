@@ -358,7 +358,7 @@ namespace FSEarthTilesDLL
 
         private bool scenProcWasRunning = false;
         private bool creatingWaterPolyFile = false;
-        private Dictionary<string, MaskingPolys> meshCache;
+        private Dictionary<string, MaskingPolys> polysCache;
         private bool MSFSCompilerWasRunning = false;
 
 
@@ -567,7 +567,7 @@ namespace FSEarthTilesDLL
             mNoTileFound   = vEmptyDummyTileBitmap;
             mTileRequested = vEmptyDummyTileBitmap;
             mTileSkipped   = vEmptyDummyTileBitmap;
-            meshCache = new Dictionary<string, MaskingPolys>();
+            polysCache = new Dictionary<string, MaskingPolys>();
 
 
 
@@ -7452,7 +7452,7 @@ namespace FSEarthTilesDLL
                     SetStatus("Waiting on Scenproc to finish");
                     scenProcWasRunning = true;
                 }
-                meshCache = new Dictionary<string, MaskingPolys>();
+                polysCache = new Dictionary<string, MaskingPolys>();
             }
             else
             {
@@ -9470,18 +9470,19 @@ namespace FSEarthTilesDLL
 
         private void GetPolys(double startLong, double stopLong, double startLat, double stopLat)
         {
-            List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            List<double[]> tiles = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
             string key = null;
-            foreach (double[] meshTile in meshTilesForArea)
+            foreach (double[] tile in tiles)
             {
-                key = meshTile[0] + "," + meshTile[1];
-                if (!meshCache.ContainsKey(key))
+                key = tile[0] + "," + tile[1];
+                if (!polysCache.ContainsKey(key))
                 {
-                    string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, meshTile);
+                    string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
                     MaskingPolys mp;
                     mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                     mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
-                    meshCache[key] = mp;
+                    mp.tileName = CommonFunctions.GetTileName(tile);
+                    polysCache[key] = mp;
                 }
             }
         }
@@ -9525,7 +9526,7 @@ namespace FSEarthTilesDLL
                     foreach (double[] meshTile in polyTilesForArea)
                     {
                         string key = meshTile[0] + "," + meshTile[1];
-                        MaskingPolys mp = meshCache[key];
+                        MaskingPolys mp = polysCache[key];
                         b = new SolidBrush(Color.Black);
                         CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.coastWaterPolygons);
                         for (int i = 0; i < mp.inlandPolygons.Length; i++)
