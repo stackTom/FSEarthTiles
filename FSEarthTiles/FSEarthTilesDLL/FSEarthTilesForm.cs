@@ -2369,10 +2369,23 @@ namespace FSEarthTilesDLL
             }
         }
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int AllocConsole();
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int FreeConsole();
+
         private void _CreatePolyFiles()
         {
             try
             {
+                AllocConsole();
+                // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
+                // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
+                // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception
+                // see: https://stackoverflow.com/questions/42612872/exception-when-using-console-window-in-a-form-application
+                TextWriter writer = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
+                Console.SetOut(writer);
+                Console.SetIn(new StreamReader(Console.OpenStandardInput()));
                 double startLong = mEarthArea.AreaSnapStartLongitude;
                 double stopLong = mEarthArea.AreaSnapStopLongitude;
                 double startLat = mEarthArea.AreaSnapStartLatitude;
@@ -2398,36 +2411,38 @@ namespace FSEarthTilesDLL
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    foreach (string polyFile in polyFilesPaths)
+                    bool shouldRebuildPolyFiles = !File.Exists(polyFilesPaths[0]) || !File.Exists(polyFilesPaths[1] + "[0]")
+                        || !File.Exists(polyFilesPaths[1] + "[1]") || !File.Exists(polyFilesPaths[1] + "[2]") || !File.Exists(polyFilesPaths[1] + "[3]");
+                    if (shouldRebuildPolyFiles)
                     {
-                        if (!File.Exists(polyFile))
-                        {
-                            string tileName = CommonFunctions.GetTileName(tile);
-                            SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
-                            List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
-                            List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
-                                new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
-                            };
-                            DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
-                            Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
-                            viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
-                            WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
+                        string tileName = CommonFunctions.GetTileName(tile);
+                        SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
+                        List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
+                        List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
+                            new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
+                        };
+                        DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
+                        Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                        Console.WriteLine("Downloading OSM coast and inland water data. As well as computing water polygons from this data; this can take a while, please wait");
+                        WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
 
-                            WritePolysToFile(coastPolys, polyFilesPaths[0]);
-                            WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
-                            break;
-                        }
+                        WritePolysToFile(coastPolys, polyFilesPaths[0]);
+                        WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
+                        break;
                     }
                 }
+                FreeConsole();
             }
             catch (ThreadAbortException)
             {
                 mAreaProcessRunning = false;
                 creatingWaterPolyFile = false;
+                FreeConsole();
             }
         }
 
