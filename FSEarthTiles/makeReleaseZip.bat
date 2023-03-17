@@ -18,6 +18,8 @@ copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesDLL.dll .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesDLL.pdb .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.dll .\FSET
 copy /Y .\FSEarthTiles\bin\Release\FSEarthTilesInternalDLL.pdb .\FSET
+copy /Y .\FSEarthTiles\bin\Release\AutomaticWaterMasking.dll .\FSET
+copy /Y .\FSEarthTiles\bin\Release\AutomaticWaterMasking.pdb .\FSET
 copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.exe .\FSET
 copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.exe.config .\FSET
 copy /Y .\FSETScriptsTempFilesCleanUp\bin\Release\FSETScriptsTempFilesCleanUp.pdb .\FSET
@@ -36,12 +38,6 @@ copy /Y .\FSEarthMasks\bin\Release\FSEarthMasksInternalDLL.pdb .\FSET
 
 :: copy over ALGLib.dll
 copy /Y .\ALGLib\bin\Release\ALGLib.dll .\FSET
-
-:: copy over createMesh.exe and it's needed files
-xcopy /I .\Ortho4XPMasking\Utils .\FSET\Utils
-copy /Y .\Ortho4XPMasking\createMesh.exe .\FSET
-copy /Y .\Ortho4XPMasking\spatialindex_c-64.dll .\FSET
-copy /Y .\Ortho4XPMasking\spatialindex-64.dll .\FSET
 
 :: copy over the Scenproc Scripts
 xcopy /I .\Scenproc_scripts .\FSET\Scenproc_scripts
