@@ -265,7 +265,7 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
-        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
+        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, double pixelsPerLon, double pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
         {
             foreach (Way<AutomaticWaterMasking.Point> way in polygons)
             {
@@ -365,7 +365,7 @@ namespace FSEarthTilesInternalDLL
         {
             List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
             string OSMXML = File.ReadAllText(polyFilePath);
-            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = AreaKMLFromOSMDataCreator.GetWays(OSMXML, true);
+            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
 
             return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
         }
@@ -379,7 +379,7 @@ namespace FSEarthTilesInternalDLL
             while (File.Exists(polyFilePath + "[" + i + "]"))
             {
                 string OSMXML = File.ReadAllText(polyFilePath + "[" + i + "]");
-                Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = AreaKMLFromOSMDataCreator.GetWays(OSMXML, true);
+                Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
                 inlandPolys.Add(new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray()));
                 i++;
             }
