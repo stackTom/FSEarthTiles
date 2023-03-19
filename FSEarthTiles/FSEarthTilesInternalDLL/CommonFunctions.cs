@@ -265,7 +265,7 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
-        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, double pixelsPerLon, double pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
+        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
         {
             foreach (Way<AutomaticWaterMasking.Point> way in polygons)
             {

@@ -2421,13 +2421,13 @@ namespace FSEarthTilesDLL
                         List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
                             new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
                         };
-                        DownloadArea d = new DownloadArea(tile[1] + 0, tile[1] + 1, tile[0] + 1, tile[0] + 0);
+                        DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
                         Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
-                        viewPort.Add(new AutomaticWaterMasking.Point(tile[1], tile[0] + 1));
-                        viewPort.Add(new AutomaticWaterMasking.Point(tile[1] + 1, tile[0] + 1));
-                        viewPort.Add(new AutomaticWaterMasking.Point((tile[1] + 1), tile[0]));
-                        viewPort.Add(new AutomaticWaterMasking.Point(tile[1], tile[0]));
-                        viewPort.Add(new AutomaticWaterMasking.Point(tile[1], tile[0] + 1));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
                         Console.WriteLine("Downloading OSM coast and inland water data. As well as computing water polygons from this data; this can take a while, please wait");
                         WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
 
@@ -9520,13 +9520,13 @@ namespace FSEarthTilesDLL
                 pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
             }
 
-            double NWCornerLat = startLat;
-            double NWCornerLong = startLong;
+            decimal NWCornerLat = (decimal)startLat;
+            decimal NWCornerLong = (decimal)startLong;
             AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat);
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
-            double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
-            double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
+            decimal vPixelPerLongitude = (decimal)(Convert.ToDouble(pixelsInX) / (stopLong - startLong));
+            decimal vPixelPerLatitude = (decimal)(Convert.ToDouble(pixelsInY) / (stopLat - startLat));
 
             GetPolys(startLong, stopLong, startLat, stopLat);
             bool allWater = false;
