@@ -2433,7 +2433,6 @@ namespace FSEarthTilesDLL
 
                         WritePolysToFile(coastPolys, polyFilesPaths[0]);
                         WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
-                        break;
                     }
                 }
                 FreeConsole();
