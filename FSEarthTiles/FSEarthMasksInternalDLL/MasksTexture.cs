@@ -4745,28 +4745,11 @@ namespace FSEarthMasksInternalDLL
                 {
                     Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlueToWhite);
                 }
+                decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
+                decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
+                AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
+                bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
 
-                foreach (MaskingPolys polys in allMaskingPolys)
-                {
-                    decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
-                    decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
-                    AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
-                    b = new SolidBrush(Color.Black);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
-                    for (int i = 0; i < polys.inlandPolygons.Length; i++)
-                    {
-                        if (i % 2 == 0)
-                        {
-                            b = new SolidBrush(Color.Black);
-                            CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                        }
-                        else
-                        {
-                            b = new SolidBrush(Color.White);
-                            CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                        }
-                    }
-                }
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks

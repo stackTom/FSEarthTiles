@@ -9528,41 +9528,17 @@ namespace FSEarthTilesDLL
             decimal vPixelPerLatitude = (decimal)(Convert.ToDouble(pixelsInY) / (stopLat - startLat));
 
             GetPolys(startLong, stopLong, startLat, stopLat);
-            bool allWater = false;
-            using (Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+            List<MaskingPolys> allMaskingPolys = new List<MaskingPolys>();
+            List<double[]> polyTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            foreach (double[] meshTile in polyTilesForArea)
             {
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    SolidBrush b = new SolidBrush(Color.Black);
-                    g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
-
-                    List<double[]> polyTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-                    foreach (double[] meshTile in polyTilesForArea)
-                    {
-                        string key = meshTile[0] + "," + meshTile[1];
-                        MaskingPolys mp = polysCache[key];
-                        b = new SolidBrush(Color.Black);
-                        CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.coastWaterPolygons);
-                        for (int i = 0; i < mp.inlandPolygons.Length; i++)
-                        {
-                            if (i % 2 == 0)
-                            {
-                                b = new SolidBrush(Color.Black);
-                                CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons[i]);
-                            }
-                            else
-                            {
-                                b = new SolidBrush(Color.White);
-                                CommonFunctions.DrawPolygons(bmp, g, b, vPixelPerLongitude, vPixelPerLatitude, NW, mp.inlandPolygons[i]);
-                            }
-                        }
-                    }
-
-                    allWater = CommonFunctions.BitmapAllBlack(bmp);
-                }
+                string key = meshTile[0] + "," + meshTile[1];
+                MaskingPolys mp = polysCache[key];
+                allMaskingPolys.Add(mp);
             }
+            Bitmap bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, pixelsInX, pixelsInY, new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat), vPixelPerLongitude, vPixelPerLatitude, null, null);
 
-            return allWater;
+            return CommonFunctions.BitmapAllBlack(bmp);
         }
 
         private Boolean CheckIfAreaIsEnabled()

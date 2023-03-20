@@ -284,6 +284,43 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
+        public static Bitmap DrawWaterMaskBMP(List<MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
+        {
+            bool createdNewGraphics = false;
+            SolidBrush b = null;
+            if (bmp == null)
+            {
+                bmp = new Bitmap(pixelsX, pixelsY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                g = Graphics.FromImage(bmp);
+                g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+                createdNewGraphics = true;
+            }
+            foreach (MaskingPolys polys in allMaskingPolys)
+            {
+                b = new SolidBrush(Color.Black);
+                CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
+                for (int i = 0; i < polys.inlandPolygons.Length; i++)
+                {
+                    if (i % 2 == 0)
+                    {
+                        b = new SolidBrush(Color.Black);
+                        CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                    }
+                    else
+                    {
+                        b = new SolidBrush(Color.White);
+                        CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                    }
+                }
+            }
+            if (createdNewGraphics)
+            {
+                g.Dispose();
+            }
+
+            return bmp;
+        }
+
         public static bool BitmapAllBlack(Bitmap bmp)
         {
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
