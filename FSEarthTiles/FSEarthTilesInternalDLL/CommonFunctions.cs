@@ -265,7 +265,7 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
-        public static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
+        private static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
         {
             foreach (Way<AutomaticWaterMasking.Point> way in polygons)
             {
@@ -284,7 +284,32 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        public static Bitmap DrawWaterMaskBMP(List<MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
+        private static bool DrawLayeredPolygons(MaskingPolys polys, Bitmap bmp, Graphics g, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat)
+        {
+            SolidBrush b = null;
+            bool drewOtherPolygon = false;
+            for (int i = 0; i < polys.inlandPolygons.Length; i++)
+            {
+                if (polys.inlandPolygons[i].Count > 0)
+                {
+                    drewOtherPolygon = true;
+                }
+                if (i % 2 == 0)
+                {
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                }
+                else
+                {
+                    b = new SolidBrush(Color.White);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                }
+            }
+
+            return drewOtherPolygon;
+        }
+
+        public static Bitmap DrawWaterMaskBMP(Dictionary<double[], MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
         {
             bool createdNewGraphics = false;
             SolidBrush b = null;
@@ -295,24 +320,55 @@ namespace FSEarthTilesInternalDLL
                 g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
                 createdNewGraphics = true;
             }
-            foreach (MaskingPolys polys in allMaskingPolys)
+            Dictionary<double[], MaskingPolys> suspiciousCoasts = new Dictionary<double[], MaskingPolys>();
+            bool hasAtLeastSomeOtherPoly = false;
+            foreach (KeyValuePair<double[], MaskingPolys> kv in allMaskingPolys)
             {
-                b = new SolidBrush(Color.Black);
-                CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
-                for (int i = 0; i < polys.inlandPolygons.Length; i++)
+
+                MaskingPolys polys = kv.Value;
+                double[] tile = kv.Key;
+                // first, draw the coast water polygons
+                if (polys.coastWaterPolygons.Count > 0)
                 {
-                    if (i % 2 == 0)
-                    {
-                        b = new SolidBrush(Color.Black);
-                        CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                    }
-                    else
-                    {
-                        b = new SolidBrush(Color.White);
-                        CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                    }
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
+                }
+                else
+                {
+                    // but not the ones in tiles with no coast water polygon
+                    suspiciousCoasts.Add(tile, polys);
+                }
+                // now, draw the layeredpolygons. and see if at least another polygon was drawn
+                if (DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat))
+                {
+                    hasAtLeastSomeOtherPoly = true;
                 }
             }
+
+            if (hasAtLeastSomeOtherPoly)
+            {
+                // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
+                // if the tile had at least some other polygon drawn, then the suspicious tile, which should be white (aka all land) (from above where the tile was drawn white and with no coastWaterPolygon drawn...)
+                // should be switched to black as the tile represents a tile in the middle of the ocean)
+                foreach (KeyValuePair<double[], MaskingPolys> kv in suspiciousCoasts)
+                {
+                    List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
+                    double[] tile = kv.Key;
+                    MaskingPolys polys = kv.Value;
+                    Way<AutomaticWaterMasking.Point> tileExtent = new Way<AutomaticWaterMasking.Point>();
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                    coastWaterPolygons.Add(tileExtent);
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, coastWaterPolygons);
+                    // redraw the layered polygons for this tile
+                    DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
+                }
+            }
+
             if (createdNewGraphics)
             {
                 g.Dispose();
@@ -424,10 +480,10 @@ namespace FSEarthTilesInternalDLL
             return inlandPolys.ToArray();
         }
 
-        public static List<MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
+        public static Dictionary<double[], MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
             List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-            List<MaskingPolys> allPolys = new List<MaskingPolys>();
+            Dictionary<double[], MaskingPolys> allPolys = new Dictionary<double[], MaskingPolys>();
 
             foreach (double[] tile in tilesDownloaded)
             {
@@ -436,7 +492,7 @@ namespace FSEarthTilesInternalDLL
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                 mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
                 mp.tileName = CommonFunctions.GetTileName(tile);
-                allPolys.Add(mp);
+                allPolys.Add(tile, mp);
             }
 
             return allPolys;

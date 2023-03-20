@@ -2858,7 +2858,7 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private List<MaskingPolys> ReadAllPolyFiles()
+        private Dictionary<double[], MaskingPolys> ReadAllPolyFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude;
             double stopLong = MasksConfig.mAreaSECornerLongitude;
@@ -4714,7 +4714,7 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
-            List<MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
+            Dictionary<double[], MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -4749,7 +4749,6 @@ namespace FSEarthMasksInternalDLL
                 decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
                 AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
                 bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
-
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks

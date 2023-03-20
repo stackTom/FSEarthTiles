@@ -9528,13 +9528,13 @@ namespace FSEarthTilesDLL
             decimal vPixelPerLatitude = (decimal)(Convert.ToDouble(pixelsInY) / (stopLat - startLat));
 
             GetPolys(startLong, stopLong, startLat, stopLat);
-            List<MaskingPolys> allMaskingPolys = new List<MaskingPolys>();
+            Dictionary<double[], MaskingPolys> allMaskingPolys = new Dictionary<double[], MaskingPolys>();
             List<double[]> polyTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-            foreach (double[] meshTile in polyTilesForArea)
+            foreach (double[] tile in polyTilesForArea)
             {
-                string key = meshTile[0] + "," + meshTile[1];
+                string key = tile[0] + "," + tile[1];
                 MaskingPolys mp = polysCache[key];
-                allMaskingPolys.Add(mp);
+                allMaskingPolys.Add(tile, mp);
             }
             Bitmap bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, pixelsInX, pixelsInY, new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat), vPixelPerLongitude, vPixelPerLatitude, null, null);
 
