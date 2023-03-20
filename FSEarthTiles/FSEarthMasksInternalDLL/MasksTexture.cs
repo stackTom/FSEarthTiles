@@ -4714,6 +4714,7 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
+            iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Reading polygon files...");
             Dictionary<double[], MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
