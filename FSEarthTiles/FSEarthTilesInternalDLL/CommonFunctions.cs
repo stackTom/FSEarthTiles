@@ -284,16 +284,11 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        private static bool DrawLayeredPolygons(MaskingPolys polys, Bitmap bmp, Graphics g, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat)
+        private static void DrawLayeredPolygons(MaskingPolys polys, Bitmap bmp, Graphics g, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat)
         {
             SolidBrush b = null;
-            bool drewOtherPolygon = false;
             for (int i = 0; i < polys.inlandPolygons.Length; i++)
             {
-                if (polys.inlandPolygons[i].Count > 0)
-                {
-                    drewOtherPolygon = true;
-                }
                 if (i % 2 == 0)
                 {
                     b = new SolidBrush(Color.Black);
@@ -305,8 +300,105 @@ namespace FSEarthTilesInternalDLL
                     CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
                 }
             }
+        }
 
-            return drewOtherPolygon;
+        private static void ClampPixelToImg(AutomaticWaterMasking.Point pixel, Bitmap bmp)
+        {
+            if (pixel.X < 0)
+            {
+                pixel.X = 0;
+            }
+            if (pixel.X >= bmp.Width)
+            {
+                pixel.X = bmp.Width - 1;
+            }
+            if (pixel.Y < 0)
+            {
+                pixel.Y = 0;
+            }
+            if (pixel.Y >= bmp.Height)
+            {
+                pixel.Y = bmp.Height - 1;
+            }
+        }
+
+        private static bool TileAdjacentToWater(double[] tile, double[] checkTile, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        {
+            // checkTile is to the north
+            if (checkTile[0] > tile[0])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y - 1).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the south
+            if (checkTile[0] < tile[0])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y + 1).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the east
+            if (checkTile[1] > tile[1])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X + 1, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the west
+            if (checkTile[1] < tile[1])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X - 1, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+
+            return false;
+        }
+
+        // this is so ugly... TODO: the real solution is to make a Tile class and override appropriate methods
+        private static bool ListContainsTile(List<double[]> tiles, double[] tileToCheck)
+        {
+            foreach (double[] tile in tiles)
+            {
+                if (tile[0] == tileToCheck[0] && tile[1] == tileToCheck[1])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // takes a tile which might be all land or all ocean water, and checks adjacent tiles to tell which is the truth
+        private static bool SuspiciousTileAllWater(double[] tile, List<double[]> allTiles, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        {
+            short[] check = { -1, 1 };
+
+            foreach (short x in check)
+            {
+                double[] checkTile = new double[] { tile[0], tile[1] + x };
+                if (ListContainsTile(allTiles, checkTile))
+                {
+                    if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
+                    {
+                        return true;
+                    }
+                }
+            }
+            foreach (short y in check)
+            {
+                double[] checkTile = new double[] { tile[0] + y, tile[1] };
+                if (ListContainsTile(allTiles, checkTile))
+                {
+                    if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         public static Bitmap DrawWaterMaskBMP(Dictionary<double[], MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
@@ -320,8 +412,7 @@ namespace FSEarthTilesInternalDLL
                 g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
                 createdNewGraphics = true;
             }
-            Dictionary<double[], MaskingPolys> suspiciousCoasts = new Dictionary<double[], MaskingPolys>();
-            bool hasAtLeastSomeOtherPoly = false;
+            Dictionary<double[], MaskingPolys> ambiguousTiles = new Dictionary<double[], MaskingPolys>();
             foreach (KeyValuePair<double[], MaskingPolys> kv in allMaskingPolys)
             {
 
@@ -336,25 +427,23 @@ namespace FSEarthTilesInternalDLL
                 else
                 {
                     // but not the ones in tiles with no coast water polygon
-                    suspiciousCoasts.Add(tile, polys);
+                    ambiguousTiles.Add(tile, polys);
                 }
-                // now, draw the layeredpolygons. and see if at least another polygon was drawn
-                if (DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat))
-                {
-                    hasAtLeastSomeOtherPoly = true;
-                }
+
+                // now, draw the layeredpolygons
+                DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
             }
 
-            if (hasAtLeastSomeOtherPoly)
+            // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
+            List<double[]> allTiles = allMaskingPolys.Keys.ToList();
+            foreach (KeyValuePair<double[], MaskingPolys> kv in ambiguousTiles)
             {
-                // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
-                // if the tile had at least some other polygon drawn, then the suspicious tile, which should be white (aka all land) (from above where the tile was drawn white and with no coastWaterPolygon drawn...)
-                // should be switched to black as the tile represents a tile in the middle of the ocean)
-                foreach (KeyValuePair<double[], MaskingPolys> kv in suspiciousCoasts)
+                List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
+                double[] tile = kv.Key;
+                MaskingPolys polys = kv.Value;
+                if (SuspiciousTileAllWater(tile, allTiles, NW, pixelsPerLon, pixelsPerLat, bmp))
                 {
-                    List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
-                    double[] tile = kv.Key;
-                    MaskingPolys polys = kv.Value;
+                    // if all water, draw the extent of this tile as all black. if not all water, the extent will already be all white...
                     Way<AutomaticWaterMasking.Point> tileExtent = new Way<AutomaticWaterMasking.Point>();
                     tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
                     tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
