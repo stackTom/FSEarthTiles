@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="Current">
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <StartArguments>"F:\ortho4xpvm\fset-103\FSET\working\AreaEarthInfo_Lp8_SnapOff_N060200614_N059393366_E004362575_E006342534.txt</StartArguments>
+    <StartArguments>"F:\ortho4xpvm\fset-103\FSET\working\AreaEarthInfo_Lp8_SnapOff_N060200614_N059393366_E004362575_E006342534.txt"</StartArguments>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
   </PropertyGroup>

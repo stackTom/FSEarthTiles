@@ -17,7 +17,7 @@ namespace FSEarthTilesInternalDLL
         public Double mY;
     }
 
-    public struct MaskingPolys
+    public class MaskingPolys
     {
         public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
         public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
@@ -357,28 +357,32 @@ namespace FSEarthTilesInternalDLL
         }
 
         // this is so ugly... TODO: the real solution is to make a Tile class and override appropriate methods
-        private static bool ListContainsTile(List<double[]> tiles, double[] tileToCheck)
+        private static MaskingPolys DictContainsTile(Dictionary<double[], MaskingPolys> tilesDict, double[] tileToCheck)
         {
-            foreach (double[] tile in tiles)
+            MaskingPolys mp = null;
+            foreach (KeyValuePair<double[], MaskingPolys> kv in tilesDict)
             {
+                double[] tile = kv.Key;
+                mp = kv.Value;
                 if (tile[0] == tileToCheck[0] && tile[1] == tileToCheck[1])
                 {
-                    return true;
+                    return mp;
                 }
             }
 
-            return false;
+            return null;
         }
 
         // takes a tile which might be all land or all ocean water, and checks adjacent tiles to tell which is the truth
-        private static bool SuspiciousTileAllWater(double[] tile, List<double[]> allTiles, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        private static bool AmbiguousTileAllWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
         {
             short[] check = { -1, 1 };
-
             foreach (short x in check)
             {
                 double[] checkTile = new double[] { tile[0], tile[1] + x };
-                if (ListContainsTile(allTiles, checkTile))
+                MaskingPolys mp = DictContainsTile(tilePolysMap, checkTile);
+                // only use this tile to check for ambiguity if this tile has coast water polygons...
+                if (mp != null && mp.coastWaterPolygons.Count > 0)
                 {
                     if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
                     {
@@ -389,7 +393,9 @@ namespace FSEarthTilesInternalDLL
             foreach (short y in check)
             {
                 double[] checkTile = new double[] { tile[0] + y, tile[1] };
-                if (ListContainsTile(allTiles, checkTile))
+                MaskingPolys mp = DictContainsTile(tilePolysMap, checkTile);
+                // only use this tile to check for ambiguity if this tile has coast water polygons...
+                if (mp != null && mp.coastWaterPolygons.Count > 0)
                 {
                     if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
                     {
@@ -435,13 +441,12 @@ namespace FSEarthTilesInternalDLL
             }
 
             // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
-            List<double[]> allTiles = allMaskingPolys.Keys.ToList();
             foreach (KeyValuePair<double[], MaskingPolys> kv in ambiguousTiles)
             {
                 List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
                 double[] tile = kv.Key;
                 MaskingPolys polys = kv.Value;
-                if (SuspiciousTileAllWater(tile, allTiles, NW, pixelsPerLon, pixelsPerLat, bmp))
+                if (AmbiguousTileAllWater(tile, allMaskingPolys, NW, pixelsPerLon, pixelsPerLat, bmp))
                 {
                     // if all water, draw the extent of this tile as all black. if not all water, the extent will already be all white...
                     Way<AutomaticWaterMasking.Point> tileExtent = new Way<AutomaticWaterMasking.Point>();
@@ -577,7 +582,7 @@ namespace FSEarthTilesInternalDLL
             foreach (double[] tile in tilesDownloaded)
             {
                 string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
-                MaskingPolys mp;
+                MaskingPolys mp = new MaskingPolys();
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                 mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
                 mp.tileName = CommonFunctions.GetTileName(tile);

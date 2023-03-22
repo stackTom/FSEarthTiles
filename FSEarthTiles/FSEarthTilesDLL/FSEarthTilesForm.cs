@@ -9492,7 +9492,7 @@ namespace FSEarthTilesDLL
                 if (!polysCache.ContainsKey(key))
                 {
                     string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
-                    MaskingPolys mp;
+                    MaskingPolys mp = new MaskingPolys();
                     mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                     mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
                     mp.tileName = CommonFunctions.GetTileName(tile);
