@@ -2412,14 +2412,14 @@ namespace FSEarthTilesDLL
                         Directory.CreateDirectory(directory);
                     }
                     bool shouldRebuildPolyFiles = !File.Exists(polyFilesPaths[0]) || !File.Exists(polyFilesPaths[1] + "[0]")
-                        || !File.Exists(polyFilesPaths[1] + "[1]") || !File.Exists(polyFilesPaths[1] + "[2]") || !File.Exists(polyFilesPaths[1] + "[3]");
+                        || !File.Exists(polyFilesPaths[1] + "[1]") || !File.Exists(polyFilesPaths[1] + "[2]");
                     if (shouldRebuildPolyFiles)
                     {
                         string tileName = CommonFunctions.GetTileName(tile);
                         SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
                         List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
                         List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
-                            new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
+                            new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
                         };
                         DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
                         Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
