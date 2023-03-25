@@ -2378,7 +2378,6 @@ namespace FSEarthTilesDLL
         {
             try
             {
-                AllocConsole();
                 // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
                 // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
                 // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception
@@ -2435,13 +2434,11 @@ namespace FSEarthTilesDLL
                         WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
                     }
                 }
-                FreeConsole();
             }
             catch (ThreadAbortException)
             {
                 mAreaProcessRunning = false;
                 creatingWaterPolyFile = false;
-                FreeConsole();
             }
         }
 
@@ -5622,6 +5619,7 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
 
+                                    AllocConsole();
                                     // we only need these queues for fsx/p3d/fs9. also, not initializing them
                                     // is a signal that they aren't up and working
                                     mMasksCompilerMultithreadedQueue = null;
@@ -7695,12 +7693,14 @@ namespace FSEarthTilesDLL
                     {
                         // scenproc wasn't running, or it was but now it's not
                         SetStatus("Done.");
+                        FreeConsole();
                         scenProcWasRunning = false;
                         mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                     }
                     else
                     {
                         SetStatus("Done.");
+                        FreeConsole();
                         mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                     }
                 }
