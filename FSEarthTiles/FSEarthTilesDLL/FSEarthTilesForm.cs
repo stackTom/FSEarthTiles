@@ -2428,7 +2428,19 @@ namespace FSEarthTilesDLL
                         viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
                         viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
                         Console.WriteLine("Downloading OSM coast and inland water data. As well as computing water polygons from this data; this can take a while, please wait");
-                        WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
+                        try
+                        {
+                            WaterMasking.GetPolygons(coastPolys, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
+                        }
+                        catch (Exception e)
+                        {
+                            string message = "Something went wrong while creating water mask polygons for tile " + tileName + @". Either something is wrong with the data, or there is a bug with FSET! If something is wrong with the data, you can try editing it in JOSM.";
+                            message += " Please post this error message here https://github.com/stackTom/AutomaticWaterMasking/issues";
+                            MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            AbortDownload();
+
+                            return;
+                        }
 
                         WritePolysToFile(coastPolys, polyFilesPaths[0]);
                         WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[1]);
