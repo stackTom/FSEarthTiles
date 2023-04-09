@@ -380,6 +380,12 @@ namespace FSEarthTilesInternalDLL
         // takes a tile which might be all land or all ocean water, and checks adjacent tiles to tell which is the truth
         private static bool AmbiguousTileAllWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
         {
+            MaskingPolys thisTileMaskingPolys = tilePolysMap[tile];
+            if (thisTileMaskingPolys.coastWaterPolygons.Count == 0 && thisTileMaskingPolys.inlandPolygons[1].Count > 0)
+            {
+                return true;
+            }
+
             short[] check = { -1, 1 };
             foreach (short x in check)
             {
