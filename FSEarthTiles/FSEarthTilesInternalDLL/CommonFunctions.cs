@@ -328,29 +328,33 @@ namespace FSEarthTilesInternalDLL
             if (checkTile[0] > tile[0])
             {
                 AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.Y--;
                 ClampPixelToImg(pixel, bmp);
-                return bmp.GetPixel((int)pixel.X, (int)pixel.Y - 1).ToArgb() == Color.Black.ToArgb();
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
             }
             // checkTile is to the south
             if (checkTile[0] < tile[0])
             {
                 AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.Y++;
                 ClampPixelToImg(pixel, bmp);
-                return bmp.GetPixel((int)pixel.X, (int)pixel.Y + 1).ToArgb() == Color.Black.ToArgb();
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
             }
             // checkTile is to the east
             if (checkTile[1] > tile[1])
             {
                 AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.X++;
                 ClampPixelToImg(pixel, bmp);
-                return bmp.GetPixel((int)pixel.X + 1, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
             }
             // checkTile is to the west
             if (checkTile[1] < tile[1])
             {
                 AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.X--;
                 ClampPixelToImg(pixel, bmp);
-                return bmp.GetPixel((int)pixel.X - 1, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
             }
 
             return false;
