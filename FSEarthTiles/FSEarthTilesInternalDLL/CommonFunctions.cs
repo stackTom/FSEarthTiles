@@ -20,6 +20,7 @@ namespace FSEarthTilesInternalDLL
     public class MaskingPolys
     {
         public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
+        public List<Way<AutomaticWaterMasking.Point>> islands;
         public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
         public string tileName;
 
@@ -72,6 +73,7 @@ namespace FSEarthTilesInternalDLL
             string[] paths = new string[]
             {
                 dataPath + "CoastWaterPolys.OSM",
+                dataPath + "IslandPolys.OSM",
                 dataPath + "InlandPolys.OSM",
             };
 
@@ -378,14 +380,24 @@ namespace FSEarthTilesInternalDLL
         }
 
         // takes a tile which might be all land or all ocean water, and checks adjacent tiles to tell which is the truth
-        private static bool AmbiguousTileAllWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        private static bool AmbiguousTileHasSeaWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
         {
             MaskingPolys thisTileMaskingPolys = tilePolysMap[tile];
-            if (thisTileMaskingPolys.coastWaterPolygons.Count == 0 && thisTileMaskingPolys.inlandPolygons[1].Count > 0)
+            // has islands? the base of the tile should be water as a base(black)
+            if (thisTileMaskingPolys.islands.Count > 0)
             {
                 return true;
             }
+            // by now, coastwater polys are 0. if we have some inland polys, then this tile should be water as a base (black)
+            foreach (List<Way<AutomaticWaterMasking.Point>> inlandPolys in thisTileMaskingPolys.inlandPolygons)
+            {
+                if (inlandPolys.Count > 1)
+                {
+                    return false;
+                }
+            }
 
+            // no coast water polys, no inland polys (think the middle of the dessert), so look at adjacent tiles
             short[] check = { -1, 1 };
             foreach (short x in check)
             {
@@ -446,6 +458,9 @@ namespace FSEarthTilesInternalDLL
                     ambiguousTiles.Add(tile, polys);
                 }
 
+                // now draw the islands
+                b = new SolidBrush(Color.White);
+                CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
                 // now, draw the layeredpolygons
                 DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
             }
@@ -456,7 +471,7 @@ namespace FSEarthTilesInternalDLL
                 List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
                 double[] tile = kv.Key;
                 MaskingPolys polys = kv.Value;
-                if (AmbiguousTileAllWater(tile, allMaskingPolys, NW, pixelsPerLon, pixelsPerLat, bmp))
+                if (AmbiguousTileHasSeaWater(tile, allMaskingPolys, NW, pixelsPerLon, pixelsPerLat, bmp))
                 {
                     // if all water, draw the extent of this tile as all black. if not all water, the extent will already be all white...
                     Way<AutomaticWaterMasking.Point> tileExtent = new Way<AutomaticWaterMasking.Point>();
@@ -468,6 +483,9 @@ namespace FSEarthTilesInternalDLL
                     coastWaterPolygons.Add(tileExtent);
                     b = new SolidBrush(Color.Black);
                     CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, coastWaterPolygons);
+                    // redraw the islands
+                    b = new SolidBrush(Color.White);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
                     // redraw the layered polygons for this tile
                     DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
                 }
@@ -594,7 +612,8 @@ namespace FSEarthTilesInternalDLL
                 string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
                 MaskingPolys mp = new MaskingPolys();
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
-                mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[1]);
+                mp.islands = CommonFunctions.ReadPolyFile(polyPaths[1]);
+                mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[2]);
                 mp.tileName = CommonFunctions.GetTileName(tile);
                 allPolys.Add(tile, mp);
             }
