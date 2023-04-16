@@ -158,11 +158,6 @@ namespace FSEarthTilesInternalDLL
             }
         }
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int AllocConsole();
-        [DllImport("kernel32.dll", SetLastError = true)]
-        internal static extern int FreeConsole();
-
         // for all these scenproc functions, we pass an EarthMultiArea because this is always the full area. FSEarthTilesForm mEarthArea
         // initially has the same coordinates as the mEarthMuliArea, but then it gets overwritten to the individual reference areas it is building
         // we now call these functions before mEarthArea has been overwritten, but I want to make this API change in case we want to call these
@@ -191,7 +186,6 @@ namespace FSEarthTilesInternalDLL
         public static void TellScenprocToTerminate()
         {
             shouldStop = true;
-            FreeConsole();
             ScenProcRunning = false;
         }
 
@@ -202,7 +196,6 @@ namespace FSEarthTilesInternalDLL
 
         public static void RunScenproc(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
-            AllocConsole();
             // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
             // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
             // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception
@@ -264,7 +257,6 @@ namespace FSEarthTilesInternalDLL
             {
                 runningTiles.Remove(tileStr);
             }
-            FreeConsole();
         }
     }
 }

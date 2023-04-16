@@ -81,6 +81,10 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\AutomaticWaterMasking\AutomaticWaterMasking\AutomaticWaterMasking.csproj">
+      <Project>{ac939769-c6fe-40f2-9566-444f86a77772}</Project>
+      <Name>AutomaticWaterMasking</Name>
+    </ProjectReference>
     <ProjectReference Include="..\FSEarthTilesInternalDLL\FSEarthTilesInternalDLL.csproj">
       <Project>{6EA9EBED-689A-40B1-9872-9E456458DFA0}</Project>
       <Name>FSEarthTilesInternalDLL</Name>

@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using AutomaticWaterMasking;
 
 namespace FSEarthTilesInternalDLL
 {
@@ -14,6 +16,20 @@ namespace FSEarthTilesInternalDLL
         public Double mX;
         public Double mY;
     }
+
+    public class MaskingPolys
+    {
+        public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
+        public List<Way<AutomaticWaterMasking.Point>> islands;
+        public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
+        public string tileName;
+
+        public override string ToString()
+        {
+            return tileName;
+        }
+    }
+
 
     public class CommonFunctions
     {
@@ -50,11 +66,18 @@ namespace FSEarthTilesInternalDLL
             return GetTilesPath(workFolder) + @"\" + tileName;
         }
 
-        public static string GetMeshFileFullPath(string workFolder, double[] tile)
+        public static string[] GetPolyFilesFullPath(string workFolder, double[] tile)
         {
             string tileName = CommonFunctions.GetTileName(tile);
+            string dataPath = GetTilePath(workFolder, tile) + @"\";
+            string[] paths = new string[]
+            {
+                dataPath + "CoastWaterPolys.OSM",
+                dataPath + "IslandPolys.OSM",
+                dataPath + "InlandPolys.OSM",
+            };
 
-            return GetTilePath(workFolder, tile) + @"\Data" + tileName + ".mesh";
+            return paths;
         }
 
         public static List<double[]> GetTilesToDownload(double startLong, double stopLong, double startLat, double stopLat)
@@ -244,6 +267,238 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
+        private static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
+        {
+            foreach (Way<AutomaticWaterMasking.Point> way in polygons)
+            {
+
+                List<PointF> l = new List<PointF>();
+                for (int i = 0; i < way.Count - 1; i++) // FillPolygon polygons don't need last AutomaticWaterMasking.Point, hence - 1
+                {
+                    AutomaticWaterMasking.Point p = way[i];
+                    AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel(p.Y, p.X, NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+
+                    l.Add(new PointF((float)pixel.X, (float)pixel.Y));
+                }
+                PointF[] pf = l.ToArray();
+                g.FillPolygon(b, pf);
+
+            }
+        }
+
+        private static void DrawLayeredPolygons(MaskingPolys polys, Bitmap bmp, Graphics g, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat)
+        {
+            SolidBrush b = null;
+            for (int i = 0; i < polys.inlandPolygons.Length; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                }
+                else
+                {
+                    b = new SolidBrush(Color.White);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
+                }
+            }
+        }
+
+        private static void ClampPixelToImg(AutomaticWaterMasking.Point pixel, Bitmap bmp)
+        {
+            if (pixel.X < 0)
+            {
+                pixel.X = 0;
+            }
+            if (pixel.X >= bmp.Width)
+            {
+                pixel.X = bmp.Width - 1;
+            }
+            if (pixel.Y < 0)
+            {
+                pixel.Y = 0;
+            }
+            if (pixel.Y >= bmp.Height)
+            {
+                pixel.Y = bmp.Height - 1;
+            }
+        }
+
+        private static bool TileAdjacentToWater(double[] tile, double[] checkTile, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        {
+            // checkTile is to the north
+            if (checkTile[0] > tile[0])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.Y--;
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the south
+            if (checkTile[0] < tile[0])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.Y++;
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the east
+            if (checkTile[1] > tile[1])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)checkTile[0], (decimal)checkTile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.X++;
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+            // checkTile is to the west
+            if (checkTile[1] < tile[1])
+            {
+                AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel((decimal)tile[0], (decimal)tile[1], NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
+                pixel.X--;
+                ClampPixelToImg(pixel, bmp);
+                return bmp.GetPixel((int)pixel.X, (int)pixel.Y).ToArgb() == Color.Black.ToArgb();
+            }
+
+            return false;
+        }
+
+        // this is so ugly... TODO: the real solution is to make a Tile class and override appropriate methods
+        private static MaskingPolys DictContainsTile(Dictionary<double[], MaskingPolys> tilesDict, double[] tileToCheck)
+        {
+            MaskingPolys mp = null;
+            foreach (KeyValuePair<double[], MaskingPolys> kv in tilesDict)
+            {
+                double[] tile = kv.Key;
+                mp = kv.Value;
+                if (tile[0] == tileToCheck[0] && tile[1] == tileToCheck[1])
+                {
+                    return mp;
+                }
+            }
+
+            return null;
+        }
+
+        // takes a tile which might be all land or all ocean water, and checks adjacent tiles to tell which is the truth
+        private static bool AmbiguousTileHasSeaWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
+        {
+            MaskingPolys thisTileMaskingPolys = tilePolysMap[tile];
+            // has islands? the base of the tile should be water as a base(black)
+            if (thisTileMaskingPolys.islands.Count > 0)
+            {
+                return true;
+            }
+            // by now, coastwater polys are 0. if we have some inland polys, then this tile should be water as a base (black)
+            foreach (List<Way<AutomaticWaterMasking.Point>> inlandPolys in thisTileMaskingPolys.inlandPolygons)
+            {
+                if (inlandPolys.Count > 1)
+                {
+                    return false;
+                }
+            }
+
+            // no coast water polys, no inland polys (think the middle of the dessert), so look at adjacent tiles
+            short[] check = { -1, 1 };
+            foreach (short x in check)
+            {
+                double[] checkTile = new double[] { tile[0], tile[1] + x };
+                MaskingPolys mp = DictContainsTile(tilePolysMap, checkTile);
+                // only use this tile to check for ambiguity if this tile has coast water polygons...
+                if (mp != null && mp.coastWaterPolygons.Count > 0)
+                {
+                    if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
+                    {
+                        return true;
+                    }
+                }
+            }
+            foreach (short y in check)
+            {
+                double[] checkTile = new double[] { tile[0] + y, tile[1] };
+                MaskingPolys mp = DictContainsTile(tilePolysMap, checkTile);
+                // only use this tile to check for ambiguity if this tile has coast water polygons...
+                if (mp != null && mp.coastWaterPolygons.Count > 0)
+                {
+                    if (TileAdjacentToWater(tile, checkTile, NW, pixelsPerLon, pixelsPerLat, bmp))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public static Bitmap DrawWaterMaskBMP(Dictionary<double[], MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
+        {
+            bool createdNewGraphics = false;
+            SolidBrush b = null;
+            if (bmp == null)
+            {
+                bmp = new Bitmap(pixelsX, pixelsY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                g = Graphics.FromImage(bmp);
+                g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+                createdNewGraphics = true;
+            }
+            Dictionary<double[], MaskingPolys> ambiguousTiles = new Dictionary<double[], MaskingPolys>();
+            foreach (KeyValuePair<double[], MaskingPolys> kv in allMaskingPolys)
+            {
+
+                MaskingPolys polys = kv.Value;
+                double[] tile = kv.Key;
+                // first, draw the coast water polygons
+                if (polys.coastWaterPolygons.Count > 0)
+                {
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
+                }
+                else
+                {
+                    // but not the ones in tiles with no coast water polygon
+                    ambiguousTiles.Add(tile, polys);
+                }
+
+                // now draw the islands
+                b = new SolidBrush(Color.White);
+                CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
+                // now, draw the layeredpolygons
+                DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
+            }
+
+            // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
+            foreach (KeyValuePair<double[], MaskingPolys> kv in ambiguousTiles)
+            {
+                List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons = new List<Way<AutomaticWaterMasking.Point>>();
+                double[] tile = kv.Key;
+                MaskingPolys polys = kv.Value;
+                if (AmbiguousTileHasSeaWater(tile, allMaskingPolys, NW, pixelsPerLon, pixelsPerLat, bmp))
+                {
+                    // if all water, draw the extent of this tile as all black. if not all water, the extent will already be all white...
+                    Way<AutomaticWaterMasking.Point> tileExtent = new Way<AutomaticWaterMasking.Point>();
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                    tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                    coastWaterPolygons.Add(tileExtent);
+                    b = new SolidBrush(Color.Black);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, coastWaterPolygons);
+                    // redraw the islands
+                    b = new SolidBrush(Color.White);
+                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
+                    // redraw the layered polygons for this tile
+                    DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
+                }
+            }
+
+            if (createdNewGraphics)
+            {
+                g.Dispose();
+            }
+
+            return bmp;
+        }
+
         public static bool BitmapAllBlack(Bitmap bmp)
         {
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
@@ -314,103 +569,56 @@ namespace FSEarthTilesInternalDLL
             return pixel;
         }
 
-        // this is ported almost verbatim from Ortho4XP's code. I find it very confusing code to read
-        // TODO: try to refactor this into a clearer format. Also, use camel case
-        public static List<PointF[]> ReadMeshFile(string meshFilePath)
+        private static PointF PointToPointF(AutomaticWaterMasking.Point p)
         {
-            System.IO.StreamReader f_mesh = new System.IO.StreamReader(meshFilePath);
-            string[] lineContents = f_mesh.ReadLine().Trim().Split();
-            float mesh_version = Convert.ToSingle(lineContents[lineContents.Length - 1]);
-            int has_water = mesh_version >= 1.3f ? 7 : 3;
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            int nbr_pt_in = Convert.ToInt32(f_mesh.ReadLine());
-            double[] pt_in = new double[5 * nbr_pt_in];
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i; j < 5 * i + 3; j++)
-                {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
-                }
-            }
-            // skip ahead 3
-            for (int i = 0; i < 3; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            for (int i = 0; i < nbr_pt_in; i++)
-            {
-                int lc = 0;
-                lineContents = f_mesh.ReadLine().Split();
-                for (int j = 5 * i + 3; j < 5 * i + 5; j++)
-                {
-                    pt_in[j] = Convert.ToDouble(lineContents[lc]);
-                    lc++;
-                }
-            }
-            // skip ahead 2
-            for (int i = 0; i < 2; i++)
-            {
-                f_mesh.ReadLine();
-            }
-            int nbr_tri_in = Convert.ToInt32(f_mesh.ReadLine());
+            PointF ret = new PointF((float)p.X, (float)p.Y);
 
-            List<PointF[]> tris = new List<PointF[]>();
-
-            for (int i = 0; i < nbr_tri_in; i++)
-            {
-                lineContents = f_mesh.ReadLine().Split();
-                int n1 = Convert.ToInt32(lineContents[0]) - 1;
-                int n2 = Convert.ToInt32(lineContents[1]) - 1;
-                int n3 = Convert.ToInt32(lineContents[2]) - 1;
-                int tri_type = Convert.ToInt32(lineContents[3]) - 1;
-                tri_type += 1;
-
-                bool use_masks_for_inland = true; // possibly allow for changing in the future?
-                if (tri_type == 0 || (tri_type & has_water) == 0 || ((tri_type & has_water) < 2 && !use_masks_for_inland))
-                {
-                    continue;
-                }
-                float lon1 = (float) pt_in[5 * n1];
-                float lat1 = (float) pt_in[5 * n1 + 1];
-                float lon2 = (float) pt_in[5 * n2];
-                float lat2 = (float) pt_in[5 * n2 + 1];
-                float lon3 = (float) pt_in[5 * n3];
-                float lat3 = (float) pt_in[5 * n3 + 1];
-
-                var tri = new PointF[] {
-                    new PointF(lon1, lat1),
-                    new PointF(lon2, lat2),
-                    new PointF(lon3, lat3),
-                    new PointF(lon1, lat1),
-                };
-
-                tris.Add(tri);
-            }
-
-            return tris;
+            return ret;
         }
 
+        public static List<Way<AutomaticWaterMasking.Point>> ReadPolyFile(string polyFilePath)
+        {
+            List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
+            string OSMXML = File.ReadAllText(polyFilePath);
+            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
 
-        public static List<PointF[]> ReadAllMeshFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
+            return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
+        }
+
+        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
+        public static List<Way<AutomaticWaterMasking.Point>>[] ReadLayeredPolyFile(string polyFilePath)
+        {
+            List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
+            int i = 0;
+            List<List<Way<AutomaticWaterMasking.Point>>> inlandPolys = new List<List<Way<AutomaticWaterMasking.Point>>>();
+            while (File.Exists(polyFilePath + "[" + i + "]"))
+            {
+                string OSMXML = File.ReadAllText(polyFilePath + "[" + i + "]");
+                Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
+                inlandPolys.Add(new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray()));
+                i++;
+            }
+
+            return inlandPolys.ToArray();
+        }
+
+        public static Dictionary<double[], MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
             List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-            List<PointF[]> allTris = new List<PointF[]>();
+            Dictionary<double[], MaskingPolys> allPolys = new Dictionary<double[], MaskingPolys>();
 
             foreach (double[] tile in tilesDownloaded)
             {
-                string meshPath = CommonFunctions.GetMeshFileFullPath(mWorkFolder, tile);
-                List<PointF[]> tris = ReadMeshFile(meshPath);
-                allTris.AddRange(tris);
+                string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(mWorkFolder, tile);
+                MaskingPolys mp = new MaskingPolys();
+                mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
+                mp.islands = CommonFunctions.ReadPolyFile(polyPaths[1]);
+                mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[2]);
+                mp.tileName = CommonFunctions.GetTileName(tile);
+                allPolys.Add(tile, mp);
             }
 
-            return allTris;
+            return allPolys;
         }
 
         public static void FixTLS()

@@ -2858,15 +2858,16 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private List<PointF[]> ReadAllMeshFiles()
+        private Dictionary<double[], MaskingPolys> ReadAllPolyFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude;
             double stopLong = MasksConfig.mAreaSECornerLongitude;
             double startLat = MasksConfig.mAreaNWCornerLatitude;
             double stopLat = MasksConfig.mAreaSECornerLatitude;
+
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
-            return CommonFunctions.ReadAllMeshFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
+            return CommonFunctions.ReadWaterPolyFiles(startLong, stopLong, startLat, stopLat, MasksConfig.mWorkFolder);
         }
 
         private tXYCoord ConvertPixelToXYLatLong(tXYCoord iXYPixel)
@@ -4713,7 +4714,8 @@ namespace FSEarthMasksInternalDLL
 
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
-            var tris = ReadAllMeshFiles();
+            iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Reading polygon files...");
+            Dictionary<double[], MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -4744,19 +4746,10 @@ namespace FSEarthMasksInternalDLL
                 {
                     Blend(g, CoordsToPixelRect(NWLat, SELat, NWLon, NWLon + LON_BLEND_WIDTH), LinearGradientMode.Horizontal, BlendGradientStartStopMode.BlueToWhite);
                 }
-
-                foreach (var tri in tris)
-                {
-                    PointF[] convertedTri = new PointF[3];
-                    for (int i = 0; i < convertedTri.Length; i++)
-                    {
-                        PointF toConvert = tri[i];
-                        tXYCoord pixel = CoordToPixel(toConvert.Y, toConvert.X);
-                        convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
-                    }
-
-                    g.FillPolygon(b, convertedTri);
-                }
+                decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
+                decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
+                AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
+                bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks

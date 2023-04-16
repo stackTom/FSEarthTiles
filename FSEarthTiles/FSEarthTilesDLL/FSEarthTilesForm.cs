@@ -16,6 +16,7 @@ using TGASharpLib;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Drawing.Imaging;
+using AutomaticWaterMasking;
 
 //----------------------------------------------------------------------------
 //            FS Earth Tiles  v1.0       HB-100 July 2008
@@ -201,7 +202,7 @@ namespace FSEarthTilesDLL
         EarthArea        mEarthArea;           //The complete snapped Area coords information. That's the description of the Area that will be downloaded
         EarthMultiArea   mEarthMultiArea;      //The complete snapped Multi Area coords information. That's the describtion of the MultiArea that will be downloaded in steps of single Areas
         EarthAreaTexture mEarthAreaTexture;    //The downloaded Texture of the Area
-        EarthArea mLastMeshCreatedEarthArea; // let's us see if we've created mesh for this area already
+        EarthArea mLastWaterPolyCreatedEarthArea; // let's us see if we've created mesh for this area already
         EarthArea mLastCheckedForAllWaterEarthArea; // let's us see if we've checked for AllWater() for this area already
 
         //(Backup Data) Single Reference Area Stored Datas. (Used for Single-Multi Mode change and as Reference Area for Multi)
@@ -326,7 +327,7 @@ namespace FSEarthTilesDLL
         // Imagetool thread
         Thread mImageToolThread;
         // CreateMesh thread
-        Thread mCreateMeshThread;
+        Thread mCreateWaterPolyThread;
         // MSFS compiler thread
         Thread mMSFSCompilerThread;
 
@@ -356,8 +357,8 @@ namespace FSEarthTilesDLL
         System.Windows.Forms.Timer mMainThreadTimer;  //Main Thread Timer
 
         private bool scenProcWasRunning = false;
-        private bool creatingMeshFile = false;
-        private Dictionary<string, List<PointF[]>> meshCache;
+        private bool creatingWaterPolyFile = false;
+        private Dictionary<string, MaskingPolys> polysCache;
         private bool MSFSCompilerWasRunning = false;
 
 
@@ -566,7 +567,7 @@ namespace FSEarthTilesDLL
             mNoTileFound   = vEmptyDummyTileBitmap;
             mTileRequested = vEmptyDummyTileBitmap;
             mTileSkipped   = vEmptyDummyTileBitmap;
-            meshCache = new Dictionary<string, List<PointF[]>>();
+            polysCache = new Dictionary<string, MaskingPolys>();
 
 
 
@@ -2168,7 +2169,7 @@ namespace FSEarthTilesDLL
 
                 //That's right we override the Main EarthArea so we don't have to care about a special separate object handling
                 //The information can be restored at the end of all download processes
-                mLastMeshCreatedEarthArea = mEarthArea;
+                mLastWaterPolyCreatedEarthArea = mEarthArea;
                 mLastCheckedForAllWaterEarthArea = mEarthArea;
                 mEarthArea = mEarthMultiArea.CalculateSingleAreaFormMultiArea(mCurrentAreaInfo, mEarthSingleReferenceArea, EarthConfig.mAreaSnapMode, EarthConfig.mFetchLevel);
 
@@ -2352,10 +2353,38 @@ namespace FSEarthTilesDLL
 
         }
 
-        private void createMeshFiles()
+        private void WritePolysToFile(List<Way<AutomaticWaterMasking.Point>> polys, string fileName)
+        {
+            string OSMXML = OSMXMLParser.WaysToOSMXML(polys);
+            File.WriteAllText(fileName, OSMXML);
+        }
+
+        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
+        private void WriteLayeredPolysToFile(List<Way<AutomaticWaterMasking.Point>>[] polys, string fileName)
+        {
+            for (int i = 0; i < polys.Length; i++)
+            {
+                string OSMXML = OSMXMLParser.WaysToOSMXML(polys[i]);
+                File.WriteAllText(fileName + "[" + i.ToString() + "]", OSMXML);
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int AllocConsole();
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern int FreeConsole();
+
+        private void _CreatePolyFiles()
         {
             try
             {
+                // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
+                // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
+                // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception
+                // see: https://stackoverflow.com/questions/42612872/exception-when-using-console-window-in-a-form-application
+                TextWriter writer = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
+                Console.SetOut(writer);
+                Console.SetIn(new StreamReader(Console.OpenStandardInput()));
                 double startLong = mEarthArea.AreaSnapStartLongitude;
                 double stopLong = mEarthArea.AreaSnapStopLongitude;
                 double startLat = mEarthArea.AreaSnapStartLatitude;
@@ -2375,36 +2404,58 @@ namespace FSEarthTilesDLL
 
                 foreach (double[] tile in tilesToDownload)
                 {
-                    string meshFilePath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, tile);
-                    if (!File.Exists(meshFilePath))
+                    string[] polyFilesPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
+                    string directory = CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    bool shouldRebuildPolyFiles = !File.Exists(polyFilesPaths[0]) || !File.Exists(polyFilesPaths[1]) || !File.Exists(polyFilesPaths[2] + "[0]")
+                        || !File.Exists(polyFilesPaths[2] + "[1]") || !File.Exists(polyFilesPaths[2] + "[2]");
+                    if (shouldRebuildPolyFiles)
                     {
                         string tileName = CommonFunctions.GetTileName(tile);
-                        SetStatusFromFriendThread("Creating mesh from OSM data for tile " + tileName);
-                        System.Diagnostics.Process proc = new System.Diagnostics.Process();
-                        proc.StartInfo.FileName = EarthConfig.mStartExeFolder + "\\" + "createMesh.exe";
-                        proc.StartInfo.Arguments = tile[0] + " " + tile[1] + " \"" + EarthConfig.mWorkFolder + "\" " + tileName;
-                        proc.Start();
-                        Thread.Sleep(500);
-                        proc.WaitForExit();
-                        if (!proc.HasExited)
+                        SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
+                        List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
+                        List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
+                            new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
+                        };
+                        List<Way<AutomaticWaterMasking.Point>> islands = new List<Way<AutomaticWaterMasking.Point>>();
+                        DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
+                        Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1] + 1, (decimal)(tile[0] + 1)));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)(tile[1] + 1), (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)tile[0]));
+                        viewPort.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
+                        Console.WriteLine("Downloading OSM coast and inland water data. As well as computing water polygons from this data; this can take a while, please wait");
+                        try
                         {
-                            proc.Kill();
+                            WaterMasking.GetPolygons(coastPolys, islands, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
                         }
+                        catch (Exception e)
+                        {
+                            string message = "Something went wrong while creating water mask polygons for tile " + tileName + @". Either something is wrong with the data, or there is a bug with FSET! If something is wrong with the data, you can try editing it in JOSM.";
+                            message += " Please post this error message here https://github.com/stackTom/AutomaticWaterMasking/issues";
+                            MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            AbortDownload();
+
+                            return;
+                        }
+
+                        WritePolysToFile(coastPolys, polyFilesPaths[0]);
+                        WritePolysToFile(islands, polyFilesPaths[1]);
+                        WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[2]);
                     }
                 }
             }
             catch (ThreadAbortException)
             {
-                // need to do it this way. guess it's call pyinstaller programs spawn subprocesses?
-                // just calling proc.Kill() keeps createMesh.exe running
-                foreach (var p in System.Diagnostics.Process.GetProcessesByName("createMesh"))
-                {
-                    p.Kill();
-                }
                 mAreaProcessRunning = false;
-                creatingMeshFile = false;
+                creatingWaterPolyFile = false;
             }
         }
+
 
         private void RunImageProcessing(MasksResampleWorker w)
         {
@@ -5582,6 +5633,7 @@ namespace FSEarthTilesDLL
                                 if (SceneryCompilerReady())
                                 {
 
+                                    AllocConsole();
                                     // we only need these queues for fsx/p3d/fs9. also, not initializing them
                                     // is a signal that they aren't up and working
                                     mMasksCompilerMultithreadedQueue = null;
@@ -5735,10 +5787,10 @@ namespace FSEarthTilesDLL
             {
                 mImageToolThread.Abort();
             }
-            if (mCreateMeshThread != null)
+            if (mCreateWaterPolyThread != null)
             {
-                mCreateMeshThread.Abort();
-                mCreateMeshThread = null;
+                mCreateWaterPolyThread.Abort();
+                mCreateWaterPolyThread = null;
             }
             if (mMSFSCompilerThread != null && mMSFSCompilerThread.IsAlive)
             {
@@ -7380,11 +7432,11 @@ namespace FSEarthTilesDLL
                 || ((mMSFSCompilerThread.ThreadState & ThreadState.Aborted) == ThreadState.Aborted);
         }
 
-        private void CreateMeshFiles()
+        private void CreatePolygonFiles()
         {
-            creatingMeshFile = true;
-            createMeshFiles();
-            creatingMeshFile = false;
+            creatingWaterPolyFile = true;
+            _CreatePolyFiles();
+            creatingWaterPolyFile = false;
         }
 
         private void FinishProcessingAreas()
@@ -7426,7 +7478,7 @@ namespace FSEarthTilesDLL
                     SetStatus("Waiting on Scenproc to finish");
                     scenProcWasRunning = true;
                 }
-                meshCache = new Dictionary<string, List<PointF[]>>();
+                polysCache = new Dictionary<string, MaskingPolys>();
             }
             else
             {
@@ -7587,19 +7639,19 @@ namespace FSEarthTilesDLL
                 // TODO: this is a nightmare. should really be refactored into a function
                 bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
                                         EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
-                                        !creatingMeshFile && mLastMeshCreatedEarthArea != mEarthArea;
+                                        !creatingWaterPolyFile && mLastWaterPolyCreatedEarthArea != mEarthArea;
                 if (shouldCreateMesh)
                 {
-                    ThreadStart ts = new ThreadStart(CreateMeshFiles);
-                    mCreateMeshThread = new Thread(ts);
-                    creatingMeshFile = true;
-                    mLastMeshCreatedEarthArea = mEarthArea;
-                    mCreateMeshThread.Start();
+                    ThreadStart ts = new ThreadStart(CreatePolygonFiles);
+                    mCreateWaterPolyThread = new Thread(ts);
+                    creatingWaterPolyFile = true;
+                    mLastWaterPolyCreatedEarthArea = mEarthArea;
+                    mCreateWaterPolyThread.Start();
                 }
 
-                if (creatingMeshFile)
+                if (creatingWaterPolyFile)
                 {
-                    SetStatus("Creating mesh file(s) for area " + mCurrentActiveAreaNr);
+                    SetStatus("Creating polygon file(s) for area " + mCurrentActiveAreaNr);
                     return;
                 }
 
@@ -7655,12 +7707,14 @@ namespace FSEarthTilesDLL
                     {
                         // scenproc wasn't running, or it was but now it's not
                         SetStatus("Done.");
+                        FreeConsole();
                         scenProcWasRunning = false;
                         mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                     }
                     else
                     {
                         SetStatus("Done.");
+                        FreeConsole();
                         mMasksCompilerMultithreadedQueue.SetTotalJobsDone(0);
                     }
                 }
@@ -8040,10 +8094,10 @@ namespace FSEarthTilesDLL
             {
                 mImageToolThread.Abort();
             }
-            if (mCreateMeshThread != null)
+            if (mCreateWaterPolyThread != null)
             {
-                mCreateMeshThread.Abort();
-                mCreateMeshThread = null;
+                mCreateWaterPolyThread.Abort();
+                mCreateWaterPolyThread = null;
             }
             EarthScriptsHandler.CleanUp();
         }
@@ -9442,17 +9496,22 @@ namespace FSEarthTilesDLL
 
         }
 
-        private void GetTris(double startLong, double stopLong, double startLat, double stopLat)
+        private void GetPolys(double startLong, double stopLong, double startLat, double stopLat)
         {
-            List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            List<double[]> tiles = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
             string key = null;
-            foreach (double[] meshTile in meshTilesForArea)
+            foreach (double[] tile in tiles)
             {
-                key = meshTile[0] + "," + meshTile[1];
-                if (!meshCache.ContainsKey(key))
+                key = tile[0] + "," + tile[1];
+                if (!polysCache.ContainsKey(key))
                 {
-                    string meshPath = CommonFunctions.GetMeshFileFullPath(EarthConfig.mWorkFolder, meshTile);
-                    meshCache[key] = CommonFunctions.ReadMeshFile(meshPath);
+                    string[] polyPaths = CommonFunctions.GetPolyFilesFullPath(EarthConfig.mWorkFolder, tile);
+                    MaskingPolys mp = new MaskingPolys();
+                    mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
+                    mp.islands = CommonFunctions.ReadPolyFile(polyPaths[1]);
+                    mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[2]);
+                    mp.tileName = CommonFunctions.GetTileName(tile);
+                    polysCache[key] = mp;
                 }
             }
         }
@@ -9475,46 +9534,26 @@ namespace FSEarthTilesDLL
                 pixelsInY = (int) mEarthArea.AreaFSResampledPixelsInY;
             }
 
-            double NWCornerLat = startLat;
-            double NWCornerLong = startLong;
+            decimal NWCornerLat = (decimal)startLat;
+            decimal NWCornerLong = (decimal)startLong;
+            AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat);
             CommonFunctions.SetStartAndStopCoords(ref startLat, ref startLong, ref stopLat, ref stopLong);
 
-            Double vPixelPerLongitude = Convert.ToDouble(pixelsInX) / (stopLong - startLong);
-            Double vPixelPerLatitude = Convert.ToDouble(pixelsInY) / (stopLat - startLat);
+            decimal vPixelPerLongitude = (decimal)(Convert.ToDouble(pixelsInX) / (stopLong - startLong));
+            decimal vPixelPerLatitude = (decimal)(Convert.ToDouble(pixelsInY) / (stopLat - startLat));
 
-            GetTris(startLong, stopLong, startLat, stopLat);
-            bool allWater = false;
-            using (Bitmap bmp = new Bitmap(pixelsInX, pixelsInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+            GetPolys(startLong, stopLong, startLat, stopLat);
+            Dictionary<double[], MaskingPolys> allMaskingPolys = new Dictionary<double[], MaskingPolys>();
+            List<double[]> polyTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
+            foreach (double[] tile in polyTilesForArea)
             {
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    SolidBrush b = new SolidBrush(Color.Black);
-                    g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
-
-                    List<double[]> meshTilesForArea = CommonFunctions.GetTilesToDownload(startLong, stopLong, startLat, stopLat);
-                    foreach (double[] meshTile in meshTilesForArea)
-                    {
-                        string key = meshTile[0] + "," + meshTile[1];
-                        List<PointF[]> tris = meshCache[key];
-                        foreach (var tri in tris)
-                        {
-                            PointF[] convertedTri = new PointF[3];
-                            for (int i = 0; i < convertedTri.Length; i++)
-                            {
-                                PointF toConvert = tri[i];
-                                tXYCoord pixel = CommonFunctions.CoordToPixel(toConvert.Y, toConvert.X, pixelsInX, pixelsInY, NWCornerLat, NWCornerLong, vPixelPerLongitude, vPixelPerLatitude);
-                                convertedTri[i] = new PointF((float)pixel.mX, (float)pixel.mY);
-                            }
-
-                            g.FillPolygon(b, convertedTri);
-                        }
-                    }
-
-                    allWater = CommonFunctions.BitmapAllBlack(bmp);
-                }
+                string key = tile[0] + "," + tile[1];
+                MaskingPolys mp = polysCache[key];
+                allMaskingPolys.Add(tile, mp);
             }
+            Bitmap bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, pixelsInX, pixelsInY, new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat), vPixelPerLongitude, vPixelPerLatitude, null, null);
 
-            return allWater;
+            return CommonFunctions.BitmapAllBlack(bmp);
         }
 
         private Boolean CheckIfAreaIsEnabled()
