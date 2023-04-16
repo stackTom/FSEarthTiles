@@ -377,7 +377,7 @@ namespace FSEarthTilesDLL
         void CheckForAppUpdate()
         {
             // always minimum 3 digits
-            const long CURRENT_VERSION = 142;
+            const long CURRENT_VERSION = 200;
             CommonFunctions.FixTLS();
             const string URL = "https://github.com/stackTom/FSEarthTiles/releases/latest";
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(URL);
