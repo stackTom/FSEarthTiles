@@ -5,11 +5,6 @@
 # Requirements
 1) 32 or 64 bit Windows XP or greater.
 2) .Net Framework v4.0 or later. Download it here: https://dotnet.microsoft.com/download/dotnet-framework
-3) Automatic water masking for FS9, FSX, and P3D requires two further requirements:*
-	1) Windows Vista (or greater) 64 bit is required. Automatic water masking will not work on either 32 bit operating systems nor on any version of Windows XP.
-	2) Microsoft Visual c++ redistributable. Download it here: https://aka.ms/vs/16/release/vc_redist.x64.exe
-
-* If your computer doesn't meet the requirements for automatic water masking, you can always use the AreaKML or SVG methods (partially automatic) of water masking supported by this program, or just create the masks by hand using an image editor (search YouTube for how to do this).
 
 # Use at your own risk
 
