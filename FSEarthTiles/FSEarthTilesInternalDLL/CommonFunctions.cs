@@ -383,12 +383,7 @@ namespace FSEarthTilesInternalDLL
         private static bool AmbiguousTileHasSeaWater(double[] tile, Dictionary<double[], MaskingPolys> tilePolysMap, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Bitmap bmp)
         {
             MaskingPolys thisTileMaskingPolys = tilePolysMap[tile];
-            // has islands? the base of the tile should be water as a base(black)
-            if (thisTileMaskingPolys.islands.Count > 0)
-            {
-                return true;
-            }
-            // by now, coastwater polys are 0. if we have some inland polys, then this tile should be water as a base (black)
+            // by now, coastwater polys are 0. if we have some inland polys, then this tile should be land as a base (white)
             foreach (List<Way<AutomaticWaterMasking.Point>> inlandPolys in thisTileMaskingPolys.inlandPolygons)
             {
                 if (inlandPolys.Count > 1)
@@ -397,6 +392,11 @@ namespace FSEarthTilesInternalDLL
                 }
             }
 
+            // has islands? the base of the tile should be water as a base(black)
+            if (thisTileMaskingPolys.islands.Count > 0)
+            {
+                return true;
+            }
             // no coast water polys, no inland polys (think the middle of the dessert), so look at adjacent tiles
             short[] check = { -1, 1 };
             foreach (short x in check)
