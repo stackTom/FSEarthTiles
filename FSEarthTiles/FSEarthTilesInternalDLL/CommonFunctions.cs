@@ -267,43 +267,6 @@ namespace FSEarthTilesInternalDLL
             return pieces;
         }
 
-        private static void DrawPolygons(Bitmap bmp, Graphics g, SolidBrush b, decimal pixelsPerLon, decimal pixelsPerLat, AutomaticWaterMasking.Point NW, List<Way<AutomaticWaterMasking.Point>> polygons)
-        {
-            foreach (Way<AutomaticWaterMasking.Point> way in polygons)
-            {
-
-                List<PointF> l = new List<PointF>();
-                for (int i = 0; i < way.Count - 1; i++) // FillPolygon polygons don't need last AutomaticWaterMasking.Point, hence - 1
-                {
-                    AutomaticWaterMasking.Point p = way[i];
-                    AutomaticWaterMasking.Point pixel = WaterMasking.CoordToPixel(p.Y, p.X, NW.Y, NW.X, pixelsPerLon, pixelsPerLat);
-
-                    l.Add(new PointF((float)pixel.X, (float)pixel.Y));
-                }
-                PointF[] pf = l.ToArray();
-                g.FillPolygon(b, pf);
-
-            }
-        }
-
-        private static void DrawLayeredPolygons(MaskingPolys polys, Bitmap bmp, Graphics g, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat)
-        {
-            SolidBrush b = null;
-            for (int i = 0; i < polys.inlandPolygons.Length; i++)
-            {
-                if (i % 2 == 0)
-                {
-                    b = new SolidBrush(Color.Black);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                }
-                else
-                {
-                    b = new SolidBrush(Color.White);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.inlandPolygons[i]);
-                }
-            }
-        }
-
         private static void ClampPixelToImg(AutomaticWaterMasking.Point pixel, Bitmap bmp)
         {
             if (pixel.X < 0)
@@ -448,7 +411,7 @@ namespace FSEarthTilesInternalDLL
                 if (polys.coastWaterPolygons.Count > 0)
                 {
                     b = new SolidBrush(Color.Black);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
+                    WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.coastWaterPolygons);
                 }
                 else
                 {
@@ -458,7 +421,7 @@ namespace FSEarthTilesInternalDLL
 
                 // now draw the islands
                 b = new SolidBrush(Color.White);
-                CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
+                WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
 
                 // pre-populate so below loop runs correctly
                 uniqueInlandPolys.Add(polys.inlandPolygons[0]);
@@ -497,10 +460,10 @@ namespace FSEarthTilesInternalDLL
                     tileExtent.Add(new AutomaticWaterMasking.Point((decimal)tile[1], (decimal)(tile[0] + 1)));
                     coastWaterPolygons.Add(tileExtent);
                     b = new SolidBrush(Color.Black);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, coastWaterPolygons);
+                    WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, coastWaterPolygons);
                     // redraw the islands
                     b = new SolidBrush(Color.White);
-                    CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
+                    WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
                     // redraw the layered polygons for this tile
                     WaterMasking.DrawInlandPolys(uniqueInlandPolys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
                 }
