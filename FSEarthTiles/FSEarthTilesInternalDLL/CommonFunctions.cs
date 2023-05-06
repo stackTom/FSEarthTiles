@@ -21,7 +21,7 @@ namespace FSEarthTilesInternalDLL
     {
         public List<Way<AutomaticWaterMasking.Point>> coastWaterPolygons;
         public List<Way<AutomaticWaterMasking.Point>> islands;
-        public List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons;
+        public List<Way<AutomaticWaterMasking.Point>> inlandPolygons;
         public string tileName;
 
         public override string ToString()
@@ -384,12 +384,9 @@ namespace FSEarthTilesInternalDLL
         {
             MaskingPolys thisTileMaskingPolys = tilePolysMap[tile];
             // by now, coastwater polys are 0. if we have some inland polys, then this tile should be land as a base (white)
-            foreach (List<Way<AutomaticWaterMasking.Point>> inlandPolys in thisTileMaskingPolys.inlandPolygons)
+            if (thisTileMaskingPolys.inlandPolygons.Count > 1)
             {
-                if (inlandPolys.Count > 1)
-                {
-                    return false;
-                }
+                return false;
             }
 
             // has islands? the base of the tile should be water as a base(black)
@@ -586,20 +583,17 @@ namespace FSEarthTilesInternalDLL
         }
 
         // TODO: this layered poly file stuff is ugly. Find a more elegant solution
-        public static List<Way<AutomaticWaterMasking.Point>>[] ReadLayeredPolyFile(string polyFilePath)
+        public static List<Way<AutomaticWaterMasking.Point>> ReadLayeredPolyFile(string polyFilePath)
         {
-            List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
-            int i = 0;
-            List<List<Way<AutomaticWaterMasking.Point>>> inlandPolys = new List<List<Way<AutomaticWaterMasking.Point>>>();
-            while (File.Exists(polyFilePath + "[" + i + "]"))
+            if (File.Exists(polyFilePath))
             {
-                string OSMXML = File.ReadAllText(polyFilePath + "[" + i + "]");
+                string OSMXML = File.ReadAllText(polyFilePath);
                 Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
-                inlandPolys.Add(new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray()));
-                i++;
+
+                return wayIDsToWays.Values.ToList();
             }
 
-            return inlandPolys.ToArray();
+            return null;
         }
 
         public static Dictionary<double[], MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)

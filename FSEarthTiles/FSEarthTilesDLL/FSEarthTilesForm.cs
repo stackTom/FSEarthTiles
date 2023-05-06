@@ -2359,16 +2359,6 @@ namespace FSEarthTilesDLL
             File.WriteAllText(fileName, OSMXML);
         }
 
-        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
-        private void WriteLayeredPolysToFile(List<Way<AutomaticWaterMasking.Point>>[] polys, string fileName)
-        {
-            for (int i = 0; i < polys.Length; i++)
-            {
-                string OSMXML = OSMXMLParser.WaysToOSMXML(polys[i]);
-                File.WriteAllText(fileName + "[" + i.ToString() + "]", OSMXML);
-            }
-        }
-
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern int AllocConsole();
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -2410,16 +2400,13 @@ namespace FSEarthTilesDLL
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    bool shouldRebuildPolyFiles = !File.Exists(polyFilesPaths[0]) || !File.Exists(polyFilesPaths[1]) || !File.Exists(polyFilesPaths[2] + "[0]")
-                        || !File.Exists(polyFilesPaths[2] + "[1]") || !File.Exists(polyFilesPaths[2] + "[2]");
+                    bool shouldRebuildPolyFiles = !File.Exists(polyFilesPaths[0]) || !File.Exists(polyFilesPaths[1]) || !File.Exists(polyFilesPaths[2]);
                     if (shouldRebuildPolyFiles)
                     {
                         string tileName = CommonFunctions.GetTileName(tile);
                         SetStatusFromFriendThread("Creating polygon files from OSM data for tile " + tileName);
                         List<Way<AutomaticWaterMasking.Point>> coastPolys = new List<Way<AutomaticWaterMasking.Point>>();
-                        List<Way<AutomaticWaterMasking.Point>>[] inlandPolygons = new[] {
-                            new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>(), new List<Way<AutomaticWaterMasking.Point>>()
-                        };
+                        List<Way<AutomaticWaterMasking.Point>> inlandPolygons = new List<Way<AutomaticWaterMasking.Point>>();
                         List<Way<AutomaticWaterMasking.Point>> islands = new List<Way<AutomaticWaterMasking.Point>>();
                         DownloadArea d = new DownloadArea((decimal)(tile[1] + 0), (decimal)(tile[1] + 1), (decimal)(tile[0] + 1), (decimal)(tile[0] + 0));
                         Way<AutomaticWaterMasking.Point> viewPort = new Way<AutomaticWaterMasking.Point>();
@@ -2445,7 +2432,7 @@ namespace FSEarthTilesDLL
 
                         WritePolysToFile(coastPolys, polyFilesPaths[0]);
                         WritePolysToFile(islands, polyFilesPaths[1]);
-                        WriteLayeredPolysToFile(inlandPolygons, polyFilesPaths[2]);
+                        WritePolysToFile(inlandPolygons, polyFilesPaths[2]);
                     }
                 }
             }
