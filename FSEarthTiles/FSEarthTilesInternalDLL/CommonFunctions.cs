@@ -438,6 +438,7 @@ namespace FSEarthTilesInternalDLL
                 createdNewGraphics = true;
             }
             Dictionary<double[], MaskingPolys> ambiguousTiles = new Dictionary<double[], MaskingPolys>();
+            List<Way<AutomaticWaterMasking.Point>> uniqueInlandPolys = new List<Way<AutomaticWaterMasking.Point>>();
             foreach (KeyValuePair<double[], MaskingPolys> kv in allMaskingPolys)
             {
 
@@ -458,9 +459,26 @@ namespace FSEarthTilesInternalDLL
                 // now draw the islands
                 b = new SolidBrush(Color.White);
                 CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
-                // now, draw the layeredpolygons
-                DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
+
+                // pre-populate so below loop runs correctly
+                uniqueInlandPolys.Add(polys.inlandPolygons[0]);
+                foreach (Way<AutomaticWaterMasking.Point> inlandPoly in polys.inlandPolygons)
+                {
+                    foreach (Way<AutomaticWaterMasking.Point> alreadyThere in uniqueInlandPolys)
+                    {
+                        if (inlandPoly.DeepEquals(alreadyThere))
+                        {
+                            break;
+                        }
+                    }
+
+                    // not there
+                    uniqueInlandPolys.Add(inlandPoly);
+                }
             }
+
+            // now, draw the layeredpolygons
+            WaterMasking.DrawInlandPolys(uniqueInlandPolys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
 
             // now handle supicious tiles which are potentially in middle of ocean without a coast intersecting viewport or are all land with no water
             foreach (KeyValuePair<double[], MaskingPolys> kv in ambiguousTiles)
@@ -484,7 +502,7 @@ namespace FSEarthTilesInternalDLL
                     b = new SolidBrush(Color.White);
                     CommonFunctions.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
                     // redraw the layered polygons for this tile
-                    DrawLayeredPolygons(polys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
+                    WaterMasking.DrawInlandPolys(uniqueInlandPolys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
                 }
             }
 
