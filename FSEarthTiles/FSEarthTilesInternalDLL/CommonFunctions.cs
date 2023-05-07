@@ -389,6 +389,53 @@ namespace FSEarthTilesInternalDLL
             return false;
         }
 
+        public static List<Way<AutomaticWaterMasking.Point>> GetUniqueInlandWays(List<Way<AutomaticWaterMasking.Point>> allWays)
+        {
+            Dictionary<int, List<Way<AutomaticWaterMasking.Point>>> uniqueInlandPolysDict = new Dictionary<int, List<Way<AutomaticWaterMasking.Point>>>();
+            if (allWays.Count > 0)
+            {
+                // pre-populate so below loop runs correctly
+                List<Way<AutomaticWaterMasking.Point>> polysWithThisCount = new List<Way<AutomaticWaterMasking.Point>>();
+                polysWithThisCount.Add(allWays[0]);
+                uniqueInlandPolysDict.Add(allWays[0].Count, polysWithThisCount);
+                foreach (Way<AutomaticWaterMasking.Point> inlandPoly in allWays)
+                {
+                    if (uniqueInlandPolysDict.ContainsKey(inlandPoly.Count))
+                    {
+                        List<Way<AutomaticWaterMasking.Point>> potentialMatches = uniqueInlandPolysDict[inlandPoly.Count];
+                        foreach (Way<AutomaticWaterMasking.Point> alreadyThere in potentialMatches)
+                        {
+                            if (inlandPoly.DeepEquals(alreadyThere))
+                            {
+                                break;
+                            }
+                        }
+
+                        // not there
+                        potentialMatches.Add(inlandPoly);
+                    }
+                    else
+                    {
+                        polysWithThisCount = new List<Way<AutomaticWaterMasking.Point>>();
+                        polysWithThisCount.Add(inlandPoly);
+                        uniqueInlandPolysDict.Add(inlandPoly.Count, polysWithThisCount);
+                    }
+
+                }
+            }
+            List<Way<AutomaticWaterMasking.Point>> uniqueInlandPolysList = new List<Way<AutomaticWaterMasking.Point>>();
+            foreach (KeyValuePair<int, List<Way<AutomaticWaterMasking.Point>>> kv in uniqueInlandPolysDict)
+            {
+                List<Way<AutomaticWaterMasking.Point>> polys = kv.Value;
+                foreach (Way<AutomaticWaterMasking.Point> way in polys)
+                {
+                    uniqueInlandPolysList.Add(way);
+                }
+            }
+
+            return uniqueInlandPolysList;
+        }
+
         public static Bitmap DrawWaterMaskBMP(Dictionary<double[], MaskingPolys> allMaskingPolys, int pixelsX, int pixelsY, AutomaticWaterMasking.Point NW, decimal pixelsPerLon, decimal pixelsPerLat, Graphics g=null, Bitmap bmp=null)
         {
             bool createdNewGraphics = false;
@@ -401,7 +448,7 @@ namespace FSEarthTilesInternalDLL
                 createdNewGraphics = true;
             }
             Dictionary<double[], MaskingPolys> ambiguousTiles = new Dictionary<double[], MaskingPolys>();
-            List<Way<AutomaticWaterMasking.Point>> uniqueInlandPolys = new List<Way<AutomaticWaterMasking.Point>>();
+            List<Way<AutomaticWaterMasking.Point>> allInlandPolys = new List<Way<AutomaticWaterMasking.Point>>();
             foreach (KeyValuePair<double[], MaskingPolys> kv in allMaskingPolys)
             {
 
@@ -422,27 +469,13 @@ namespace FSEarthTilesInternalDLL
                 // now draw the islands
                 b = new SolidBrush(Color.White);
                 WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
-
-                if (polys.inlandPolygons.Count > 0)
+                foreach (Way<AutomaticWaterMasking.Point> way in polys.inlandPolygons)
                 {
-                    // pre-populate so below loop runs correctly
-                    uniqueInlandPolys.Add(polys.inlandPolygons[0]);
-                    foreach (Way<AutomaticWaterMasking.Point> inlandPoly in polys.inlandPolygons)
-                    {
-                        foreach (Way<AutomaticWaterMasking.Point> alreadyThere in uniqueInlandPolys)
-                        {
-                            if (inlandPoly.DeepEquals(alreadyThere))
-                            {
-                                break;
-                            }
-                        }
-
-                        // not there
-                        uniqueInlandPolys.Add(inlandPoly);
-                    }
+                    allInlandPolys.Add(way);
                 }
             }
 
+            List<Way<AutomaticWaterMasking.Point>> uniqueInlandPolys = GetUniqueInlandWays(allInlandPolys);
             // now, draw the layeredpolygons
             WaterMasking.DrawInlandPolys(uniqueInlandPolys, bmp, g, NW, pixelsPerLon, pixelsPerLat);
 
