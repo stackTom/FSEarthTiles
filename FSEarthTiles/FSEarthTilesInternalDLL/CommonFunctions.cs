@@ -423,20 +423,23 @@ namespace FSEarthTilesInternalDLL
                 b = new SolidBrush(Color.White);
                 WaterMasking.DrawPolygons(bmp, g, b, pixelsPerLon, pixelsPerLat, NW, polys.islands);
 
-                // pre-populate so below loop runs correctly
-                uniqueInlandPolys.Add(polys.inlandPolygons[0]);
-                foreach (Way<AutomaticWaterMasking.Point> inlandPoly in polys.inlandPolygons)
+                if (polys.inlandPolygons.Count > 0)
                 {
-                    foreach (Way<AutomaticWaterMasking.Point> alreadyThere in uniqueInlandPolys)
+                    // pre-populate so below loop runs correctly
+                    uniqueInlandPolys.Add(polys.inlandPolygons[0]);
+                    foreach (Way<AutomaticWaterMasking.Point> inlandPoly in polys.inlandPolygons)
                     {
-                        if (inlandPoly.DeepEquals(alreadyThere))
+                        foreach (Way<AutomaticWaterMasking.Point> alreadyThere in uniqueInlandPolys)
                         {
-                            break;
+                            if (inlandPoly.DeepEquals(alreadyThere))
+                            {
+                                break;
+                            }
                         }
-                    }
 
-                    // not there
-                    uniqueInlandPolys.Add(inlandPoly);
+                        // not there
+                        uniqueInlandPolys.Add(inlandPoly);
+                    }
                 }
             }
 
