@@ -2858,7 +2858,7 @@ namespace FSEarthMasksInternalDLL
             }
         }
 
-        private Dictionary<double[], MaskingPolys> ReadAllPolyFiles()
+        private Dictionary<double[], AutomaticWaterMasking.MaskingPolys> ReadAllPolyFiles()
         {
             double startLong = MasksConfig.mAreaNWCornerLongitude;
             double stopLong = MasksConfig.mAreaSECornerLongitude;
@@ -4715,7 +4715,7 @@ namespace FSEarthMasksInternalDLL
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
             iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Reading polygon files...");
-            Dictionary<double[], MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
+            Dictionary<double[], AutomaticWaterMasking.MaskingPolys> allMaskingPolys = ReadAllPolyFiles();
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -4749,7 +4749,7 @@ namespace FSEarthMasksInternalDLL
                 decimal pixelsPerLon = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInX) / (MasksConfig.mAreaSECornerLongitude - MasksConfig.mAreaNWCornerLongitude));
                 decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
                 AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
-                bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
+                bmp = AutomaticWaterMasking.WaterMasking.GetMask(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks

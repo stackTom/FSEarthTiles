@@ -9538,7 +9538,7 @@ namespace FSEarthTilesDLL
                 MaskingPolys mp = polysCache[key];
                 allMaskingPolys.Add(tile, mp);
             }
-            Bitmap bmp = CommonFunctions.DrawWaterMaskBMP(allMaskingPolys, pixelsInX, pixelsInY, new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat), vPixelPerLongitude, vPixelPerLatitude, null, null);
+            Bitmap bmp = AutomaticWaterMasking.WaterMasking.GetMask(allMaskingPolys, pixelsInX, pixelsInY, new AutomaticWaterMasking.Point(NWCornerLong, NWCornerLat), vPixelPerLongitude, vPixelPerLatitude, null, null);
 
             return CommonFunctions.BitmapAllBlack(bmp);
         }
