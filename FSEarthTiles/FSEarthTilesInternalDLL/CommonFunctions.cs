@@ -338,20 +338,6 @@ namespace FSEarthTilesInternalDLL
             return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
         }
 
-        // TODO: this layered poly file stuff is ugly. Find a more elegant solution
-        public static List<Way<AutomaticWaterMasking.Point>> ReadLayeredPolyFile(string polyFilePath)
-        {
-            if (File.Exists(polyFilePath))
-            {
-                string OSMXML = File.ReadAllText(polyFilePath);
-                Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
-
-                return wayIDsToWays.Values.ToList();
-            }
-
-            return null;
-        }
-
         public static Dictionary<double[], MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
         {
             List<double[]> tilesDownloaded = GetTilesToDownload(startLong, stopLong, startLat, stopLat);
@@ -363,7 +349,7 @@ namespace FSEarthTilesInternalDLL
                 MaskingPolys mp = new MaskingPolys();
                 mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                 mp.islands = CommonFunctions.ReadPolyFile(polyPaths[1]);
-                mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[2]);
+                mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
                 mp.tileName = CommonFunctions.GetTileName(tile);
                 allPolys.Add(tile, mp);
             }

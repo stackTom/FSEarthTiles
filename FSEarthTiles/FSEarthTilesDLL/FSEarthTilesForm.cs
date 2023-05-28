@@ -9496,7 +9496,7 @@ namespace FSEarthTilesDLL
                     MaskingPolys mp = new MaskingPolys();
                     mp.coastWaterPolygons = CommonFunctions.ReadPolyFile(polyPaths[0]);
                     mp.islands = CommonFunctions.ReadPolyFile(polyPaths[1]);
-                    mp.inlandPolygons = CommonFunctions.ReadLayeredPolyFile(polyPaths[2]);
+                    mp.inlandPolygons = CommonFunctions.ReadPolyFile(polyPaths[2]);
                     mp.tileName = CommonFunctions.GetTileName(tile);
                     polysCache[key] = mp;
                 }
