@@ -975,7 +975,7 @@ namespace FSEarthTilesDLL
                 vStream.WriteLine("AreaVectorsFile              = " + vAreaVectorsFullFilePath + "      # SVG File Lines and Polygons marking Water, Land and Blend border");
                 vStream.WriteLine();
                 vStream.WriteLine();
-                vStream.WriteLine("#--- The following information below is required in connection with a KML File only. If you don't work with a KML File you can leave this away.");
+                vStream.WriteLine("#--- The following information below is required in connection with a KML File or when using automatic water masking only. If you don't work with a KML File or use automatic water masking, you can leave this away.");
                 vStream.WriteLine();
                 vStream.WriteLine("AreaPixelCountInX = " + iBGLDatasStringPackage.mBGLPixelsInXString);
                 vStream.WriteLine("AreaPixelCountInY = " + iBGLDatasStringPackage.mBGLPixelsInYString);
