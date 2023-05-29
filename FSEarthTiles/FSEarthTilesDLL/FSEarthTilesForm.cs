@@ -202,7 +202,7 @@ namespace FSEarthTilesDLL
         EarthArea        mEarthArea;           //The complete snapped Area coords information. That's the description of the Area that will be downloaded
         EarthMultiArea   mEarthMultiArea;      //The complete snapped Multi Area coords information. That's the describtion of the MultiArea that will be downloaded in steps of single Areas
         EarthAreaTexture mEarthAreaTexture;    //The downloaded Texture of the Area
-        EarthArea mLastWaterPolyCreatedEarthArea; // let's us see if we've created mesh for this area already
+        EarthArea mLastWaterPolyCreatedEarthArea; // let's us see if we've created water polygons for this area already
         EarthArea mLastCheckedForAllWaterEarthArea; // let's us see if we've checked for AllWater() for this area already
 
         //(Backup Data) Single Reference Area Stored Datas. (Used for Single-Multi Mode change and as Reference Area for Multi)
@@ -326,7 +326,7 @@ namespace FSEarthTilesDLL
 
         // Imagetool thread
         Thread mImageToolThread;
-        // CreateMesh thread
+        // CreateWaterPoly thread
         Thread mCreateWaterPolyThread;
         // MSFS compiler thread
         Thread mMSFSCompilerThread;
@@ -7624,10 +7624,10 @@ namespace FSEarthTilesDLL
             if (!BuildingForMSFS2020())
             {
                 // TODO: this is a nightmare. should really be refactored into a function
-                bool shouldCreateMesh = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
+                bool shouldCreateWaterPolys = ((EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask) ||
                                         EarthConfig.skipAllWaterTiles) && mAreaProcessRunning &&
                                         !creatingWaterPolyFile && mLastWaterPolyCreatedEarthArea != mEarthArea;
-                if (shouldCreateMesh)
+                if (shouldCreateWaterPolys)
                 {
                     ThreadStart ts = new ThreadStart(CreatePolygonFiles);
                     mCreateWaterPolyThread = new Thread(ts);
@@ -7747,9 +7747,10 @@ namespace FSEarthTilesDLL
                     // make sure that we don't download more than 10 areas ahead of how many areas we've resampled
                     // this has the benefit of preventing OOM from keeping too many downloaded areas in memory
                     // also frees up cpu time to resample etc as a minor side effect
-                    long deficit =  mCurrentActiveAreaNr - mImageProcessingMultithreadedQueue.GetTotalJobsDone();
+                    long deficit = mImageProcessingMultithreadedQueue.GetNumJobsWaiting();
+
                     //Finish work is when thread exited
-                    if (deficit < 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
+                    if (deficit <= 10 && mAreaAftermathThread != null) //can be zero already on a close application concurrency.
                     {
                         if (mAreaAftermathThread.ThreadState == ThreadState.Stopped)
                         {

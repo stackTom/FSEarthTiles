@@ -56,7 +56,7 @@ namespace FSEarthTilesDLL
             doneAdding = false;
         }
 
-        public int GetRunningThreads()
+        public int GetNumRunningThreads()
         {
             int running = 0;
             lock (threadsRunningLock)
@@ -65,6 +65,12 @@ namespace FSEarthTilesDLL
             }
 
             return running;
+        }
+
+        public long GetNumJobsWaiting()
+        {
+            // no point locking this
+            return _jobs.Count;
         }
 
         public long GetTotalJobsDone()
@@ -96,7 +102,7 @@ namespace FSEarthTilesDLL
 
         public bool AllThreadsDone()
         {
-            return GetRunningThreads() == 0;
+            return GetNumRunningThreads() == 0;
         }
 
         public bool AllDone()
