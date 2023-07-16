@@ -4712,6 +4712,19 @@ namespace FSEarthMasksInternalDLL
             return ApplyMaskWidthToPart(img, blurWidth);
         }
 
+        private static bool HaveLandPools()
+        {
+            foreach (tPoolPolygon vPoolPolygon in MasksCommon.mPoolPolygons)
+            {
+                if (vPoolPolygon.mPoolType == MasksConfig.tPoolType.eLandPool)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public Bitmap CreateWaterMaskBitmap(FSEarthMasksInternalInterface iFSEarthMasksInternalInterface)
         {
             iFSEarthMasksInternalInterface.SetStatusFromFriendThread("Reading polygon files...");
@@ -4719,8 +4732,23 @@ namespace FSEarthMasksInternalDLL
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
-                SolidBrush b = new SolidBrush(Color.Black);
-                g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+                SolidBrush b = new SolidBrush(Color.Blue);
+                if (HaveLandPools())
+                {
+                    g.FillRectangle(Brushes.Blue, 0, 0, bmp.Width, bmp.Height);
+                    foreach (tPoolPolygon vPoolPolygon in MasksCommon.mPoolPolygons)
+                    {
+                        if (vPoolPolygon.mPoolType == MasksConfig.tPoolType.eLandPool)
+                        {
+                            SolidBrush landPoolBrush = new SolidBrush(Color.White);
+                            g.FillPolygon(landPoolBrush, vPoolPolygon.mPolygon);
+                        }
+                    }
+                }
+                else
+                {
+                    g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
+                }
 
                 // borders
                 double NWLat = MasksConfig.mAreaNWCornerLatitude;

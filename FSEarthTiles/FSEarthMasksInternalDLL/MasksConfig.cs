@@ -316,6 +316,7 @@ namespace FSEarthMasksInternalDLL
         public static Boolean skipAllWaterTiles = false;
 
         public static Boolean splitImageForMasksWidth = true;
+        public static Boolean useAutomaticWaterMasking = true;
 
 
         public static void Initialize() //to call as first
@@ -1297,6 +1298,7 @@ namespace FSEarthMasksInternalDLL
 
                 Int32 vIndex438 = vFocus.IndexOf("masks_width", StringComparison.CurrentCultureIgnoreCase);
                 Int32 vIndex439 = vFocus.IndexOf("split_mask_when_apply_width", StringComparison.CurrentCultureIgnoreCase);
+                Int32 vIndex440 = vFocus.IndexOf("use_automatic_water_masking", StringComparison.CurrentCultureIgnoreCase);
 
                 if (vIndex1 >= 0)
                 {
@@ -3571,6 +3573,11 @@ namespace FSEarthMasksInternalDLL
                 {
                     String vCutString = GetRightSideOfConfigString(vFocus);
                     splitImageForMasksWidth = GetBooleanFromString(vCutString);
+                }
+                if (vIndex440 >= 0)
+                {
+                    String vCutString = GetRightSideOfConfigString(vFocus);
+                    useAutomaticWaterMasking = GetBooleanFromString(vCutString);
                 }
             }
         }

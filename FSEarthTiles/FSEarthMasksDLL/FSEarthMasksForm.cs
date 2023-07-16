@@ -363,7 +363,7 @@ namespace FSEarthMasksDLL
                     }
 
                     areaVectorsFileLoaded = LoadAreaVectorsFile();
-                    useVectorsForWaterMasks = KMLFileLoaded || areaVectorsFileLoaded;
+                    useVectorsForWaterMasks = (KMLFileLoaded || areaVectorsFileLoaded) && !MasksConfig.useAutomaticWaterMasking;
 
                     if (useVectorsForWaterMasks)
                     {
