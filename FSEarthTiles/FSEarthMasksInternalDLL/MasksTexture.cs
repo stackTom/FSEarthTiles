@@ -4571,7 +4571,8 @@ namespace FSEarthMasksInternalDLL
                     {
                         double blurredVal = maskWidthImgBytes[y + offset][x + offset];
                         double min = 2 * (blurredVal < 127 ? blurredVal : 127);
-                        byte c = ptr[(x * 3) + y * stride + 2]; // red value at this point (proxy for whiteness)
+                        const short BLUE_BYTE = 0;
+                        byte c = ptr[(x * 3) + y * stride + BLUE_BYTE]; // blue value at this point (proxy for whiteness as well as pixel blueness which is used for custom borders)
                         byte temp = (byte)(c > 0 ? 255 : 0);
 
                         if (temp != 255)
