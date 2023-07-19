@@ -4733,23 +4733,7 @@ namespace FSEarthMasksInternalDLL
             Bitmap bmp = new Bitmap(MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (Graphics g = Graphics.FromImage(bmp))
             {
-                SolidBrush b = new SolidBrush(Color.Blue);
-                if (HaveLandPools())
-                {
-                    g.FillRectangle(Brushes.Blue, 0, 0, bmp.Width, bmp.Height);
-                    foreach (tPoolPolygon vPoolPolygon in MasksCommon.mPoolPolygons)
-                    {
-                        if (vPoolPolygon.mPoolType == MasksConfig.tPoolType.eLandPool)
-                        {
-                            SolidBrush landPoolBrush = new SolidBrush(Color.White);
-                            g.FillPolygon(landPoolBrush, vPoolPolygon.mPolygon);
-                        }
-                    }
-                }
-                else
-                {
-                    g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
-                }
+                g.FillRectangle(Brushes.White, 0, 0, bmp.Width, bmp.Height);
 
                 // borders
                 double NWLat = MasksConfig.mAreaNWCornerLatitude;
@@ -4779,6 +4763,22 @@ namespace FSEarthMasksInternalDLL
                 decimal pixelsPerLat = (decimal)(Convert.ToDouble(MasksConfig.mAreaPixelCountInY) / (MasksConfig.mAreaNWCornerLatitude - MasksConfig.mAreaSECornerLatitude));
                 AutomaticWaterMasking.Point NW = new AutomaticWaterMasking.Point((decimal)NWLon, (decimal)NWLat);
                 bmp = AutomaticWaterMasking.WaterMasking.GetMask(allMaskingPolys, MasksConfig.mAreaPixelCountInX, MasksConfig.mAreaPixelCountInY, NW, pixelsPerLon, pixelsPerLat, g, bmp);
+                if (HaveLandPools())
+                {
+                    SolidBrush b = new SolidBrush(Color.Blue);
+                    GraphicsPath graphicsPath = new GraphicsPath();
+
+                    foreach (tPoolPolygon vPoolPolygon in MasksCommon.mPoolPolygons)
+                    {
+                        if (vPoolPolygon.mPoolType == MasksConfig.tPoolType.eLandPool)
+                        {
+                            graphicsPath.AddPolygon(vPoolPolygon.mPolygon);
+                        }
+                    }
+                    Region excludeRegion = new Region();
+                    excludeRegion.Exclude(graphicsPath);
+                    g.FillRegion(new SolidBrush(Color.Blue), excludeRegion);
+                }
             }
 
             if (MasksConfig.mMasksWidth > 0 && !MasksConfig.mCreateFS2004MasksInsteadFSXMasks
