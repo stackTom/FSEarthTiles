@@ -1011,31 +1011,15 @@ namespace FSEarthTilesDLL
        <CanBeReferenced>false</CanBeReferenced>
     </Flags>
     <AssetGroups>
-        <AssetGroup Name = ""ContentInfo"">
-        <Type>ContentInfo</Type>
-        <Flags>
-           <FSXCompatibility>false</FSXCompatibility>
-        </Flags>
-        <AssetDir>" + EarthConfig.mContentInfoFolder + @"</AssetDir>
-        <OutputDir>" + EarthConfig.mContentInfoFolder + @"</OutputDir>
-        </AssetGroup>
-        <AssetGroup Name = ""MarketplaceData"">
-            <Type>MarketplaceData</Type>
+        <AssetGroup Name = ""Secondary aerial"">
+            <Type>CGL</Type>
             <Flags>
                 <FSXCompatibility>false</FSXCompatibility>
             </Flags>
-                <AssetDir>" + EarthConfig.mMarketPlaceDataFolder + @"</AssetDir>
-                <OutputDir>" + EarthConfig.mMarketPlaceDataFolder + @"</OutputDir>
-            </AssetGroup>
-            <AssetGroup Name = ""Secondary aerial"">
-                <Type>CGL</Type>
-                <Flags>
-                    <FSXCompatibility>false</FSXCompatibility>
-                </Flags>
-                <AssetDir>" + EarthConfig.mCGLFolder + @"</AssetDir>
-                <OutputDir>CGL\</OutputDir>
-            </AssetGroup>
-        </AssetGroups>
+            <AssetDir>" + EarthConfig.mCGLFolder + @"</AssetDir>
+            <OutputDir>CGL\</OutputDir>
+        </AssetGroup>
+    </AssetGroups>
 </AssetPackage>";
 
                 vStream.Write(xml);
