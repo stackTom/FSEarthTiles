@@ -2467,7 +2467,7 @@ namespace FSEarthTilesDLL
 
                 bool bitmapAllWater = false;
                 string areaMaskBitmapPath = EarthConfig.mWorkFolder + "\\" + "AreaMask" + w.AreaFileString + ".bmp";
-                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.skipAllWaterTiles)
+                if (EarthConfig.mCreateWaterMaskBitmap && EarthConfig.mCreateAreaMask && EarthConfig.skipAllWaterTiles)
                 {
 
                     using (Bitmap bmp = new Bitmap(areaMaskBitmapPath))
