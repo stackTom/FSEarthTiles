@@ -568,6 +568,8 @@ namespace FSEarthTilesDLL
             mTileRequested = vEmptyDummyTileBitmap;
             mTileSkipped   = vEmptyDummyTileBitmap;
             polysCache = new Dictionary<string, MaskingPolys>();
+            WaterMasking.xOffset = -0.5m;
+            WaterMasking.yOffset = -0.5m;
 
 
 

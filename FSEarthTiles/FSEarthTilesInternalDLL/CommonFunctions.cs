@@ -333,7 +333,8 @@ namespace FSEarthTilesInternalDLL
         {
             List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
             string OSMXML = File.ReadAllText(polyFilePath);
-            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = OSMXMLParser.GetWays(OSMXML, true);
+            OSMXMLParser parser = new OSMXMLParser(OSMXML);
+            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = parser.GetWays(true);
 
             return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
         }
