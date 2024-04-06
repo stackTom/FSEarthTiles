@@ -334,9 +334,9 @@ namespace FSEarthTilesInternalDLL
             List<Way<AutomaticWaterMasking.Point>> polys = new List<Way<AutomaticWaterMasking.Point>>();
             string OSMXML = File.ReadAllText(polyFilePath);
             OSMXMLParser parser = new OSMXMLParser(OSMXML);
-            Dictionary<string, Way<AutomaticWaterMasking.Point>> wayIDsToWays = parser.GetWays(true);
+            List<Way<AutomaticWaterMasking.Point>> ways = parser.GetWays(true);
 
-            return new List<Way<AutomaticWaterMasking.Point>>(wayIDsToWays.Values.ToArray());
+            return ways;
         }
 
         public static Dictionary<double[], MaskingPolys> ReadWaterPolyFiles(double startLong, double stopLong, double startLat, double stopLat, string mWorkFolder)
