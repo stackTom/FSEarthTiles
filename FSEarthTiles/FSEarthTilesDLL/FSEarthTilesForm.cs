@@ -2422,6 +2422,16 @@ namespace FSEarthTilesDLL
                         {
                             WaterMasking.GetPolygons(coastPolys, islands, inlandPolygons, d, viewPort, CommonFunctions.GetTilePath(EarthConfig.mWorkFolder, tile));
                         }
+                        catch (AutomaticWaterMasking.IncorrectRelationException e)
+                        {
+
+                            Directory.Delete(directory, true);
+                            string message = e.Message + "\nPlease fix this way in OpenStreetMap, and restart the scenery creation again.";
+                            MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            AbortDownload();
+
+                            return;
+                        }
                         catch (Exception e)
                         {
                             string message = "Something went wrong while creating water mask polygons for tile " + tileName + @". Either something is wrong with the data, or there is a bug with FSET! If something is wrong with the data, you can try editing it in JOSM.";
