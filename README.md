@@ -10,7 +10,7 @@
 
 This repository contains the source code. The program can be downloaded here: https://github.com/stackTom/FSEarthTiles/releases
 
-FSEarthtiles (FSET) was originally created by HB-100. This repository contains the code to FSET 1.03B. The program has been updated to version 1.4, and support for automatic water masking has been added for FS9, FSX, and P3D, as well as support for creating imagery for MSFS2020. The ability to automatically create autogen data using ScenProc has also been added (only applicable to FS9, FSX, and P3D). Please see the tutorial for FS9, FSX, and P3D here: https://github.com/stackTom/FSEarthTiles/blob/main/FSEarthTiles/Docs/Quick%20start%20-%20README%20first%20(FS2004,%20FSX,%20P3D).docx for instructions.
+FSEarthtiles (FSET) was originally created by HB-100. This repository contains the code to FSET 1.03B. The program has been updated to version, and support for automatic water masking has been added for FS9, FSX, and P3D, as well as support for creating imagery for MSFS2020. The program is now much faster as well. The ability to automatically create autogen data using ScenProc has also been added (only applicable to FS9, FSX, and P3D). Please see the tutorial for FS9, FSX, and P3D here: https://github.com/stackTom/FSEarthTiles/blob/main/FSEarthTiles/Docs/Quick%20start%20-%20README%20first%20(FS2004,%20FSX,%20P3D).docx for instructions.
 
 The tutorial for MSFS2020 can be found here: https://github.com/stackTom/FSEarthTiles/blob/main/FSEarthTiles/Docs/Quick%20start%20-%20README%20first%20(MSFS2020).docx
 
