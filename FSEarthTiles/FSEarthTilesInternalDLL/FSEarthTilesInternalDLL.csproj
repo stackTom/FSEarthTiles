@@ -70,7 +70,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AutomaticWaterMasking\AutomaticWaterMasking\AutomaticWaterMasking.csproj">
-      <Project>{ac939769-c6fe-40f2-9566-444f86a77772}</Project>
+      <Project>{6187c80b-eab3-4fd0-a987-29820219576f}</Project>
       <Name>AutomaticWaterMasking</Name>
     </ProjectReference>
   </ItemGroup>
