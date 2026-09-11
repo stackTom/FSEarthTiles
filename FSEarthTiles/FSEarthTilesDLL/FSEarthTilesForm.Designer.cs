@@ -2412,7 +2412,7 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.MinimumSize = new System.Drawing.Size(656, 543);
             this.Name = "FSEarthTilesForm";
-            this.Text = "FS Earth Tiles   v2.11";
+            this.Text = "FS Earth Tiles   v2.12";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FSEarthTilesForm_FormClosed);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FSEarthTilesForm_DragEnter);
