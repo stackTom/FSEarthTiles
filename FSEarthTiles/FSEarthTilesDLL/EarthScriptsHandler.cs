@@ -79,7 +79,12 @@ namespace FSEarthTilesDLL
 
         static private void FreeObjects()
         {
-           
+            //The C#Scripts are gone from here on. Reset the Loaded flags too so any later call
+            //falls back to the internal default routines instead of dereferencing the null helpers.
+            mCSTileCodeingScriptLoaded          = false;
+            mCSAreaInfoFileCreationScriptLoaded = false;
+            mCSCustomizedProcessesScriptLoaded  = false;
+
             mCSTileCodeingScriptObject          = null;
             mCSAreaInfoFileCreationScriptObject = null;
             mCSCustomizedProcessesScriptObject  = null;

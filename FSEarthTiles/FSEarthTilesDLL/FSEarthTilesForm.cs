@@ -318,6 +318,7 @@ namespace FSEarthTilesDLL
         //And the Threads Themself
         List<Thread>      mEngineThreads;
         Boolean     mThreadsStarted;
+        Boolean     mThreadsAborted;    //AbortAllOpenThreads() is a one shot (FormClosed + Finalizer both call it)
 
         //Area After Download Processing Friend Thread (Texture undistortion / Scenery compilation etc)
         Thread      mAreaAftermathThread;
@@ -415,6 +416,7 @@ namespace FSEarthTilesDLL
             mTitle = this.Text;
 
             mThreadsStarted       = false;
+            mThreadsAborted       = false;
 
             mFirstEvent                 = true;
             mFirstMainTimerEventHappend = false;
@@ -8043,7 +8045,11 @@ namespace FSEarthTilesDLL
         }
 
 
-        private void FSEarthTilesForm_FormClosing(object sender, FormClosingEventArgs e)
+        //FormClosed (not FormClosing!) because FormClosing is also raised for WM_QUERYENDSESSION, when Windows only asks
+        //whether it may shut down/log off. If that session end is then cancelled FSET keeps running and the teardown
+        //done here would have left it crippled (timer gone, scripts unloaded -> NullReferenceException on the next close).
+        //FormClosed is only raised when the form really goes away.
+        private void FSEarthTilesForm_FormClosed(object sender, FormClosedEventArgs e)
         {
             EarthScriptsHandler.DoOnFSEarthTilesClose(mEarthArea.Clone(), GetAreaFileString(), mEarthMultiArea.Clone(), mCurrentAreaInfo.Clone(), mCurrentActiveAreaNr, mCurrentDownloadedTilesTotal, mMultiAreaMode);
             AbortAllOpenThreads();
@@ -8051,6 +8057,12 @@ namespace FSEarthTilesDLL
 
         private void AbortAllOpenThreads()
         {
+            if (mThreadsAborted)
+            {
+                return; //already done (FormClosed and the Finalizer both come here)
+            }
+            mThreadsAborted = true;
+
             if (mMainThreadTimer != null)
             {
                 mMainThreadTimer.Stop();
