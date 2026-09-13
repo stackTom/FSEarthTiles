@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using FSEarthTilesInternalDLL;
 
 namespace FSEarthTilesDLL
 {
@@ -135,6 +136,7 @@ namespace FSEarthTilesDLL
 
         private void OnHandlerStart()
         {
+            CultureUtils.ForceInvariantCulture();
             try
             {
                 foreach (var job in _jobs.GetConsumingEnumerable(stopFlag.Token))

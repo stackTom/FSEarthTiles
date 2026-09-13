@@ -293,6 +293,7 @@ namespace FSEarthMasksDLL
         //All the Work is done here
         void MainWorkProcessing()
         {
+            CultureUtils.ForceInvariantCulture(); // runs on mMainWorkThread
             try
             {
                 if (MasksConfig.mUseCSharpScripts)

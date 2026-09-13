@@ -167,6 +167,7 @@ namespace FSEarthTilesInternalDLL
         // functions in the future AFTER it has been overwritten
         private static void StartScenProcAndWaitUntilFinished(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
+            CultureUtils.ForceInvariantCulture(); // runs on its own thread, see RunScenprocThreaded
             Thread t = new Thread(() => RunScenproc(iEarthArea, scenprocLoc, scenprocScript, workFolder));
             runningThreads.Add(t);
             t.Start();
@@ -199,6 +200,7 @@ namespace FSEarthTilesInternalDLL
 
         public static void RunScenproc(EarthMultiArea iEarthArea, string scenprocLoc, string scenprocScript, string workFolder)
         {
+            CultureUtils.ForceInvariantCulture(); // runs on its own thread, see StartScenProcAndWaitUntilFinished
             // set Console stdin and stdout again, or get crashes on subsequent calls of this function. Why? it appears these handles
             // are set when the program first starts, even though we don't have a console. Free'ing and the alloc'ing a new console
             // causes the handles to not be set correctly to the new console, and Console.WriteLine crashes with an invalid handle exception

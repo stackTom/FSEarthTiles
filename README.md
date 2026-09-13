@@ -4,7 +4,7 @@
 
 # Requirements
 1) 32 or 64 bit Windows XP or greater.
-2) .Net Framework v4.5.2 or later. Download it here: https://dotnet.microsoft.com/download/dotnet-framework
+2) .Net Framework v4.0 or later. Download it here: https://dotnet.microsoft.com/download/dotnet-framework
 
 # Use at your own risk
 

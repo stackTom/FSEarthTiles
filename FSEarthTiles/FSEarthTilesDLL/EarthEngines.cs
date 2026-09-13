@@ -189,6 +189,7 @@ namespace FSEarthTilesDLL
         //Threading Engines Every Engine is 1 independent Thread (yes it is 4 times almost identical code. But it's a lot better for debugging to keep this in 4 seperate methodes)
         public static void EngineKingdom(int engineNumber)
         {
+            CultureUtils.ForceInvariantCulture(); // each engine runs on its own thread
             //Preparation
             String vTileCode = "";
             String vFullTileAddress = "";

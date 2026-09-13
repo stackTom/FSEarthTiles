@@ -2517,6 +2517,7 @@ namespace FSEarthTilesDLL
         //--- AreaAftermathThread territory
         void AreaAfterDownloadProcessing()
         {
+            CultureUtils.ForceInvariantCulture(); // runs on mAreaAftermathThread
             if (!mStopProcess)
             {
                 if (!BuildingForMSFS2020())
@@ -6148,6 +6149,7 @@ namespace FSEarthTilesDLL
 
         void RunImageToolProcessing()
         {
+            CultureUtils.ForceInvariantCulture(); // runs on mImageToolThread
             if (!RunImageTool())
             {
                 SetStatusFromFriendThread("There was an error running ImageTool");
@@ -6156,6 +6158,7 @@ namespace FSEarthTilesDLL
 
         void RunMSFSCompilerThread()
         {
+            CultureUtils.ForceInvariantCulture(); // runs on mMSFSCompilerThread
             System.Diagnostics.Process proc = null;
             try
             {
@@ -7435,6 +7438,7 @@ namespace FSEarthTilesDLL
 
         private void CreatePolygonFiles()
         {
+            CultureUtils.ForceInvariantCulture(); // runs on mCreateWaterPolyThread
             creatingWaterPolyFile = true;
             _CreatePolyFiles();
             creatingWaterPolyFile = false;

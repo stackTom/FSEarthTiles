@@ -51,6 +51,7 @@
     <Compile Include="AreaInfo.cs" />
     <Compile Include="AreaInfoFIFOQueue.cs" />
     <Compile Include="CommonFunctions.cs" />
+    <Compile Include="CultureUtils.cs" />
     <Compile Include="EarthArea.cs" />
     <Compile Include="EarthAreaTexture.cs" />
     <Compile Include="EarthCommon.cs" />

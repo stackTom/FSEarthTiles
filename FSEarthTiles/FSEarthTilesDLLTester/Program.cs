@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Threading;
 using System.Windows.Forms;
+using FSEarthTilesInternalDLL;
 
 namespace FSEarthTilesDLLTester
 {
@@ -14,10 +13,8 @@ namespace FSEarthTilesDLLTester
         [STAThread]
         static void Main()
         {
-            // Force '.' as the decimal separator on every thread regardless of the Windows locale.
-            // See FSEarthTilesAppl.Main and https://github.com/stackTom/FSEarthTiles/issues/9
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+            // Force '.' as the decimal separator regardless of the Windows locale (see CultureUtils)
+            CultureUtils.ForceInvariantCultureProcessWide();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
