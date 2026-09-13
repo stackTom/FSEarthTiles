@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.IO;
@@ -113,10 +114,12 @@ namespace FSEarthTilesInternalDLL
 
         private static string GetBbox(double endLat, double startLon, double startLat, double endLon, string serverCode)
         {
-            string bbox = "(" + startLat + ", " + startLon + ", " + endLat + ", " + endLon + ")";
+            // Overpass expects '.' as the decimal separator; never let a comma-decimal locale leak into the URL
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            string bbox = "(" + startLat.ToString(inv) + ", " + startLon.ToString(inv) + ", " + endLat.ToString(inv) + ", " + endLon.ToString(inv) + ")";
             if (serverCode == "MAP")
             {
-                bbox = startLon + "," + startLat + "," + endLon + "," + endLat;
+                bbox = startLon.ToString(inv) + "," + startLat.ToString(inv) + "," + endLon.ToString(inv) + "," + endLat.ToString(inv);
             }
 
             return bbox;
