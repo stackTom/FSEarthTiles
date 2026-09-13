@@ -2436,8 +2436,11 @@ namespace FSEarthTilesDLL
                         }
                         catch (Exception e)
                         {
-                            string message = "Something went wrong while creating water mask polygons for tile " + tileName + @". Either something is wrong with the data, or there is a bug with FSET! If something is wrong with the data, you can try editing it in JOSM.";
-                            message += " Please post this error message here https://github.com/stackTom/AutomaticWaterMasking/issues";
+                            string message = "Something went wrong while creating water mask polygons for tile " + tileName + ". Either something is wrong with the data, or there is a bug with FSET! If something is wrong with the data, you can try editing it in JOSM." + Environment.NewLine + Environment.NewLine
+                                           + "Please post the full text of this error here: https://github.com/stackTom/AutomaticWaterMasking/issues" + Environment.NewLine
+                                           + "(press Ctrl+C while this dialog is focused to copy it)" + Environment.NewLine + Environment.NewLine
+                                           + e.ToString(); // exception type, message, inner exceptions and stack trace (with line numbers, the .pdb files ship with FSET)
+                            Console.WriteLine(message);
                             MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             AbortDownload();
 
